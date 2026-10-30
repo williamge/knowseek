@@ -51,12 +51,13 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
                "list" => "search",
                "srsearch" => "pgvector",
                "srnamespace" => "0",
-               "formatversion" => "2"
+               "formatversion" => "2",
+               "maxlag" => "5"
              } = search
 
       assert_received {:request,
                        %{
-                         "prop" => "extracts|info",
+                         "prop" => "extracts|info|pageprops",
                          "explaintext" => "1",
                          "pageids" => "74020014"
                        }, _}
@@ -68,6 +69,21 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       stub_api(%{"query" => %{"search" => [%{"pageid" => 1}, %{"pageid" => 74_020_014}]}})
 
       assert {:ok, [%{title: "Vector database"}]} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "skips disambiguation pages" do
+      stub_api(%{"query" => %{"search" => [%{"pageid" => 19_007}, %{"pageid" => 74_020_014}]}})
+
+      assert {:ok, [%{title: "Vector database"}]} = Wikipedia.discover("mercury", [])
+    end
+
+    test "cuts a long query to the CirrusSearch limit" do
+      stub_api()
+
+      {:ok, _candidates} = Wikipedia.discover(String.duplicate("octopus ", 45), [])
+
+      assert_received {:request, %{"list" => "search", "srsearch" => srsearch}, _}
+      assert String.length(srsearch) <= 300
     end
 
     test "returns no candidates when the search finds nothing" do
@@ -82,7 +98,20 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert {:error, {:http_status, 503}} = Wikipedia.discover("pgvector", [])
     end
 
-    test "returns an error when a page fetch fails after the search succeeds" do
+    test "keeps the other pages when one page fetch fails" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search"} -> Req.Test.json(conn, fixture("search.json"))
+          %{"pageids" => "74020014"} -> Plug.Conn.send_resp(conn, 500, "")
+          %{"pageids" => id} -> Req.Test.json(conn, fixture("page_#{id}.json"))
+        end
+      end)
+
+      assert {:ok, [%{title: "Hierarchical navigable small world"}]} =
+               Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error when every page fetch fails" do
       Req.Test.stub(Wikipedia, fn conn ->
         case Plug.Conn.fetch_query_params(conn).query_params do
           %{"list" => "search"} -> Req.Test.json(conn, fixture("search.json"))
@@ -91,6 +120,23 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       end)
 
       assert {:error, {:http_status, 500}} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error when the search response has no results list" do
+      stub_api(%{"batchcomplete" => true})
+
+      assert {:error, :unexpected_body} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error when a page response has no pages list" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search"} -> Req.Test.json(conn, fixture("search.json"))
+          _page -> Req.Test.json(conn, %{"batchcomplete" => true})
+        end
+      end)
+
+      assert {:error, :unexpected_body} = Wikipedia.discover("pgvector", [])
     end
 
     test "returns an error for a timeout" do
@@ -118,6 +164,36 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
     test "cuts at the limit when there is no paragraph break" do
       assert Wikipedia.truncate("abcdefghij", 4) == "abcd"
+    end
+
+    test "cuts at the limit when the last paragraph break is in the first half" do
+      body = "Lead.\n\n" <> String.duplicate("x", 100)
+      assert Wikipedia.truncate(body, 50) == String.slice(body, 0, 50)
+    end
+  end
+
+  describe "search_text/1" do
+    test "keeps a query that fits" do
+      assert Wikipedia.search_text("octopus intelligence") == "octopus intelligence"
+    end
+
+    test "cuts a long query at the last word boundary before 300 code points" do
+      query = String.duplicate("octopus ", 45)
+      text = Wikipedia.search_text(query)
+
+      assert String.length(text) <= 300
+      assert String.ends_with?(text, "octopus")
+    end
+
+    test "cuts at 300 code points when there is no space" do
+      assert "x" |> String.duplicate(400) |> Wikipedia.search_text() |> String.length() == 300
+    end
+
+    test "counts code points, not graphemes" do
+      # "é" as "e" plus a combining accent: one grapheme, two code points.
+      text = "e\u0301" |> String.duplicate(200) |> Wikipedia.search_text()
+
+      assert length(String.codepoints(text)) == 300
     end
   end
 

@@ -30,18 +30,24 @@ clean text, so it is a good first source.
 
 Built `Knowseek.Discovery.Sources.Wikipedia` (`backend/lib/knowseek/discovery/sources/wikipedia.ex`):
 
-- One `list=search` request, then one `prop=extracts|info` request per page.
-  MediaWiki returns only one whole-article extract per request, so the
-  source fetches pages one at a time. This also follows the Wikimedia API
-  etiquette (serial requests).
+- One `list=search` request, then one `prop=extracts|info|pageprops` request
+  per page. MediaWiki returns only one whole-article extract per request, so
+  one run fetches its pages one at a time. Every request sends `maxlag=5`.
+  Several discovery jobs can still run at the same time.
+- Queries are cut to 300 code points at a word boundary. CirrusSearch
+  rejects longer queries (`cirrussearch-query-too-long`).
 - Candidates use `canonicalurl`, the title, the plain text extract, and
-  `metadata: %{"pageid" => ...}`. Missing or empty pages are skipped.
-- Long articles are cut at the last paragraph break before `max_chars`
-  (default 40,000). Without a cap, one article can produce hundreds of
-  chunks, which costs a lot with a paid embedding provider.
-- Any HTTP error, timeout, or MediaWiki `error` response returns
-  `{:error, reason}` for the whole source. Req retries transient errors
-  first (disabled in tests).
+  `metadata: %{"pageid" => ...}`. Missing pages, empty pages, and
+  disambiguation pages are skipped.
+- Long articles are cut at `max_chars` (default 40,000), at the last
+  paragraph break if it is in the second half. Without a cap, one article
+  can produce hundreds of chunks, which costs a lot with a paid embedding
+  provider.
+- Errors return `{:error, reason}`: HTTP errors, timeouts, MediaWiki `error`
+  responses, and bodies without the expected `query` data. A failed search
+  fails the source. A failed page fetch is logged and skipped. The source
+  fails only if every page fetch fails. Req retries transient errors first
+  (disabled in tests).
 - Settings: `base_url`, `limit` (3), `max_chars`, `user_agent`, `req_options`.
 - Registered in `config/config.exs`. `config/test.exs` sets
   `Knowseek.Discovery` `sources: []`, so tests never reach a real source.
@@ -63,6 +69,11 @@ Left out:
 - A cut can leave a section heading with no text at the end of the body.
   This is cosmetic.
 
-Follow-ups: 014 (one search hit per document). Long Wikipedia articles
+Review fixes (PR #2): unexpected response bodies, the query length limit,
+disambiguation pages, partial page failures, early paragraph breaks in
+`truncate/2`, and the request etiquette text.
+
+Follow-ups: 015 (retry failed discovery sources) and 016 (limit discovery
+abuse) came from the review. 014 (one search hit per document). Long Wikipedia articles
 have many chunks, and search returns chunks, so one article can fill the
 result list and inflate coverage. Task 007 is now unblocked.

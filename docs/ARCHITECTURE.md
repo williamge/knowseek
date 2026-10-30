@@ -35,7 +35,7 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Default adapter: `Embeddings.Hashing` (local stand-in, no semantics). |
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
-| `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. |
+| `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
 | `Knowseek.Topics` | Topics a user follows. `RefreshWorker` (cron) requests discovery for due topics. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
 
