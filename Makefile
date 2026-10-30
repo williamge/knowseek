@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 PORT ?= $(or $(CONDUCTOR_PORT),4000)
 
-.PHONY: help setup db-up db-down db-reset dev iex test check fmt
+.PHONY: help setup db-up db-down db-reset dev iex test check check-quiet fmt
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -34,6 +34,14 @@ test: db-up ## Run the test suite
 
 check: db-up ## Compile with warnings as errors, format, credo, test. Run before you finish a task.
 	cd backend && mix precommit
+
+check-quiet: db-up ## Same as check, but print only failures (full log: backend/_build/check.log)
+	@cd backend && if mix precommit > _build/check.log 2>&1; then \
+		echo "make check: OK ($$(grep '^Result:' _build/check.log | tail -1))"; \
+	else \
+		echo "make check: FAILED. Last 80 lines of backend/_build/check.log:"; \
+		tail -n 80 _build/check.log; exit 1; \
+	fi
 
 fmt: ## Format Elixir code
 	cd backend && mix format
