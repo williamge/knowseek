@@ -1,16 +1,16 @@
 defmodule KnowseekWeb.DocumentJSON do
   alias Knowseek.Documents.Document
 
-  def index(%{documents: documents}), do: %{data: Enum.map(documents, &data/1)}
+  @doc "A list has no bodies. `show/1` returns the full document."
+  def index(%{documents: documents}), do: %{data: Enum.map(documents, &summary/1)}
 
-  def show(%{document: document}), do: %{data: data(document)}
+  def show(%{document: document}), do: %{data: Map.put(summary(document), :body, document.body)}
 
-  defp data(%Document{} = document) do
+  defp summary(%Document{} = document) do
     %{
       id: document.id,
       url: document.url,
       title: document.title,
-      body: document.body,
       source: document.source,
       published_at: document.published_at,
       fetched_at: document.fetched_at,

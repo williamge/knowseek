@@ -1,4 +1,4 @@
-import type { KnowseekDocument, NewTopic, SearchResult, Topic } from "./types";
+import type { DocumentSummary, KnowseekDocument, NewTopic, SearchResult, Topic } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -20,6 +20,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(response.status, errorMessage(body) ?? response.statusText);
+  if (typeof body !== "object" || body === null || !("data" in body)) {
+    throw new ApiError(response.status, "The API returned an unexpected response.");
+  }
   return (body as { data: T }).data;
 }
 
@@ -44,7 +47,7 @@ export const api = {
       signal: opts.signal,
     }),
 
-  listDocuments: (signal?: AbortSignal) => request<KnowseekDocument[]>("/documents", { signal }),
+  listDocuments: (signal?: AbortSignal) => request<DocumentSummary[]>("/documents", { signal }),
 
   getDocument: (id: string, signal?: AbortSignal) =>
     request<KnowseekDocument>(`/documents/${encodeURIComponent(id)}`, { signal }),

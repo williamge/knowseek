@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { KnowseekDocument, SearchResult } from "../types";
+import type { DocumentSummary, SearchResult } from "../types";
 
 export interface WatchOptions {
   /** Time between two checks for new documents. */
@@ -38,7 +38,12 @@ export type SearchState =
  * side effects. Each new search can enqueue discovery again, so the number
  * of new searches is limited by `quietChecks` and `timeoutMs`.
  */
-export function useSearch(query: string | null, watch: WatchOptions = DEFAULT_WATCH): SearchState {
+export function useSearch(
+  query: string | null,
+  watch: WatchOptions = DEFAULT_WATCH,
+  /** Change this value to run the same query again. */
+  refreshKey = 0,
+): SearchState {
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const { intervalMs, timeoutMs, quietChecks } = watch;
 
@@ -58,7 +63,7 @@ export function useSearch(query: string | null, watch: WatchOptions = DEFAULT_WA
         current.status === "done" && current.query === query ? fn(current) : current,
       );
 
-    const watchDiscovery = (first: SearchResult, baseline: KnowseekDocument[]) => {
+    const watchDiscovery = (first: SearchResult, baseline: DocumentSummary[]) => {
       const known = new Set(baseline.map((doc) => doc.id));
       const firstChunks = new Set(first.hits.map((hit) => hit.chunk_id));
       const deadline = Date.now() + timeoutMs;
@@ -71,10 +76,12 @@ export function useSearch(query: string | null, watch: WatchOptions = DEFAULT_WA
           const added = docs.filter((doc) => !known.has(doc.id));
 
           if (added.length > 0) {
+            // Mark the documents as seen only after the search worked. If it
+            // fails, the next check finds the same documents again.
+            const result = await api.search(query, { signal });
             added.forEach((doc) => known.add(doc.id));
             discovered += added.length;
             quiet = 0;
-            const result = await api.search(query, { signal });
             const freshChunkIds = new Set(
               result.hits.map((hit) => hit.chunk_id).filter((id) => !firstChunks.has(id)),
             );
@@ -102,12 +109,10 @@ export function useSearch(query: string | null, watch: WatchOptions = DEFAULT_WA
 
     (async () => {
       try {
-        // Request the baseline first, so a document that arrives while the
-        // search runs still counts as new.
-        const [baseline, result] = await Promise.all([
-          api.listDocuments(signal).catch(() => null),
-          api.search(query, { signal }),
-        ]);
+        // Read the baseline before the search starts, so a document that
+        // arrives while the search runs still counts as new.
+        const baseline = await api.listDocuments(signal).catch(() => null);
+        const result = await api.search(query, { signal });
         const watching = result.discovery.status === "enqueued" && baseline !== null;
         setState({
           status: "done",
@@ -132,7 +137,7 @@ export function useSearch(query: string | null, watch: WatchOptions = DEFAULT_WA
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query, intervalMs, timeoutMs, quietChecks]);
+  }, [query, refreshKey, intervalMs, timeoutMs, quietChecks]);
 
   return state;
 }

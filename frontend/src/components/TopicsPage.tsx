@@ -15,6 +15,17 @@ interface Props {
 }
 
 export function TopicsPage({ topics, onSearch }: Props) {
+  const [unfollowError, setUnfollowError] = useState<string | null>(null);
+
+  const unfollow = async (id: string) => {
+    setUnfollowError(null);
+    try {
+      await topics.unfollow(id);
+    } catch (e) {
+      setUnfollowError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <section className="topics">
       <h1>Topics you follow</h1>
@@ -27,6 +38,11 @@ export function TopicsPage({ topics, onSearch }: Props) {
       {topics.error && (
         <div className="notice notice--error" role="alert">
           Could not load topics: {topics.error}
+        </div>
+      )}
+      {unfollowError && (
+        <div className="notice notice--error" role="alert">
+          Could not unfollow the topic: {unfollowError}
         </div>
       )}
       {topics.loaded && topics.topics.length === 0 && !topics.error && (
@@ -50,7 +66,7 @@ export function TopicsPage({ topics, onSearch }: Props) {
               type="button"
               className="link-button"
               aria-label={`Unfollow ${topic.query}`}
-              onClick={() => topics.unfollow(topic.id)}
+              onClick={() => unfollow(topic.id)}
             >
               Unfollow
             </button>

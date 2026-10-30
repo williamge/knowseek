@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { displayHost, timeAgo } from "../lib/format";
-import type { KnowseekDocument } from "../types";
+import type { DocumentSummary } from "../types";
 
 export function RecentDocuments({ onOpen }: { onOpen: (id: string) => void }) {
-  const [documents, setDocuments] = useState<KnowseekDocument[] | null>(null);
+  const [documents, setDocuments] = useState<DocumentSummary[] | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();

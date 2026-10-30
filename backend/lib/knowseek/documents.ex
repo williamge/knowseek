@@ -96,9 +96,21 @@ defmodule Knowseek.Documents do
     end
   end
 
+  @doc """
+  The most recently fetched documents, newest first.
+
+  The documents have no `body` (it is `nil`), because bodies can be large and
+  a list does not need them. Use `get_document/1` to read one in full.
+  """
   @spec list_documents(keyword()) :: [Document.t()]
   def list_documents(opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
-    Repo.all(from d in Document, order_by: [desc: d.fetched_at], limit: ^limit)
+
+    Repo.all(
+      from d in Document,
+        order_by: [desc: d.fetched_at],
+        limit: ^limit,
+        select: %{d | body: nil}
+    )
   end
 end

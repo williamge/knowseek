@@ -67,7 +67,7 @@ check-quiet: db-up ## Same as check, but print only failures (full logs: backend
 	fi
 
 web-check: ## Typecheck, format check, and test the web UI
-	cd frontend && npm ci --prefer-offline --no-audit --no-fund && npm run check
+	@cd frontend && { [ node_modules/.package-lock.json -nt package-lock.json ] || npm ci --prefer-offline --no-audit --no-fund; } && npm run check
 
 fmt: ## Format Elixir and web UI code
 	cd backend && mix format
