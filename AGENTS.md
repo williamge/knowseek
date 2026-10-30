@@ -35,8 +35,15 @@ Run everything from the repository root.
 | `make test` | Run the test suite |
 | `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
 | `make check` | Compile with warnings as errors, format, Credo, tests. **Must pass before you finish.** |
+| `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
 
 Single test file: `cd backend && mix test test/knowseek/search_test.exs`.
+
+To save tokens:
+
+- While you work, run only the test files that you change (add `--failed` to re-run only failures).
+- Run `make check-quiet` one time at the end, not after each edit.
+- Do not read whole large files when a `grep` or a line range answers the question.
 
 New migration: `cd backend && mix ecto.gen.migration name_with_underscores`.
 
@@ -73,11 +80,11 @@ These keep the code base coherent while many agents work in parallel. If a task 
 3. If you make a decision that a later agent needs to know about (new dependency, new service, schema change, changed contract), add an ADR in `docs/decisions/` with the next free number.
 4. Update the docs that your change makes wrong: `README.md` (API table), `docs/ARCHITECTURE.md`, this file.
 5. In the task file, set `Status: done` and add a short "Outcome" section: what you built, what you left out, and follow-up tasks. Add new task files for follow-ups.
-6. Run `make check`. It must pass.
+6. Run `make check-quiet`. It must pass.
 
 ## Definition of done
 
-- `make check` passes.
+- `make check` (or `make check-quiet`) passes.
 - New behaviour has tests. Tests do not use the network.
 - Docs and the task file are up to date.
 - No secrets in the repository. Read API keys from environment variables in `config/runtime.exs`, and list them in `.env.example`.
