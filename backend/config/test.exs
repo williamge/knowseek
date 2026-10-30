@@ -33,6 +33,23 @@ config :knowseek, KnowseekWeb.Endpoint,
 # or perform them explicitly.
 config :knowseek, Oban, testing: :manual
 
+# Ollama and Voyage requests go to Req.Test stubs. Retries do not sleep. The
+# adapter stays Hashing unless a test switches it.
+config :knowseek, Knowseek.Embeddings.Ollama,
+  req_options: [
+    plug: {Req.Test, Knowseek.Embeddings.Ollama},
+    retry_delay: 0,
+    retry_log_level: false
+  ]
+
+config :knowseek, Knowseek.Embeddings.Voyage,
+  api_key: "test-key",
+  req_options: [
+    plug: {Req.Test, Knowseek.Embeddings.Voyage},
+    retry_delay: 0,
+    retry_log_level: false
+  ]
+
 # Tests never call real sources. Tests that need one pass `sources:` to
 # `Knowseek.Discovery.run/2`, and stub its HTTP calls with Req.Test.
 config :knowseek, Knowseek.Discovery, sources: []

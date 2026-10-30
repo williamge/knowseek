@@ -13,3 +13,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0004](0004-embeddings.md) | Pluggable embeddings, fixed at 1024 dimensions |
 | [0005](0005-per-workspace-databases.md) | One database per Conductor workspace |
 | [0006](0006-freshness-aware-coverage.md) | Freshness-aware coverage; per-topic refresh checks |
+| [0007](0007-embedding-providers.md) | Embedding providers: Ollama locally, Voyage AI hosted |

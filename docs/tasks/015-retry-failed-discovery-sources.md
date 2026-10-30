@@ -21,6 +21,12 @@ refresh requests it.
 Found in the review of task 002 (PR #2). With the Wikipedia source, a short
 outage or a `maxlag` refusal means the query gets no data.
 
+Ingest has the same problem. Since task 001, `Documents.ingest/1` can return
+`{:error, {:ollama | :voyage, ...}}` when the embedding provider is down
+(Ollama stopped, Voyage 5xx after its own retries). `Discovery.run/2` counts
+these as `failed`, still returns `{:ok, summary}`, and the job completes.
+The fetched candidates are lost. Found in the review of task 001 (PR #4).
+
 ## Scope
 
 - Let `run/2` report which sources failed (for example `failed_sources` in
@@ -35,10 +41,16 @@ outage or a `maxlag` refusal means the query gets no data.
   `{:error, {:temporary, reason}}`. If you change the contract, write an ADR
   and update every source.
 - Back off between attempts (Oban `backoff/1`).
+- Treat a temporary ingest error (`{:ollama | :voyage, 5xx | transport}`) like
+  a temporary source error. Retry only the candidates that failed to ingest.
+  Do not call the sources again. Pass the candidates in the retry job args, or
+  fetch them again if they are too large. Explain the choice in the Outcome.
 
 ## Acceptance criteria
 
 - Tests: a source that fails with a temporary error is retried, and a source
   that succeeded is not called again.
 - Tests: a permanent error is not retried.
+- Tests: a candidate that fails to ingest with a temporary embedding error is
+  retried, and the sources are not called again.
 - `docs/ARCHITECTURE.md` describes the retry behaviour.

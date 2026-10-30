@@ -10,23 +10,85 @@ defmodule Knowseek.Embeddings do
 
   Every adapter must return vectors with exactly `dimensions/0` elements,
   because the `chunks.embedding` column has a fixed size.
+
+  `config/runtime.exs` sets the adapter from `EMBEDDINGS_ADAPTER`:
+  `hashing` (default), `ollama` (`Knowseek.Embeddings.Ollama`), or `voyage`
+  (`Knowseek.Embeddings.Voyage`). Tests always use `Hashing` or stubs.
   """
 
   @type vector :: [float()]
 
-  @doc "Returns one vector per input text, in the same order."
+  @typedoc """
+  What the text is for. Some models embed a search query and the document
+  that answers it differently. Adapters that do not distinguish ignore it.
+  """
+  @type input_type :: :document | :query
+
+  @input_types [:document, :query]
+
+  @doc """
+  Returns one vector per input text, in the same order.
+
+  Options always include `:dimensions` and `:input_type`.
+  """
   @callback embed(texts :: [String.t()], opts :: keyword()) ::
               {:ok, [vector()]} | {:error, term()}
 
-  @spec embed([String.t()]) :: {:ok, [vector()]} | {:error, term()}
-  def embed([]), do: {:ok, []}
+  @doc """
+  Embeds `texts` with the configured adapter.
 
-  def embed(texts) when is_list(texts) do
+  Options:
+
+    * `:input_type` - `:document` (default) or `:query`. Any other value
+      returns `{:error, {:invalid_input_type, value}}`.
+  """
+  @spec embed([String.t()], keyword()) :: {:ok, [vector()]} | {:error, term()}
+  def embed(texts, opts \\ []) when is_list(texts) do
+    case Keyword.get(opts, :input_type, :document) do
+      input_type when input_type in @input_types -> embed_texts(texts, input_type)
+      other -> {:error, {:invalid_input_type, other}}
+    end
+  end
+
+  defp embed_texts([], _input_type), do: {:ok, []}
+
+  defp embed_texts(texts, input_type) do
     dimensions = dimensions()
+    adapter_opts = [dimensions: dimensions, input_type: input_type]
 
-    with {:ok, vectors} <- adapter().embed(texts, dimensions: dimensions) do
+    with {:ok, vectors} <- adapter().embed(texts, adapter_opts) do
       validate(vectors, length(texts), dimensions)
     end
+  end
+
+  @doc """
+  For adapters: calls `fun` on each batch in order and concatenates the
+  vectors. Stops at the first `{:error, _}` and returns it.
+  """
+  @spec embed_batches([[String.t()]], ([String.t()] -> {:ok, [vector()]} | {:error, term()})) ::
+          {:ok, [vector()]} | {:error, term()}
+  def embed_batches(batches, fun) do
+    batches
+    |> Enum.reduce_while({:ok, []}, fn batch, {:ok, acc} ->
+      case fun.(batch) do
+        {:ok, vectors} -> {:cont, {:ok, [vectors | acc]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, acc |> Enum.reverse() |> Enum.concat()}
+      error -> error
+    end
+  end
+
+  @doc """
+  For adapters: `Req` options for a `:query` call. A user waits for a query
+  embedding in the request path, so the call gets a short time limit and no
+  retries. Total worst case: 2 s to connect plus 10 s for the response.
+  """
+  @spec query_request_options() :: keyword()
+  def query_request_options do
+    [retry: false, connect_options: [timeout: 2_000], receive_timeout: 10_000]
   end
 
   @spec dimensions() :: pos_integer()

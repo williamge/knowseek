@@ -31,7 +31,7 @@ defmodule Knowseek.Search do
     limit = Keyword.get(opts, :limit, config(:default_limit))
     candidates = limit * 4
 
-    with {:ok, [vector]} <- Embeddings.embed([query]) do
+    with {:ok, [vector]} <- Embeddings.embed([query], input_type: :query) do
       embedding = Pgvector.new(vector)
       keyword = keyword_matches(query, candidates)
       semantic = semantic_matches(embedding, candidates)

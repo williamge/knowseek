@@ -31,6 +31,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [014](014-one-hit-per-document.md) | One search hit per document | none |
 | [015](015-retry-failed-discovery-sources.md) | Retry failed discovery sources | none |
 | [016](016-limit-discovery-abuse.md) | Limit discovery abuse | 009 |
+| [017](017-re-embed-job.md) | Re-embed chunks after a model change | 001 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
