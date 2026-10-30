@@ -14,4 +14,5 @@ write a new ADR that supersedes it and set the old one's status to
 | [0005](0005-per-workspace-databases.md) | One database per Conductor workspace |
 | [0006](0006-freshness-aware-coverage.md) | Freshness-aware coverage; per-topic refresh checks |
 | [0007](0007-embedding-providers.md) | Embedding providers: Ollama locally, Voyage AI hosted |
+| [0008](0008-web-frontend.md) | Web frontend in Vite, React, and TypeScript |
 | [0009](0009-search-returns-only-relevant-hits.md) | Search returns only relevant hits |

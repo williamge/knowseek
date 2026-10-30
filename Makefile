@@ -8,7 +8,7 @@ PORT ?= $(or $(CONDUCTOR_PORT),4000)
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama dev iex test check check-quiet fmt
+.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-quiet web-check fmt
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -17,6 +17,7 @@ setup: db-up ## Install deps and create + migrate the dev and test databases
 	@command -v mise >/dev/null && mise install || true
 	$(LOAD_ENV); cd backend && mix deps.get && mix ecto.setup
 	$(LOAD_ENV); cd backend && MIX_ENV=test mix do ecto.create --quiet + ecto.migrate --quiet
+	cd frontend && npm install
 
 db-up: ## Start Postgres (pgvector) in Docker
 	docker compose up -d --wait db
@@ -38,16 +39,26 @@ dev: db-up ## Run the API server on $PORT (defaults to $CONDUCTOR_PORT, then 400
 	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
+web: ## Run the web UI on $PORT+1 (proxies /api to the API on $PORT). Run `make dev` too.
+	cd frontend && API_PORT=$(PORT) WEB_PORT=$$(($(PORT) + 1)) npm run dev
+
 iex: db-up ## Run the API server inside an IEx shell
 	$(LOAD_ENV); cd backend && PORT=$(PORT) iex -S mix phx.server
 
 test: db-up ## Run the test suite
 	$(LOAD_ENV); cd backend && mix test
 
-check: db-up ## Compile with warnings as errors, format, credo, test. Run before you finish a task.
+check: db-up web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
 	$(LOAD_ENV); cd backend && mix precommit
 
-check-quiet: db-up ## Same as check, but print only failures (full log: backend/_build/check.log)
+check-quiet: db-up ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
+	@mkdir -p backend/_build
+	@if $(MAKE) --no-print-directory web-check > backend/_build/web-check.log 2>&1; then \
+		echo "make check (web): OK"; \
+	else \
+		echo "make check (web): FAILED. Last 80 lines of backend/_build/web-check.log:"; \
+		tail -n 80 backend/_build/web-check.log; exit 1; \
+	fi
 	@$(LOAD_ENV); cd backend && if mix precommit > _build/check.log 2>&1; then \
 		echo "make check: OK ($$(grep '^Result:' _build/check.log | tail -1))"; \
 	else \
@@ -55,5 +66,9 @@ check-quiet: db-up ## Same as check, but print only failures (full log: backend/
 		tail -n 80 _build/check.log; exit 1; \
 	fi
 
-fmt: ## Format Elixir code
+web-check: ## Typecheck, format check, and test the web UI
+	cd frontend && npm ci --prefer-offline --no-audit --no-fund && npm run check
+
+fmt: ## Format Elixir and web UI code
 	cd backend && mix format
+	cd frontend && npm run format

@@ -12,18 +12,22 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles.
 - Embeddings come from a local hashing stand-in by default. For real semantic search, install Ollama (`brew install ollama`, then `brew services start ollama`), run `make ollama`, and set `EMBEDDINGS_ADAPTER=ollama` in `.env`. Voyage AI is the hosted option. See `.env.example`.
+- A web UI (`frontend/`) searches, shows results as discovery adds them, and manages topics.
 
 See [`docs/tasks/`](docs/tasks/) for the backlog.
 
 ## Quick start
 
-Requirements: Docker, Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works).
+Requirements: Docker, Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works), and Node.js 22 or later for the web UI.
 
 ```sh
 make setup   # start Postgres, fetch deps, create + migrate databases
 make dev     # API on http://localhost:4000 (or $CONDUCTOR_PORT)
+make web     # web UI on http://localhost:4001 (API port + 1); run it next to `make dev`
 make check   # what CI runs
 ```
+
+Open the web UI, type a query, and press Enter. If the index covers the query weakly, the page keeps watching and adds new results when discovery finishes.
 
 Try it:
 
@@ -54,3 +58,4 @@ curl -X POST localhost:4000/api/search -H 'content-type: application/json' \
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, data model
 - [`docs/decisions/`](docs/decisions/): architecture decision records
 - [`docs/tasks/`](docs/tasks/): the task backlog
+- [`frontend/README.md`](frontend/README.md): the web UI
