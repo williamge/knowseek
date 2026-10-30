@@ -1,4 +1,4 @@
-# 014. Re-embed chunks after a model change
+# 017. Re-embed chunks after a model change
 
 - Status: open
 - Area: `Knowseek.Documents`, `Knowseek.Embeddings`
@@ -7,7 +7,7 @@
 ## Goal
 
 Re-embed every stored chunk with the configured adapter, so old and new
-vectors stay comparable after a model or adapter change (ADR 0004, ADR 0006).
+vectors stay comparable after a model or adapter change (ADR 0004, ADR 0007).
 
 ## Context
 

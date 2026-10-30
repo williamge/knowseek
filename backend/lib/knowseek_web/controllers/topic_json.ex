@@ -11,6 +11,7 @@ defmodule KnowseekWeb.TopicJSON do
       query: topic.query,
       active: topic.active,
       refresh_interval_seconds: topic.refresh_interval_seconds,
+      max_age_seconds: topic.max_age_seconds,
       last_refreshed_at: topic.last_refreshed_at,
       inserted_at: topic.inserted_at
     }

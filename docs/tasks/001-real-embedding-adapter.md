@@ -56,11 +56,11 @@ Built:
 - Tests in `test/knowseek/embeddings/ollama_test.exs` and `voyage_test.exs`
   use `Req.Test` stubs: success, batching, retries, errors, wrong vector size,
   and `Documents.ingest/1` and `Search.search/2` with a failing provider.
-- ADR 0006 records the choice.
+- ADR 0007 records the choice.
 
 Left out:
 
-- Re-embedding existing chunks: task 014.
-- Bumblebee in-process. ADR 0006 explains why.
+- Re-embedding existing chunks: task 017.
+- Bumblebee in-process. ADR 0007 explains why.
 - Exact token counting for Voyage. The adapter estimates tokens from byte size.
 - No test covers the `EMBEDDINGS_ADAPTER` parsing in `config/runtime.exs`.

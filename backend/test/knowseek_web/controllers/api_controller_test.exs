@@ -25,6 +25,41 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert_enqueued(worker: SeekWorker)
     end
 
+    test "accepts max_age_seconds", %{conn: conn} do
+      old = ~U[2020-01-01 00:00:00Z]
+
+      document_fixture(
+        body: "Glaciers retreat in warm summers.",
+        published_at: old,
+        fetched_at: old
+      )
+
+      data =
+        conn
+        |> post(~p"/api/search", query: "glaciers retreat", max_age_seconds: 3600)
+        |> json_response(200)
+        |> Map.fetch!("data")
+
+      assert %{"coverage" => "none", "hits" => [hit]} = data
+      assert hit["published_at"] == "2020-01-01T00:00:00Z"
+    end
+
+    test "accepts a null max_age_seconds", %{conn: conn} do
+      assert %{"data" => _} =
+               conn
+               |> post(~p"/api/search", %{query: "x", max_age_seconds: nil})
+               |> json_response(200)
+    end
+
+    test "rejects an invalid max_age_seconds", %{conn: conn} do
+      for value <- [0, -5, 3_000_000_000, "1h"] do
+        assert %{"errors" => %{"detail" => "max_age_seconds" <> _}} =
+                 conn
+                 |> post(~p"/api/search", query: "x", max_age_seconds: value)
+                 |> json_response(400)
+      end
+    end
+
     test "rejects a missing query", %{conn: conn} do
       assert %{"errors" => _} = conn |> post(~p"/api/search", %{}) |> json_response(400)
     end
@@ -69,6 +104,22 @@ defmodule KnowseekWeb.ApiControllerTest do
   end
 
   describe "topics" do
+    test "create with max_age_seconds", %{conn: conn} do
+      assert %{"data" => %{"max_age_seconds" => 3600}} =
+               conn
+               |> post(~p"/api/topics", topic: %{query: "fusion energy", max_age_seconds: 3600})
+               |> json_response(201)
+    end
+
+    test "rejects a max_age_seconds that does not fit the column", %{conn: conn} do
+      assert %{"errors" => %{"max_age_seconds" => _}} =
+               conn
+               |> post(~p"/api/topics",
+                 topic: %{query: "fusion energy", max_age_seconds: 3_000_000_000}
+               )
+               |> json_response(422)
+    end
+
     test "create, list, delete", %{conn: conn} do
       %{"data" => %{"id" => id}} =
         conn |> post(~p"/api/topics", topic: %{query: "fusion energy"}) |> json_response(201)

@@ -1,0 +1,26 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 19007,
+        "ns": 0,
+        "title": "Mercury",
+        "extract": "Mercury most commonly refers to:\n\nMercury (planet), the closest planet to the Sun\nMercury (element), a chemical element",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-10-13T21:35:08Z",
+        "lastrevid": 1380113383,
+        "length": 8268,
+        "fullurl": "https://en.wikipedia.org/wiki/Mercury",
+        "editurl": "https://en.wikipedia.org/w/index.php?title=Mercury&action=edit",
+        "canonicalurl": "https://en.wikipedia.org/wiki/Mercury",
+        "pageprops": {
+          "disambiguation": ""
+        }
+      }
+    ]
+  }
+}

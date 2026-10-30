@@ -1,4 +1,4 @@
-# 0006. Embedding providers: Ollama locally, Voyage AI hosted
+# 0007. Embedding providers: Ollama locally, Voyage AI hosted
 
 - Status: Accepted
 - Date: 2026-10-30
@@ -58,7 +58,7 @@ Options:
 - Parallel agents share one Ollama server. It queues requests, so heavy
   ingest in many workspaces at once is slower.
 - Vectors from different adapters or models are not comparable. After a
-  switch, re-embed every chunk. Until task 014 adds a job for that, reset the
+  switch, re-embed every chunk. Until task 017 adds a job for that, reset the
   dev database. Re-ingesting does not help, because `Documents.ingest/1`
   skips a document whose body is unchanged.
 - Search makes one embedding call per query, so its latency includes that call

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "missingparam",
+    "info": "The \"srsearch\" parameter must be set.",
+    "docref": "See https://en.wikipedia.org/w/api.php for API usage."
+  }
+}

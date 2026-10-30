@@ -1,12 +1,19 @@
 defmodule Knowseek.Topics.Topic do
   @moduledoc """
   Something a user wants to stay informed about. Active topics are
-  refreshed (discovery runs again) every `refresh_interval_seconds`.
+  checked every `refresh_interval_seconds`.
+
+  `max_age_seconds` is the freshness need of the topic. When it is set, a
+  refresh seeks new data only when the index has too few documents fetched
+  within `max_age_seconds`. When it is `nil`, every refresh seeks new data.
   """
   use Ecto.Schema
   import Ecto.Changeset
 
   @type t :: %__MODULE__{}
+
+  # Largest value of the Postgres `integer` columns.
+  @max_int 2_147_483_647
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -14,6 +21,7 @@ defmodule Knowseek.Topics.Topic do
     field :query, :string
     field :active, :boolean, default: true
     field :refresh_interval_seconds, :integer, default: 86_400
+    field :max_age_seconds, :integer
     field :last_refreshed_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
@@ -21,9 +29,13 @@ defmodule Knowseek.Topics.Topic do
 
   def changeset(topic, attrs) do
     topic
-    |> cast(attrs, [:query, :active, :refresh_interval_seconds])
+    |> cast(attrs, [:query, :active, :refresh_interval_seconds, :max_age_seconds])
     |> validate_required([:query])
     |> validate_length(:query, min: 2, max: 1_000)
-    |> validate_number(:refresh_interval_seconds, greater_than_or_equal_to: 900)
+    |> validate_number(:refresh_interval_seconds,
+      greater_than_or_equal_to: 900,
+      less_than_or_equal_to: @max_int
+    )
+    |> validate_number(:max_age_seconds, greater_than: 0, less_than_or_equal_to: @max_int)
   end
 end

@@ -50,6 +50,13 @@ config :knowseek, Knowseek.Embeddings.Voyage,
     retry_log_level: false
   ]
 
+# Tests never call real sources. Tests that need one pass `sources:` to
+# `Knowseek.Discovery.run/2`, and stub its HTTP calls with Req.Test.
+config :knowseek, Knowseek.Discovery, sources: []
+
+config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
+  req_options: [plug: {Req.Test, Knowseek.Discovery.Sources.Wikipedia}, retry: false]
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

@@ -28,7 +28,7 @@ config :knowseek, Oban,
 
 # Embedding provider. `dimensions` must match the `vector(N)` column size
 # in the chunks table migration. config/runtime.exs reads EMBEDDINGS_ADAPTER
-# to switch to Ollama or Voyage (see docs/decisions/0006-embedding-providers.md).
+# to switch to Ollama or Voyage (see docs/decisions/0007-embedding-providers.md).
 config :knowseek, Knowseek.Embeddings,
   adapter: Knowseek.Embeddings.Hashing,
   dimensions: 1024
@@ -37,14 +37,16 @@ config :knowseek, Knowseek.Embeddings.Ollama, model: "bge-m3"
 config :knowseek, Knowseek.Embeddings.Voyage, model: "voyage-3.5"
 
 # Search tuning and the coverage heuristic that decides when to seek new data.
+# `max_age_seconds` is the default freshness need for a search. `nil` means
+# that hits of any age count. A caller can override it per request.
 config :knowseek, Knowseek.Search,
   default_limit: 10,
   min_similarity: 0.5,
-  min_strong_hits: 3
+  min_strong_hits: 3,
+  max_age_seconds: nil
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
-# No real sources exist yet. See docs/tasks/ for the backlog.
-config :knowseek, Knowseek.Discovery, sources: []
+config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
 
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,
