@@ -1,0 +1,11 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 1,
+        "missing": true
+      }
+    ]
+  }
+}

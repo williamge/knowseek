@@ -1,0 +1,134 @@
+defmodule Knowseek.Discovery.Sources.WikipediaTest do
+  use Knowseek.DataCase, async: true
+
+  alias Knowseek.Discovery
+  alias Knowseek.Discovery.Sources.Wikipedia
+  alias Knowseek.Documents
+
+  @fixtures Path.expand("../../../support/fixtures/wikipedia", __DIR__)
+
+  defp fixture(name), do: @fixtures |> Path.join(name) |> File.read!() |> Jason.decode!()
+
+  # Answers like the MediaWiki API, from the recorded fixtures.
+  defp stub_api(search \\ fixture("search.json")) do
+    Req.Test.stub(Wikipedia, fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      send(self(), {:request, conn.query_params, Plug.Conn.get_req_header(conn, "user-agent")})
+
+      case conn.query_params do
+        %{"list" => "search"} -> Req.Test.json(conn, search)
+        %{"pageids" => "1"} -> Req.Test.json(conn, fixture("page_missing.json"))
+        %{"pageids" => id} -> Req.Test.json(conn, fixture("page_#{id}.json"))
+      end
+    end)
+  end
+
+  describe "discover/2" do
+    test "returns one candidate per search result, in search order" do
+      stub_api()
+
+      assert {:ok, [vector_db, hnsw]} = Wikipedia.discover("pgvector", [])
+
+      assert vector_db.url == "https://en.wikipedia.org/wiki/Vector_database"
+      assert vector_db.title == "Vector database"
+      assert vector_db.body =~ "A vector database"
+      assert vector_db.metadata == %{"pageid" => 74_020_014}
+
+      assert hnsw.title == "Hierarchical navigable small world"
+      assert hnsw.metadata == %{"pageid" => 76_162_223}
+    end
+
+    test "searches articles, then fetches each page's plain text, with a User-Agent" do
+      stub_api()
+
+      {:ok, _candidates} = Wikipedia.discover("pgvector", [])
+
+      assert_received {:request, search, [user_agent]}
+      assert user_agent =~ "Knowseek"
+
+      assert %{
+               "action" => "query",
+               "list" => "search",
+               "srsearch" => "pgvector",
+               "srnamespace" => "0",
+               "formatversion" => "2"
+             } = search
+
+      assert_received {:request,
+                       %{
+                         "prop" => "extracts|info",
+                         "explaintext" => "1",
+                         "pageids" => "74020014"
+                       }, _}
+
+      assert_received {:request, %{"pageids" => "76162223"}, _}
+    end
+
+    test "skips pages that are missing" do
+      stub_api(%{"query" => %{"search" => [%{"pageid" => 1}, %{"pageid" => 74_020_014}]}})
+
+      assert {:ok, [%{title: "Vector database"}]} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns no candidates when the search finds nothing" do
+      stub_api(%{"query" => %{"searchinfo" => %{"totalhits" => 0}, "search" => []}})
+
+      assert {:ok, []} = Wikipedia.discover("zzzxqv", [])
+    end
+
+    test "returns an error for a non-200 response" do
+      Req.Test.stub(Wikipedia, &Plug.Conn.send_resp(&1, 503, "unavailable"))
+
+      assert {:error, {:http_status, 503}} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error when a page fetch fails after the search succeeds" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search"} -> Req.Test.json(conn, fixture("search.json"))
+          _page -> Plug.Conn.send_resp(conn, 500, "")
+        end
+      end)
+
+      assert {:error, {:http_status, 500}} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error for a timeout" do
+      Req.Test.stub(Wikipedia, &Req.Test.transport_error(&1, :timeout))
+
+      assert {:error, %Req.TransportError{reason: :timeout}} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "returns an error when the API reports one" do
+      stub_api(fixture("error_missingparam.json"))
+
+      assert {:error, {:api_error, "missingparam"}} = Wikipedia.discover("", [])
+    end
+  end
+
+  describe "truncate/2" do
+    test "keeps a body that fits" do
+      assert Wikipedia.truncate("short", 10) == "short"
+    end
+
+    test "cuts at the last paragraph break before the limit" do
+      body = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph."
+      assert Wikipedia.truncate(body, 40) == "First paragraph.\n\nSecond paragraph."
+    end
+
+    test "cuts at the limit when there is no paragraph break" do
+      assert Wikipedia.truncate("abcdefghij", 4) == "abcd"
+    end
+  end
+
+  describe "with Discovery.run/2" do
+    test "ingests the pages as wikipedia documents" do
+      stub_api()
+
+      assert {:ok, %{ingested: 2, failed: 0}} = Discovery.run("pgvector", sources: [Wikipedia])
+
+      assert [_, _] = documents = Documents.list_documents()
+      assert Enum.all?(documents, &(&1.source == "wikipedia"))
+    end
+  end
+end

@@ -34,7 +34,8 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Default adapter: `Embeddings.Hashing` (local stand-in, no semantics). |
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
-| `Knowseek.Discovery.Source` | Behaviour for an external data source. **No real implementations yet.** |
+| `Knowseek.Discovery.Source` | Behaviour for an external data source. |
+| `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. |
 | `Knowseek.Topics` | Topics a user follows. `RefreshWorker` (cron) requests discovery for due topics. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
 
@@ -86,7 +87,8 @@ Oban stores its jobs in `oban_jobs` in the same database.
 
 - `Knowseek.Embeddings`: `adapter`, `dimensions` (must match the migration).
 - `Knowseek.Search`: `default_limit`, `min_similarity`, `min_strong_hits` (coverage heuristic).
-- `Knowseek.Discovery`: `sources` (list of modules).
+- `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
+- `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Oban`: queues and cron.
 
 Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
@@ -95,7 +97,7 @@ Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
 - The hashing embedder matches words, not meaning.
 - Coverage ignores freshness, so a topic with old data still counts as covered.
-- No discovery sources, so discovery jobs currently ingest nothing.
+- Wikipedia is the only discovery source, so discovery finds only encyclopedic data.
 - No authentication and no users. Topics are global.
 - The caller is not told when discovery finishes.
 

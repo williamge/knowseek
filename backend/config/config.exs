@@ -39,8 +39,7 @@ config :knowseek, Knowseek.Search,
   min_strong_hits: 3
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
-# No real sources exist yet. See docs/tasks/ for the backlog.
-config :knowseek, Knowseek.Discovery, sources: []
+config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
 
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,
