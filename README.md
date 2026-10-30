@@ -40,7 +40,7 @@ curl -X POST localhost:4000/api/search -H 'content-type: application/json' \
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Liveness and database check |
-| `POST` | `/api/search` | `{query, limit?, max_age_seconds?}` → hits, coverage, discovery status. With `max_age_seconds`, only documents fetched within that many seconds count toward coverage. `null` ignores age. |
+| `POST` | `/api/search` | `{query, limit?, max_age_seconds?}` → hits, coverage, discovery status. Hits are only relevant chunks, so a query that the index does not cover returns no hits. With `max_age_seconds`, only documents fetched within that many seconds count toward coverage. `null` ignores age. |
 | `GET` | `/api/documents` | Recently fetched documents |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest |

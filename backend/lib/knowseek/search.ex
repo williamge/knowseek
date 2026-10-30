@@ -7,8 +7,10 @@ defmodule Knowseek.Search do
     1. full-text search on the generated `search_vector` column
     2. vector search on `embedding` (cosine distance, HNSW index)
 
-  It merges the two ranked lists with reciprocal rank fusion (RRF), then
-  assesses coverage with `Knowseek.Search.Coverage`.
+  It merges the two ranked lists with reciprocal rank fusion (RRF), drops
+  the chunks that are not relevant (see `Knowseek.Search.Hit.relevant?/2`),
+  then assesses coverage with `Knowseek.Search.Coverage`. A query that the
+  index does not cover returns no hits, not the nearest unrelated chunks.
 
   This module only reads. Deciding what to do about weak coverage is the
   job of `Knowseek.Lookup`.
@@ -30,6 +32,7 @@ defmodule Knowseek.Search do
   def search(query, opts \\ []) when is_binary(query) do
     limit = Keyword.get(opts, :limit, config(:default_limit))
     candidates = limit * 4
+    min_similarity = Keyword.get(opts, :min_similarity, config(:min_similarity))
 
     with {:ok, [vector]} <- Embeddings.embed([query], input_type: :query) do
       embedding = Pgvector.new(vector)
@@ -39,6 +42,7 @@ defmodule Knowseek.Search do
       hits =
         keyword
         |> fuse(semantic)
+        |> Enum.filter(&Hit.relevant?(&1, min_similarity))
         |> Enum.take(limit)
         |> load_hits()
 

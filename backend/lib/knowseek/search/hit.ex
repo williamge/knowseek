@@ -6,6 +6,9 @@ defmodule Knowseek.Search.Hit do
     * `keyword_rank` - 1-based rank in the full-text results, or `nil`.
     * `semantic_rank` - 1-based rank in the vector results, or `nil`.
     * `similarity` - cosine similarity to the query (-1.0 to 1.0), or `nil`.
+
+  A hit is relevant when it matched the full-text search, or when its
+  similarity is at least `min_similarity`. See `relevant?/2`.
   """
 
   @type t :: %__MODULE__{
@@ -35,4 +38,16 @@ defmodule Knowseek.Search.Hit do
     :semantic_rank,
     :similarity
   ]
+
+  @doc """
+  Whether a hit is relevant to the query.
+
+  The vector search always returns the nearest chunks, however far away
+  they are. This rule tells a real match from the least bad one. It accepts
+  a `t:t/0` or any map with `:keyword_rank` and `:similarity`.
+  """
+  @spec relevant?(%{keyword_rank: term(), similarity: term()}, float()) :: boolean()
+  def relevant?(%{keyword_rank: rank}, _min_similarity) when is_integer(rank), do: true
+  def relevant?(%{similarity: nil}, _min_similarity), do: false
+  def relevant?(%{similarity: similarity}, min_similarity), do: similarity >= min_similarity
 end
