@@ -10,7 +10,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 
 - Ingest documents into a Postgres + pgvector index (chunked and embedded).
 - Hybrid search (full-text + vector) with a coverage assessment.
-- Weak coverage enqueues a discovery job. **No real discovery sources exist yet.**
+- Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles.
 - Embeddings come from a local hashing stand-in, not a real model.
 
 See [`docs/tasks/`](docs/tasks/) for the backlog.
