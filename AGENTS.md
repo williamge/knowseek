@@ -33,6 +33,7 @@ Run everything from the repository root.
 | `make setup` | Start Postgres, fetch deps, create and migrate dev + test databases |
 | `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000) |
 | `make test` | Run the test suite |
+| `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
 | `make check` | Compile with warnings as errors, format, Credo, tests. **Must pass before you finish.** |
 
 Single test file: `cd backend && mix test test/knowseek/search_test.exs`.
@@ -41,7 +42,9 @@ New migration: `cd backend && mix ecto.gen.migration name_with_underscores`.
 
 ### Databases and parallel workspaces
 
-One Postgres container (`docker compose`, project name `knowseek`) serves every workspace. Each Conductor workspace gets its own databases, named from `CONDUCTOR_WORKSPACE_NAME` (for example `knowseek_dev_search_index_service`). You can run tests and servers in many workspaces at once. If a database is missing, run `make setup` again.
+One Postgres container (`docker compose`, project name `knowseek`) serves every workspace. Each Conductor workspace gets its own databases, named from `CONDUCTOR_WORKSPACE_NAME` (for example `knowseek_dev_search_index_service`). You can run tests and servers in many workspaces at once. If a database is missing, run `make setup` again. Outside Conductor (for example in iTerm), `CONDUCTOR_WORKSPACE_NAME` is not set, so commands use the shared `knowseek_dev` and `knowseek_test` databases.
+
+The optional Ollama server (`brew install ollama`, `brew services start ollama`) is shared the same way: one server on `localhost:11434` for every local workspace. Tests never use it. Remote workspaces cannot reach it.
 
 ## Architecture rules
 

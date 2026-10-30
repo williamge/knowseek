@@ -32,7 +32,7 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Search.Coverage` | Heuristic that classifies a hit list as `:sufficient`, `:partial`, or `:none`. |
 | `Knowseek.Documents` | The only write path into the index. Validates, chunks, embeds, and stores documents. Re-ingesting a URL updates it; an unchanged body is skipped. |
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
-| `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Default adapter: `Embeddings.Hashing` (local stand-in, no semantics). |
+| `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Hashing` (local stand-in, no semantics; the default and in tests), `Embeddings.Ollama` (local `bge-m3` through Ollama, free), `Embeddings.Voyage` (Voyage AI API). |
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. **No real implementations yet.** |
 | `Knowseek.Topics` | Topics a user follows. `RefreshWorker` (cron) requests discovery for due topics. |
@@ -85,6 +85,8 @@ Oban stores its jobs in `oban_jobs` in the same database.
 `backend/config/config.exs` holds the knobs:
 
 - `Knowseek.Embeddings`: `adapter`, `dimensions` (must match the migration).
+- `Knowseek.Embeddings.Ollama`: `base_url`, `model`, `max_batch_size`, `req_options`. Set from `OLLAMA_URL` and `OLLAMA_MODEL` in `config/runtime.exs`.
+- `Knowseek.Embeddings.Voyage`: `model`, batch limits, `req_options`. `api_key` comes from `VOYAGE_API_KEY` in `config/runtime.exs`.
 - `Knowseek.Search`: `default_limit`, `min_similarity`, `min_strong_hits` (coverage heuristic).
 - `Knowseek.Discovery`: `sources` (list of modules).
 - `Oban`: queues and cron.
@@ -93,7 +95,8 @@ Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
 ## Known limitations
 
-- The hashing embedder matches words, not meaning.
+- With the default `EMBEDDINGS_ADAPTER=hashing`, search matches words, not meaning.
+- Chunks are not re-embedded when the embedding adapter changes.
 - Coverage ignores freshness, so a topic with old data still counts as covered.
 - No discovery sources, so discovery jobs currently ingest nothing.
 - No authentication and no users. Topics are global.

@@ -38,7 +38,7 @@ defmodule Knowseek.Documents do
     contents = Chunker.chunk(body)
 
     # Embed before the transaction: the adapter may call an external API.
-    with {:ok, vectors} <- Embeddings.embed(contents) do
+    with {:ok, vectors} <- Embeddings.embed(contents, input_type: :document) do
       Repo.transact(fn -> write(existing, attrs, Enum.zip(contents, vectors)) end)
     end
   end

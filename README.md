@@ -11,7 +11,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Ingest documents into a Postgres + pgvector index (chunked and embedded).
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. **No real discovery sources exist yet.**
-- Embeddings come from a local hashing stand-in, not a real model.
+- Embeddings come from a local hashing stand-in by default. For real semantic search, install Ollama (`brew install ollama`, then `brew services start ollama`), run `make ollama`, and set `EMBEDDINGS_ADAPTER=ollama` in `.env`. Voyage AI is the hosted option. See `.env.example`.
 
 See [`docs/tasks/`](docs/tasks/) for the backlog.
 

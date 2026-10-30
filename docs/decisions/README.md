@@ -12,3 +12,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0003](0003-hybrid-search.md) | Hybrid search with reciprocal rank fusion |
 | [0004](0004-embeddings.md) | Pluggable embeddings, fixed at 1024 dimensions |
 | [0005](0005-per-workspace-databases.md) | One database per Conductor workspace |
+| [0006](0006-embedding-providers.md) | Embedding providers: Ollama locally, Voyage AI hosted |

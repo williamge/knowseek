@@ -27,10 +27,14 @@ config :knowseek, Oban,
   ]
 
 # Embedding provider. `dimensions` must match the `vector(N)` column size
-# in the chunks table migration.
+# in the chunks table migration. config/runtime.exs reads EMBEDDINGS_ADAPTER
+# to switch to Ollama or Voyage (see docs/decisions/0006-embedding-providers.md).
 config :knowseek, Knowseek.Embeddings,
   adapter: Knowseek.Embeddings.Hashing,
   dimensions: 1024
+
+config :knowseek, Knowseek.Embeddings.Ollama, model: "bge-m3"
+config :knowseek, Knowseek.Embeddings.Voyage, model: "voyage-3.5"
 
 # Search tuning and the coverage heuristic that decides when to seek new data.
 config :knowseek, Knowseek.Search,

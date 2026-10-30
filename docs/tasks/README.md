@@ -28,6 +28,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [011](011-url-canonicalization-and-dedup.md) | URL canonicalization and duplicate detection | none |
 | [012](012-release-and-container.md) | Release build and app container | none |
 | [013](013-openapi-spec.md) | OpenAPI spec for the API | none |
+| [014](014-re-embed-job.md) | Re-embed chunks after a model change | 001 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

@@ -23,6 +23,49 @@ end
 config :knowseek, KnowseekWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# Embeddings. EMBEDDINGS_ADAPTER selects the provider:
+#   * hashing (default) - local stand-in, no semantics
+#   * ollama            - local model through Ollama (`make ollama`), free
+#   * voyage            - Voyage AI API, needs VOYAGE_API_KEY
+# Tests always use Hashing or a Req.Test stub, so this block is skipped there.
+# Switching adapters makes stored vectors incomparable: re-embed after a switch.
+env = fn name, default ->
+  case System.get_env(name) do
+    value when value in [nil, ""] -> default
+    value -> value
+  end
+end
+
+if config_env() != :test do
+  config :knowseek, Knowseek.Embeddings.Ollama,
+    base_url: env.("OLLAMA_URL", "http://localhost:11434"),
+    model: env.("OLLAMA_MODEL", "bge-m3")
+
+  config :knowseek, Knowseek.Embeddings.Voyage,
+    api_key: env.("VOYAGE_API_KEY", nil),
+    model: env.("VOYAGE_MODEL", "voyage-3.5")
+
+  adapter =
+    case env.("EMBEDDINGS_ADAPTER", "hashing") do
+      "hashing" ->
+        Knowseek.Embeddings.Hashing
+
+      "ollama" ->
+        Knowseek.Embeddings.Ollama
+
+      "voyage" ->
+        env.("VOYAGE_API_KEY", nil) ||
+          raise "EMBEDDINGS_ADAPTER=voyage needs the VOYAGE_API_KEY environment variable"
+
+        Knowseek.Embeddings.Voyage
+
+      other ->
+        raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
+    end
+
+  config :knowseek, Knowseek.Embeddings, adapter: adapter
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
