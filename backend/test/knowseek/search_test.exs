@@ -38,6 +38,47 @@ defmodule Knowseek.SearchTest do
       assert {:ok, %{coverage: :none}} = Search.search("comet tails", max_age_seconds: 3600)
     end
 
+    test "returns no hits for a query that the index does not cover" do
+      document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+      document_fixture(body: "Postgres supports vector search with the pgvector extension.")
+
+      assert {:ok, %{hits: [], coverage: :none}} = Search.search("heavy metal")
+    end
+
+    test "returns only the relevant hits when some chunks match" do
+      match = document_fixture(body: "Octopuses have three hearts and nine brains.")
+      _other = document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+
+      assert {:ok, %{hits: hits}} = Search.search("octopuses")
+      assert Enum.map(hits, & &1.document_id) == [match.id]
+    end
+
+    test "keeps a hit that matches by similarity but not by keyword" do
+      match = document_fixture(body: "alpha beta gamma delta")
+
+      # The full-text query needs every term, so "epsilon" rules out a keyword match.
+      assert {:ok, %{hits: [hit]}} = Search.search("alpha beta gamma delta epsilon")
+      assert hit.document_id == match.id
+      assert hit.keyword_rank == nil
+      assert hit.similarity >= 0.5
+    end
+
+    test "applies :min_similarity" do
+      document_fixture(body: "alpha beta gamma delta")
+      query = "alpha beta gamma delta epsilon"
+
+      assert {:ok, %{hits: [_]}} = Search.search(query, min_similarity: 0.5)
+      assert {:ok, %{hits: []}} = Search.search(query, min_similarity: 0.99)
+    end
+
+    test "does not let irrelevant chunks use up :limit" do
+      match = document_fixture(body: "Octopuses have three hearts and nine brains.")
+      for i <- 1..5, do: document_fixture(body: "Sourdough bread, loaf #{i}.")
+
+      assert {:ok, %{hits: [hit]}} = Search.search("octopuses", limit: 1)
+      assert hit.document_id == match.id
+    end
+
     test "respects :limit" do
       for i <- 1..5, do: document_fixture(body: "elixir note #{i}")
       assert {:ok, %{hits: hits}} = Search.search("elixir", limit: 2)

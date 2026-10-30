@@ -12,6 +12,16 @@ defmodule Knowseek.LookupTest do
     assert_enqueued(worker: SeekWorker, args: %{"query" => "deep sea vents"})
   end
 
+  test "returns no hits and enqueues discovery when the index holds only unrelated documents" do
+    document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+
+    {:ok, result} = Lookup.run("heavy metal")
+
+    assert result.hits == []
+    assert result.coverage == :none
+    assert {:enqueued, _job_id} = result.discovery
+  end
+
   test "does not enqueue discovery when coverage is sufficient" do
     for i <- 1..3, do: document_fixture(body: "Hydrothermal vents, part #{i}.")
 

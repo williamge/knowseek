@@ -5,8 +5,8 @@ defmodule Knowseek.Search.Coverage do
 
   A hit is "strong" when it is both relevant and fresh:
 
-    * relevant - it matched the full-text search, or its cosine similarity
-      is at least `:min_similarity`
+    * relevant - see `Knowseek.Search.Hit.relevant?/2`: it matched the
+      full-text search, or its cosine similarity is at least `:min_similarity`
     * fresh - `:max_age_seconds` is `nil`, or the document's `fetched_at`
       is between `:max_age_seconds` ago and now. `fetched_at` is the last
       time a fetch saw the content, so a re-fetch makes a document fresh
@@ -46,7 +46,7 @@ defmodule Knowseek.Search.Coverage do
 
     strong =
       hits
-      |> Enum.filter(&(relevant?(&1, min_similarity) and fresh?(&1, window)))
+      |> Enum.filter(&(Hit.relevant?(&1, min_similarity) and fresh?(&1, window)))
       |> Enum.uniq_by(& &1.document_id)
       |> length()
 
@@ -56,10 +56,6 @@ defmodule Knowseek.Search.Coverage do
       true -> :none
     end
   end
-
-  defp relevant?(%Hit{keyword_rank: rank}, _min_similarity) when is_integer(rank), do: true
-  defp relevant?(%Hit{similarity: nil}, _min_similarity), do: false
-  defp relevant?(%Hit{similarity: similarity}, min_similarity), do: similarity >= min_similarity
 
   defp window(nil, _now), do: nil
   defp window(max_age_seconds, now), do: {DateTime.add(now, -max_age_seconds, :second), now}
