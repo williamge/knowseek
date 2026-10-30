@@ -1,0 +1,23 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# Each workspace gets its own databases (named from CONDUCTOR_WORKSPACE_NAME)
+# and its own port, so workspaces can run at the same time.
+setup = "make setup"
+run_mode = "concurrent"
+# Drop this workspace's databases. Guarded so it never drops the shared defaults.
+archive = '[ -n "$CONDUCTOR_WORKSPACE_NAME" ] && cd backend && mix ecto.drop --quiet && MIX_ENV=test mix ecto.drop --quiet || true'
+
+[scripts.run.dev]
+available_in = [ "local" ]
+command = "make dev"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "make test"
+icon = "test-tube"
+
+[scripts.run.check]
+command = "make check"
+icon = "list-checks"
