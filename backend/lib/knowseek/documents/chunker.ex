@@ -27,7 +27,20 @@ defmodule Knowseek.Documents.Chunker do
     if String.length(paragraph) <= max_chars do
       [paragraph]
     else
-      paragraph |> String.split(" ") |> pack(max_chars, " ")
+      paragraph
+      |> String.split(" ")
+      |> Enum.flat_map(&split_word(&1, max_chars))
+      |> pack(max_chars, " ")
+    end
+  end
+
+  # A single word longer than `max_chars` (a long URL, a hash) is cut into
+  # slices so no chunk exceeds `max_chars`.
+  defp split_word(word, max_chars) do
+    if String.length(word) <= max_chars do
+      [word]
+    else
+      word |> String.graphemes() |> Enum.chunk_every(max_chars) |> Enum.map(&Enum.join/1)
     end
   end
 

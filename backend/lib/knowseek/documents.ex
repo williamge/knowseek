@@ -50,8 +50,17 @@ defmodule Knowseek.Documents do
     end
   end
 
-  defp upsert_document(nil, attrs),
-    do: %Document{} |> Document.ingest_changeset(attrs) |> Repo.insert()
+  # A concurrent ingest of the same URL can insert between `Repo.get_by/2` and
+  # here. On conflict, update that row instead of failing on the unique index.
+  defp upsert_document(nil, attrs) do
+    %Document{}
+    |> Document.ingest_changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace_all_except, [:id, :inserted_at]},
+      conflict_target: :url,
+      returning: true
+    )
+  end
 
   defp upsert_document(%Document{} = existing, attrs),
     do: existing |> Document.ingest_changeset(attrs) |> Repo.update()

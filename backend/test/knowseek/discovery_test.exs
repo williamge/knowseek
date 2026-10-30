@@ -20,6 +20,12 @@ defmodule Knowseek.DiscoveryTest do
     end
   end
 
+  describe "SeekWorker" do
+    test "runs discovery for the job's query" do
+      assert :ok = perform_job(SeekWorker, %{"query" => "tide pools"})
+    end
+  end
+
   describe "run/2" do
     test "ingests candidates from every source and tags them with the source name" do
       assert {:ok, %{ingested: 1, failed: 0}} =

@@ -10,6 +10,10 @@ defmodule Knowseek.Search.Coverage do
     * `:partial` - at least one strong hit
     * `:none` - no strong hits
 
+  When the caller asks for fewer hits than `:min_strong_hits` (the `:limit`
+  option), the threshold is lowered to `:limit`, so a small result set can
+  still be `:sufficient`.
+
   This is a placeholder heuristic. It ignores freshness and does not check
   that the hits actually answer the query.
   """
@@ -23,6 +27,7 @@ defmodule Knowseek.Search.Coverage do
     config = Application.get_env(:knowseek, Knowseek.Search, [])
     min_similarity = Keyword.get(opts, :min_similarity, config[:min_similarity])
     min_strong_hits = Keyword.get(opts, :min_strong_hits, config[:min_strong_hits])
+    min_strong_hits = min(min_strong_hits, Keyword.get(opts, :limit, min_strong_hits))
 
     strong = Enum.count(hits, &strong?(&1, min_similarity))
 

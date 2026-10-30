@@ -29,6 +29,11 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert %{"errors" => _} = conn |> post(~p"/api/search", %{}) |> json_response(400)
     end
 
+    test "rejects a blank query", %{conn: conn} do
+      assert %{"errors" => _} = conn |> post(~p"/api/search", query: "   ") |> json_response(400)
+      refute_enqueued(worker: SeekWorker)
+    end
+
     test "rejects an invalid limit", %{conn: conn} do
       assert %{"errors" => _} =
                conn |> post(~p"/api/search", query: "x", limit: 500) |> json_response(400)

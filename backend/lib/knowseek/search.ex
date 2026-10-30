@@ -42,7 +42,8 @@ defmodule Knowseek.Search do
         |> Enum.take(limit)
         |> load_hits()
 
-      {:ok, %{hits: hits, coverage: Coverage.assess(hits, opts)}}
+      coverage = Coverage.assess(hits, Keyword.put(opts, :limit, limit))
+      {:ok, %{hits: hits, coverage: coverage}}
     end
   end
 

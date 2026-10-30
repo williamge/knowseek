@@ -28,4 +28,12 @@ defmodule Knowseek.Documents.ChunkerTest do
     assert Enum.all?(chunks, &(String.length(&1) <= 25))
     assert Enum.join(chunks, " ") == text
   end
+
+  test "cuts a single word that is longer than max_chars" do
+    word = String.duplicate("x", 60)
+    chunks = Chunker.chunk("short " <> word, max_chars: 25)
+
+    assert Enum.all?(chunks, &(String.length(&1) <= 25))
+    assert chunks |> Enum.join() |> String.replace(" ", "") == "short" <> word
+  end
 end

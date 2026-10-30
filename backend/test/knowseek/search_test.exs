@@ -40,5 +40,13 @@ defmodule Knowseek.SearchTest do
       assert Coverage.assess([keyword, weak], opts) == :partial
       assert Coverage.assess([keyword, similar], opts) == :sufficient
     end
+
+    test "lowers the strong-hit threshold to :limit" do
+      keyword = %Hit{keyword_rank: 1, similarity: 0.1}
+      opts = [min_similarity: 0.5, min_strong_hits: 3]
+
+      assert Coverage.assess([keyword], opts) == :partial
+      assert Coverage.assess([keyword], Keyword.put(opts, :limit, 1)) == :sufficient
+    end
   end
 end

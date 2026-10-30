@@ -60,8 +60,10 @@ defmodule Knowseek.Documents.Document do
     end
   end
 
+  # Uses get_change, not get_field: a re-ingested document gets a new
+  # fetched_at unless the caller gives one.
   defp put_default_fetched_at(changeset) do
-    case get_field(changeset, :fetched_at) do
+    case get_change(changeset, :fetched_at) do
       nil -> put_change(changeset, :fetched_at, DateTime.utc_now(:second))
       _ -> changeset
     end

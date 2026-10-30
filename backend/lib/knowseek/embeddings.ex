@@ -22,11 +22,30 @@ defmodule Knowseek.Embeddings do
   def embed([]), do: {:ok, []}
 
   def embed(texts) when is_list(texts) do
-    adapter().embed(texts, dimensions: dimensions())
+    dimensions = dimensions()
+
+    with {:ok, vectors} <- adapter().embed(texts, dimensions: dimensions) do
+      validate(vectors, length(texts), dimensions)
+    end
   end
 
   @spec dimensions() :: pos_integer()
   def dimensions, do: Keyword.fetch!(config(), :dimensions)
+
+  # Enforces the adapter contract, so a bad adapter fails loudly instead of
+  # silently dropping chunks (Enum.zip) or failing later in Postgres.
+  defp validate(vectors, count, dimensions) do
+    cond do
+      length(vectors) != count ->
+        {:error, {:vector_count_mismatch, expected: count, got: length(vectors)}}
+
+      Enum.any?(vectors, &(length(&1) != dimensions)) ->
+        {:error, {:dimension_mismatch, expected: dimensions}}
+
+      true ->
+        {:ok, vectors}
+    end
+  end
 
   defp adapter, do: Keyword.fetch!(config(), :adapter)
 

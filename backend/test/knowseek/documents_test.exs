@@ -35,6 +35,16 @@ defmodule Knowseek.DocumentsTest do
       assert [%Chunk{content: "new body"}] = chunks(updated)
     end
 
+    test "refreshes fetched_at when the body changes" do
+      old = ~U[2020-01-01 00:00:00Z]
+      document_fixture(url: "https://example.com/f", body: "old body", fetched_at: old)
+
+      {:ok, updated} =
+        Documents.ingest(%{url: "https://example.com/f", body: "new body", source: "test"})
+
+      assert DateTime.compare(updated.fetched_at, old) == :gt
+    end
+
     test "does not rewrite an unchanged document" do
       original = document_fixture(url: "https://example.com/c", body: "same")
       [chunk] = chunks(original)
