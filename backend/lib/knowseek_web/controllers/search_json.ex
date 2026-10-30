@@ -23,6 +23,7 @@ defmodule KnowseekWeb.SearchJSON do
       url: hit.url,
       title: hit.title,
       content: hit.content,
+      published_at: hit.published_at,
       fetched_at: hit.fetched_at,
       score: hit.score,
       keyword_rank: hit.keyword_rank,

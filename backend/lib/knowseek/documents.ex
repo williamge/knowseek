@@ -14,7 +14,9 @@ defmodule Knowseek.Documents do
   @doc """
   Adds a document to the index, or updates the document with the same URL.
 
-  If the stored document already has the same body, nothing is re-embedded.
+  If the stored document already has the same body, nothing is re-chunked
+  or re-embedded. The other fields are still updated, and `fetched_at` moves
+  to now (unless the caller gives one), because the fetch saw the content.
 
   Required attrs: `:body`, `:source`. Optional: `:url`, `:title`,
   `:published_at`, `:fetched_at`, `:metadata`.
@@ -26,7 +28,7 @@ defmodule Knowseek.Documents do
     with {:ok, incoming} <- Ecto.Changeset.apply_action(changeset, :insert) do
       case Repo.get_by(Document, url: incoming.url) do
         %Document{content_hash: hash} = existing when hash == incoming.content_hash ->
-          {:ok, existing}
+          existing |> Document.ingest_changeset(attrs) |> Repo.update()
 
         existing ->
           store(existing, attrs, incoming.body)

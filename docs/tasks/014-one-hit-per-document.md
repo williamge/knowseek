@@ -69,3 +69,8 @@ This causes two problems:
 Task 005 also says "count distinct documents, not chunks". If this task
 lands first, that part of 005 is done. Say so in the Outcome, and update
 task 005 so that its agent does not do the work twice.
+
+Task 005 landed first. `Coverage.assess/2` already counts distinct
+documents (`Enum.uniq_by(& &1.document_id)`), and
+`test/knowseek/search_test.exs` already tests that one document with many
+strong chunks counts once. Keep that rule when hits become documents.
