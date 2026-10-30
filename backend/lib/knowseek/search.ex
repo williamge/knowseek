@@ -116,6 +116,7 @@ defmodule Knowseek.Search do
                url: d.url,
                title: d.title,
                content: c.content,
+               published_at: d.published_at,
                fetched_at: d.fetched_at
              }}
       )

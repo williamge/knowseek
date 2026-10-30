@@ -40,12 +40,12 @@ curl -X POST localhost:4000/api/search -H 'content-type: application/json' \
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Liveness and database check |
-| `POST` | `/api/search` | `{query, limit?}` → hits, coverage, discovery status |
+| `POST` | `/api/search` | `{query, limit?, max_age_seconds?}` → hits, coverage, discovery status. With `max_age_seconds`, only documents fetched within that many seconds count toward coverage. `null` ignores age. |
 | `GET` | `/api/documents` | Recently fetched documents |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest |
 | `GET` | `/api/topics` | Topics you follow |
-| `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?}}` |
+| `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?, max_age_seconds?}}`. With `max_age_seconds`, a refresh seeks new data only when too few documents were fetched within that time. Without it, every refresh seeks new data. |
 | `DELETE` | `/api/topics/:id` | Stop following a topic |
 
 ## Documentation

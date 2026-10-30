@@ -21,4 +21,15 @@ defmodule Knowseek.LookupTest do
     assert result.discovery == :not_needed
     refute_enqueued(worker: SeekWorker)
   end
+
+  test "enqueues discovery when the matching documents are too old" do
+    old = ~U[2020-01-01 00:00:00Z]
+    for i <- 1..3, do: document_fixture(body: "Tidal energy, part #{i}.", fetched_at: old)
+
+    {:ok, result} = Lookup.run("tidal energy", max_age_seconds: 86_400)
+
+    assert result.coverage == :none
+    assert {:enqueued, _job_id} = result.discovery
+    assert_enqueued(worker: SeekWorker, args: %{"query" => "tidal energy"})
+  end
 end

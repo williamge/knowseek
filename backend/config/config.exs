@@ -33,10 +33,13 @@ config :knowseek, Knowseek.Embeddings,
   dimensions: 1024
 
 # Search tuning and the coverage heuristic that decides when to seek new data.
+# `max_age_seconds` is the default freshness need for a search. `nil` means
+# that hits of any age count. A caller can override it per request.
 config :knowseek, Knowseek.Search,
   default_limit: 10,
   min_similarity: 0.5,
-  min_strong_hits: 3
+  min_strong_hits: 3,
+  max_age_seconds: nil
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
 # No real sources exist yet. See docs/tasks/ for the backlog.

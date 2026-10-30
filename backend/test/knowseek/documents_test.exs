@@ -45,6 +45,39 @@ defmodule Knowseek.DocumentsTest do
       assert DateTime.compare(updated.fetched_at, old) == :gt
     end
 
+    test "moves fetched_at forward when the body is unchanged" do
+      old = ~U[2020-01-01 00:00:00Z]
+      original = document_fixture(url: "https://example.com/g", body: "same", fetched_at: old)
+      [chunk] = chunks(original)
+
+      {:ok, again} =
+        Documents.ingest(%{url: "https://example.com/g", body: "same", source: "test"})
+
+      assert DateTime.compare(again.fetched_at, old) == :gt
+      assert DateTime.compare(Documents.get_document(original.id).fetched_at, old) == :gt
+      assert [%Chunk{id: id}] = chunks(again)
+      assert id == chunk.id
+    end
+
+    test "updates the other fields when the body is unchanged" do
+      published = ~U[2020-01-01 00:00:00Z]
+      original = document_fixture(url: "https://example.com/h", title: "Old", body: "same")
+
+      {:ok, again} =
+        Documents.ingest(%{
+          url: "https://example.com/h",
+          title: "New",
+          body: "same",
+          source: "test",
+          published_at: published
+        })
+
+      assert %Document{title: "New", published_at: ^published} =
+               Documents.get_document(original.id)
+
+      assert again.id == original.id
+    end
+
     test "does not rewrite an unchanged document" do
       original = document_fixture(url: "https://example.com/c", body: "same")
       [chunk] = chunks(original)
