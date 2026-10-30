@@ -4,7 +4,8 @@
 
 ```mermaid
 flowchart LR
-    client([Client]) -->|POST /api/search| lookup[Knowseek.Lookup]
+    web([Web UI]) -->|/api, same origin| client([Client])
+    client -->|POST /api/search| lookup[Knowseek.Lookup]
     lookup --> search[Knowseek.Search]
     search -->|full-text + vector| pg[(Postgres + pgvector)]
     search --> coverage{Coverage}
@@ -40,6 +41,13 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
 | `Knowseek.Topics` | Topics a user follows. `RefreshWorker` (cron) enqueues one `CheckWorker` job per due topic. Without `max_age_seconds`, the check requests discovery. With it, the check runs a `Lookup` with that freshness need, so discovery runs only when fresh coverage is not sufficient. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
+| `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
+
+## Web UI
+
+`frontend/` holds a single-page app. In development, Vite serves it and proxies `/api` to the Phoenix API, so the browser sees one origin and the API needs no CORS. The app keeps its state in the URL (`/?q=...&doc=...`, `/topics`), so searches can be shared.
+
+Because the API does not yet tell callers when discovery finishes (task 006), the UI watches the index. After a search that enqueued discovery, it polls `GET /api/documents` for new document ids. When some arrive, it searches again and marks the new results. It stops when no new documents arrive for a while, or after 90 seconds. Task 006 replaces this polling. See `docs/decisions/0008-web-frontend.md`.
 
 ## Data model
 
@@ -105,6 +113,6 @@ Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 - Chunks are not re-embedded when the embedding adapter changes.
 - Wikipedia is the only discovery source, so discovery finds only encyclopedic data.
 - No authentication and no users. Topics are global.
-- The caller is not told when discovery finishes.
+- The caller is not told when discovery finishes. The web UI polls for new documents instead.
 
 Each limitation has a task in `docs/tasks/`.

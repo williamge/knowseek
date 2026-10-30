@@ -15,6 +15,7 @@ backend/              Elixir/Phoenix API (owns the database schema)
   lib/knowseek_web/   HTTP layer (JSON controllers only)
   priv/repo/migrations/
   test/
+frontend/            web UI: Vite + React + TypeScript (talks to the backend over HTTP only)
 services/             future non-Elixir background services (see services/README.md)
 docs/
   ARCHITECTURE.md     components, data flow, data model
@@ -32,9 +33,10 @@ Run everything from the repository root.
 | --- | --- |
 | `make setup` | Start Postgres, fetch deps, create and migrate dev + test databases |
 | `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000) |
-| `make test` | Run the test suite |
+| `make web` | Run the web UI on `$CONDUCTOR_PORT` + 1. It proxies `/api` to the API. |
+| `make test` | Run the backend test suite |
 | `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
-| `make check` | Compile with warnings as errors, format, Credo, tests. **Must pass before you finish.** |
+| `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
 
 Single test file: `cd backend && mix test test/knowseek/search_test.exs`.
@@ -65,9 +67,11 @@ These keep the code base coherent while many agents work in parallel. If a task 
 6. **Slow or external work runs in Oban jobs**, not in the request path. The request path may only enqueue.
 7. **The embedding size is fixed by the schema.** `chunks.embedding` is `vector(1024)`. A model with another size needs a migration and a re-embed plan (see `docs/decisions/0004-embeddings.md`).
 8. **The backend owns the schema.** Services in `services/` talk to the backend through HTTP or jobs, not through its tables.
+9. **The frontend uses only the public JSON API.** `frontend/src/types.ts` mirrors the `*JSON` views. If you change a response shape, change the types in the same branch.
 
 ## Testing rules
 
+- Frontend tests (`cd frontend && npm test`) stub `fetch` (see `frontend/test/fixtures.ts`). They never call the backend.
 - Tests never call the network. Stub HTTP with `Req.Test` (pass `plug: {Req.Test, Name}` through config) and use fake sources and adapters from `test/support/`.
 - Oban runs in `:manual` testing mode. Assert with `assert_enqueued/1`, and run jobs with `perform_job/2`.
 - Use the fixtures in `test/support/fixtures.ex`. Add new fixtures there.

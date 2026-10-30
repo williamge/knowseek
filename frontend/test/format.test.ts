@@ -1,0 +1,87 @@
+import { describe, expect, it } from "vitest";
+import {
+  displayHost,
+  everyInterval,
+  groupHits,
+  highlight,
+  isWebUrl,
+  normalizeQuery,
+  timeAgo,
+} from "../src/lib/format";
+import { hit } from "./fixtures";
+
+describe("normalizeQuery", () => {
+  it("lowercases and collapses whitespace like the backend", () => {
+    expect(normalizeQuery("  Rust   ASYNC\nRuntimes ")).toBe("rust async runtimes");
+  });
+});
+
+describe("timeAgo", () => {
+  const now = new Date("2026-10-30T12:00:00Z");
+  it("formats past times", () => {
+    expect(timeAgo("2026-10-30T09:00:00Z", now)).toBe("3 hours ago");
+    expect(timeAgo("2026-10-28T12:00:00Z", now)).toBe("2 days ago");
+  });
+  it("says just now for very recent times", () => {
+    expect(timeAgo("2026-10-30T11:59:40Z", now)).toBe("just now");
+  });
+});
+
+describe("everyInterval", () => {
+  it("names whole units", () => {
+    expect(everyInterval(3600)).toBe("every hour");
+    expect(everyInterval(6 * 3600)).toBe("every 6 hours");
+    expect(everyInterval(86_400)).toBe("every day");
+    expect(everyInterval(7 * 86_400)).toBe("every week");
+  });
+  it("falls back to seconds", () => {
+    expect(everyInterval(1000)).toBe("every 1000 seconds");
+  });
+});
+
+describe("urls", () => {
+  it("treats only http(s) urls as links", () => {
+    expect(isWebUrl("https://example.com/a")).toBe(true);
+    expect(isWebUrl("urn:knowseek:sha256:abc")).toBe(false);
+  });
+  it("shows the host without www", () => {
+    expect(displayHost("https://www.example.com/a")).toBe("example.com");
+    expect(displayHost("urn:knowseek:sha256:abc")).toBe("added manually");
+  });
+});
+
+describe("groupHits", () => {
+  it("groups chunks by document and keeps the order of the best hit", () => {
+    const groups = groupHits([
+      hit({ document_id: "a", chunk_id: "a1" }),
+      hit({ document_id: "b", chunk_id: "b1" }),
+      hit({ document_id: "a", chunk_id: "a2" }),
+    ]);
+    expect(groups.map((g) => g.documentId)).toEqual(["a", "b"]);
+    expect(groups[0].passages.map((p) => p.chunk_id)).toEqual(["a1", "a2"]);
+  });
+  it("uses the host when a document has no title", () => {
+    const [group] = groupHits([hit({ title: null, url: "https://www.example.com/x" })]);
+    expect(group.title).toBe("example.com");
+  });
+});
+
+describe("highlight", () => {
+  it("marks query terms case-insensitively", () => {
+    expect(highlight("Octopuses are smart", "octopus")).toEqual([
+      { text: "Octopus", match: true },
+      { text: "es are smart", match: false },
+    ]);
+  });
+  it("ignores short words and stop words", () => {
+    expect(highlight("the cat is on the mat", "the is on")).toEqual([
+      { text: "the cat is on the mat", match: false },
+    ]);
+  });
+  it("escapes regex characters in the query", () => {
+    expect(highlight("c++ is fun", "c++ (fun")).toEqual([
+      { text: "c++ is ", match: false },
+      { text: "fun", match: true },
+    ]);
+  });
+});

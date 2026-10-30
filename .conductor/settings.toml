@@ -14,6 +14,11 @@ command = "make dev"
 default = true
 icon = "play"
 
+[scripts.run.web]
+available_in = [ "local" ]
+command = "make web"
+icon = "globe"
+
 [scripts.run.test]
 command = "make test"
 icon = "test-tube"
