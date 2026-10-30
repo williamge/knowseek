@@ -39,6 +39,9 @@ export interface KnowseekDocument {
   metadata: Record<string, unknown>;
 }
 
+/** What `GET /api/documents` returns: a document without its body. */
+export type DocumentSummary = Omit<KnowseekDocument, "body">;
+
 export interface Topic {
   id: string;
   query: string;

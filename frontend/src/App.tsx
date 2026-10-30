@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { DocumentReader } from "./components/DocumentReader";
 import { RecentDocuments } from "./components/RecentDocuments";
 import { ResultsView } from "./components/ResultsView";
@@ -11,11 +11,20 @@ import { useTopics } from "./lib/useTopics";
 export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
   const [route, navigate] = useRoute();
   const topics = useTopics();
-  const search = useSearch(route.page === "search" ? route.query : null, watch);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const search = useSearch(route.page === "search" ? route.query : null, watch, refreshKey);
 
+  // The URL does not change when the user searches for the same query again
+  // (for example to see what discovery added), so run the search again here.
   const runSearch = useCallback(
-    (query: string) => navigate({ page: "search", query, doc: null }),
-    [navigate],
+    (query: string) => {
+      if (route.page === "search" && route.query === query && !route.doc) {
+        setRefreshKey((key) => key + 1);
+      } else {
+        navigate({ page: "search", query, doc: null });
+      }
+    },
+    [navigate, route],
   );
   const openDocument = (doc: string) => navigate({ ...route, doc }, { state: { reader: true } });
   // Go back when the app opened the document, so the back button does not

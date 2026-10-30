@@ -60,6 +60,94 @@ describe("App", () => {
     expect(searches).toBe(2);
   });
 
+  it("finds a document again after a failed search, so its results still appear", async () => {
+    window.history.replaceState(null, "", "/?q=octopus");
+    let searches = 0;
+    let listCalls = 0;
+    mockApi({
+      "GET /topics": () => [],
+      "GET /documents": () => {
+        listCalls += 1;
+        return listCalls === 1 ? [doc({ id: "old" })] : [doc({ id: "new" }), doc({ id: "old" })];
+      },
+      "POST /search": () => {
+        searches += 1;
+        if (searches === 1) {
+          return result({
+            coverage: "none",
+            discovery: { status: "enqueued", job_id: 1 },
+            hits: [],
+          });
+        }
+        // The first re-search fails. The next check must try it again.
+        if (searches === 2) return new Response("{}", { status: 500 });
+        return result({ hits: [hit({ chunk_id: "c-new", document_id: "new", title: "Fresh" })] });
+      },
+    });
+    render(<App watch={FAST} />);
+
+    expect(await screen.findByRole("button", { name: "Fresh" })).toBeInTheDocument();
+    expect(searches).toBe(3);
+  });
+
+  it("counts a document that arrives while the first search runs", async () => {
+    window.history.replaceState(null, "", "/?q=octopus");
+    let searches = 0;
+    let arrived = false;
+    mockApi({
+      "GET /topics": () => [],
+      // The baseline list is read before the search, so it does not have "new".
+      "GET /documents": () => (arrived ? [doc({ id: "new" })] : []),
+      "POST /search": () => {
+        searches += 1;
+        if (searches === 1) {
+          arrived = true;
+          return result({
+            coverage: "none",
+            discovery: { status: "enqueued", job_id: 1 },
+            hits: [],
+          });
+        }
+        return result({ hits: [hit({ chunk_id: "c-new", document_id: "new", title: "Fresh" })] });
+      },
+    });
+    render(<App watch={FAST} />);
+
+    expect(await screen.findByRole("button", { name: "Fresh" })).toBeInTheDocument();
+  });
+
+  it("runs the search again when the user submits the same query", async () => {
+    window.history.replaceState(null, "", "/?q=octopus");
+    const { calls } = mockApi({
+      "GET /topics": () => [],
+      "POST /search": () => result(),
+    });
+    render(<App watch={FAST} />);
+    await screen.findByText("Well covered");
+
+    await userEvent.click(screen.getByLabelText("Search query"));
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(calls.filter((call) => call.key === "POST /search")).toHaveLength(2),
+    );
+  });
+
+  it("shows an error when a topic cannot be unfollowed", async () => {
+    window.history.replaceState(null, "", "/topics");
+    mockApi({
+      "GET /topics": () => [topic({ id: "t1", query: "fusion energy" })],
+      "DELETE /topics/t1": () =>
+        new Response(JSON.stringify({ errors: { detail: "boom" } }), { status: 500 }),
+    });
+    render(<App watch={FAST} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Unfollow fusion energy" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+    expect(screen.getByText("fusion energy")).toBeInTheDocument();
+  });
+
   it("shows an empty state, not unrelated results, while discovery runs", async () => {
     window.history.replaceState(null, "", "/?q=heavy+metal");
     mockApi({

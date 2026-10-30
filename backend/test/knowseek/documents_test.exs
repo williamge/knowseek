@@ -105,6 +105,21 @@ defmodule Knowseek.DocumentsTest do
     end
   end
 
+  describe "list_documents/1" do
+    test "returns the newest documents first, without their bodies" do
+      old = document_fixture(body: "Old note.", fetched_at: ~U[2020-01-01 00:00:00Z])
+      new = document_fixture(body: "New note.", fetched_at: ~U[2026-01-01 00:00:00Z])
+
+      assert [%{id: new_id, body: nil}, %{id: old_id, body: nil}] = Documents.list_documents()
+      assert {new_id, old_id} == {new.id, old.id}
+    end
+
+    test "respects :limit" do
+      for i <- 1..3, do: document_fixture(body: "Note #{i}.")
+      assert length(Documents.list_documents(limit: 2)) == 2
+    end
+  end
+
   defp chunks(document),
     do: Repo.all(from c in Chunk, where: c.document_id == ^document.id, order_by: c.position)
 end

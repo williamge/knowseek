@@ -91,6 +91,18 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert id == created["id"]
     end
 
+    test "GET /documents lists documents without their bodies", %{conn: conn} do
+      document_fixture(title: "Listed", body: "A long body that a list does not need.")
+
+      assert %{"data" => [listed]} = conn |> get(~p"/api/documents") |> json_response(200)
+
+      assert listed["title"] == "Listed"
+      refute Map.has_key?(listed, "body")
+
+      assert %{"data" => %{"body" => "A long body that a list does not need."}} =
+               conn |> get(~p"/api/documents/#{listed["id"]}") |> json_response(200)
+    end
+
     test "POST returns 422 for an invalid document", %{conn: conn} do
       assert %{"errors" => %{"body" => _}} =
                conn

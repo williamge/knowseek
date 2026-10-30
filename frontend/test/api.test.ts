@@ -36,6 +36,14 @@ describe("api", () => {
     await expect(api.search("x")).rejects.toBeInstanceOf(ApiError);
   });
 
+  it("throws a clear error when a 2xx response has no data", async () => {
+    mockApi({ "POST /search": () => new Response("<html>not the API</html>", { status: 200 }) });
+    await expect(api.search("x")).rejects.toMatchObject({
+      name: "ApiError",
+      message: "The API returned an unexpected response.",
+    });
+  });
+
   it("handles 204 on delete", async () => {
     mockApi({ "DELETE /topics/t1": () => new Response(null, { status: 204 }) });
     await expect(api.deleteTopic("t1")).resolves.toBeUndefined();
