@@ -44,9 +44,15 @@ Options:
   (`:document` or `:query`). `Documents.ingest/1` passes `:document`, and
   `Search.search/2` passes `:query`. Voyage uses it; Ollama and Hashing
   ignore it.
-- Both adapters retry on 408, 429, 5xx, and transport errors, with exponential
-  backoff (`Req` `retry: :transient`, 3 retries). Other errors fail fast. A
-  failure returns `{:error, {:ollama | :voyage, ...}}`, and callers already
+- `:document` calls (ingest, in Oban jobs) retry on 408, 429, 5xx, and
+  transport errors, with exponential backoff (`Req` `retry: :transient`,
+  3 retries). Ollama waits up to 120 s per attempt, because the first request
+  loads the model.
+- `:query` calls (search, in the request path) never retry. They wait at most
+  2 s to connect and 10 s for the response
+  (`Embeddings.query_request_options/0`). Ollama also gets `keep_alive: "24h"`
+  so the model stays loaded and the first query is fast.
+- Other errors fail fast. A failure returns `{:error, {:ollama | :voyage, ...}}`, and callers already
   propagate `{:error, _}` from `Embeddings.embed/2`.
 
 ## Consequences
@@ -61,7 +67,8 @@ Options:
   switch, re-embed every chunk. Until task 017 adds a job for that, reset the
   dev database. Re-ingesting does not help, because `Documents.ingest/1`
   skips a document whose body is unchanged.
-- Search makes one embedding call per query, so its latency includes that call
-  and any retries.
+- Search makes one embedding call per query. Its worst case is about 12 s,
+  then `Search.search/2` returns `{:error, _}`. A fallback to keyword-only
+  search is not built.
 - A model with another output size needs a column migration (ADR 0004). The
   dispatcher rejects wrong-size vectors with `{:error, {:dimension_mismatch, _}}`.

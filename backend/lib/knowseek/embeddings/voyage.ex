@@ -17,11 +17,15 @@ defmodule Knowseek.Embeddings.Voyage do
       allows 320K for `voyage-3.5`). Tokens are estimated, so keep a margin.
     * `:req_options` - extra `Req` options, for example a `Req.Test` plug
 
-  Requests are retried on 408, 429, and 5xx responses and on transport errors,
-  with exponential backoff (Req's `retry: :transient`). A failure in any batch
+  `:document` requests are retried on 408, 429, and 5xx responses and on
+  transport errors, with exponential backoff (Req's `retry: :transient`).
+  `:query` requests wait for a user, so they have no retries and a 10 s limit
+  (`Knowseek.Embeddings.query_request_options/0`). A failure in any batch
   fails the whole call.
   """
   @behaviour Knowseek.Embeddings
+
+  alias Knowseek.Embeddings
 
   @default_base_url "https://api.voyageai.com/v1"
   @default_model "voyage-3.5"
@@ -37,12 +41,12 @@ defmodule Knowseek.Embeddings.Voyage do
         {:error, {:voyage, :missing_api_key}}
 
       key ->
-        req = new_request(key, config)
+        req = new_request(key, config, Keyword.fetch!(opts, :input_type))
         body = request_body(config, opts)
 
         texts
         |> batches(config)
-        |> embed_batches(req, body)
+        |> Embeddings.embed_batches(&embed_batch(req, Map.put(body, :input, &1)))
     end
   end
 
@@ -78,15 +82,15 @@ defmodule Knowseek.Embeddings.Voyage do
   # a conservative estimate that also covers multi-byte scripts.
   defp estimate_tokens(text), do: div(byte_size(text), 3) + 1
 
-  defp new_request(api_key, config) do
-    [
-      base_url: Keyword.get(config, :base_url, @default_base_url),
-      auth: {:bearer, api_key},
-      retry: :transient
-    ]
+  defp new_request(api_key, config, input_type) do
+    [base_url: Keyword.get(config, :base_url, @default_base_url), auth: {:bearer, api_key}]
+    |> Keyword.merge(limits(input_type))
     |> Keyword.merge(Keyword.get(config, :req_options, []))
     |> Req.new()
   end
+
+  defp limits(:query), do: Embeddings.query_request_options()
+  defp limits(:document), do: [retry: :transient]
 
   defp request_body(config, opts) do
     %{
@@ -94,19 +98,6 @@ defmodule Knowseek.Embeddings.Voyage do
       input_type: Atom.to_string(Keyword.fetch!(opts, :input_type)),
       output_dimension: Keyword.fetch!(opts, :dimensions)
     }
-  end
-
-  defp embed_batches(batches, req, body) do
-    Enum.reduce_while(batches, {:ok, []}, fn batch, {:ok, acc} ->
-      case embed_batch(req, Map.put(body, :input, batch)) do
-        {:ok, vectors} -> {:cont, {:ok, [vectors | acc]}}
-        {:error, _} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, acc} -> {:ok, acc |> Enum.reverse() |> Enum.concat()}
-      error -> error
-    end
   end
 
   defp embed_batch(req, body) do
@@ -127,17 +118,17 @@ defmodule Knowseek.Embeddings.Voyage do
 
   # The API returns `index` for each item. Sort by it instead of trusting order.
   defp parse_data(data, expected) do
-    vectors =
-      data
-      |> Enum.sort_by(& &1["index"])
-      |> Enum.map(& &1["embedding"])
-
-    if length(vectors) == expected and Enum.all?(vectors, &is_list/1) do
-      {:ok, vectors}
+    if length(data) == expected and Enum.all?(data, &embedding_item?/1) do
+      {:ok, data |> Enum.sort_by(& &1["index"]) |> Enum.map(& &1["embedding"])}
     else
       {:error, {:voyage, :unexpected_response}}
     end
   end
+
+  defp embedding_item?(%{"index" => index, "embedding" => embedding}),
+    do: is_integer(index) and is_list(embedding)
+
+  defp embedding_item?(_item), do: false
 
   defp error_detail(%{"detail" => detail}), do: detail
   defp error_detail(_body), do: nil

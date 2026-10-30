@@ -19,48 +19,46 @@ defmodule Knowseek.Embeddings.Ollama do
     * `:max_batch_size` - texts per request (`32`)
     * `:req_options` - extra `Req` options, for example a `Req.Test` plug
 
-  Requests are retried on 408, 429, and 5xx responses and on transport errors
-  (Req's `retry: :transient`). The first request after a start loads the
-  model, so the receive timeout is long.
+  `:document` requests are retried on 408, 429, and 5xx responses and on
+  transport errors (Req's `retry: :transient`). The first request after a
+  start loads the model, so their receive timeout is long (120 s).
+
+  `:query` requests wait for a user, so they have no retries and a 10 s
+  limit (`Knowseek.Embeddings.query_request_options/0`). Every request sets
+  `keep_alive` so the model stays loaded and the first query is fast.
   """
   @behaviour Knowseek.Embeddings
+
+  alias Knowseek.Embeddings
 
   @default_base_url "http://localhost:11434"
   @default_model "bge-m3"
   @default_max_batch_size 32
+  @keep_alive "24h"
 
   @impl true
-  def embed(texts, _opts) do
+  def embed(texts, opts) do
     config = Application.get_env(:knowseek, __MODULE__, [])
-    req = new_request(config)
+    req = new_request(config, Keyword.fetch!(opts, :input_type))
     model = Keyword.get(config, :model, @default_model)
 
     texts
     |> Enum.chunk_every(Keyword.get(config, :max_batch_size, @default_max_batch_size))
-    |> Enum.reduce_while({:ok, []}, fn batch, {:ok, acc} ->
-      case embed_batch(req, model, batch) do
-        {:ok, vectors} -> {:cont, {:ok, [vectors | acc]}}
-        {:error, _} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, acc} -> {:ok, acc |> Enum.reverse() |> Enum.concat()}
-      error -> error
-    end
+    |> Embeddings.embed_batches(&embed_batch(req, model, &1))
   end
 
-  defp new_request(config) do
-    [
-      base_url: Keyword.get(config, :base_url, @default_base_url),
-      retry: :transient,
-      receive_timeout: 120_000
-    ]
+  defp new_request(config, input_type) do
+    [base_url: Keyword.get(config, :base_url, @default_base_url)]
+    |> Keyword.merge(limits(input_type))
     |> Keyword.merge(Keyword.get(config, :req_options, []))
     |> Req.new()
   end
 
+  defp limits(:query), do: Embeddings.query_request_options()
+  defp limits(:document), do: [retry: :transient, receive_timeout: 120_000]
+
   defp embed_batch(req, model, batch) do
-    body = %{model: model, input: batch, truncate: true}
+    body = %{model: model, input: batch, truncate: true, keep_alive: @keep_alive}
 
     case Req.post(req, url: "/api/embed", json: body) do
       {:ok, %Req.Response{status: 200, body: %{"embeddings" => vectors}}}

@@ -33,9 +33,6 @@ config :knowseek, Knowseek.Embeddings,
   adapter: Knowseek.Embeddings.Hashing,
   dimensions: 1024
 
-config :knowseek, Knowseek.Embeddings.Ollama, model: "bge-m3"
-config :knowseek, Knowseek.Embeddings.Voyage, model: "voyage-3.5"
-
 # Search tuning and the coverage heuristic that decides when to seek new data.
 # `max_age_seconds` is the default freshness need for a search. `nil` means
 # that hits of any age count. A caller can override it per request.

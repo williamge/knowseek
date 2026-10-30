@@ -46,8 +46,9 @@ Built:
   so it uses the GPU. `make ollama` checks that it runs and pulls the model.
 - `Knowseek.Embeddings.Voyage`: hosted. `voyage-3.5` (1024 dims). It batches
   by count (128) and estimated tokens (100K).
-- Both retry on 408, 429, 5xx, and transport errors (`retry: :transient`) and
-  return `{:error, {:ollama | :voyage, ...}}` on failure.
+- `:document` calls retry on 408, 429, 5xx, and transport errors
+  (`retry: :transient`). `:query` calls do not retry and time out after 10 s,
+  because search waits for them. Both return `{:error, {:ollama | :voyage, ...}}` on failure.
 - `Embeddings.embed/2` takes `input_type: :document | :query`. Ingest sends
   `:document`, search sends `:query`. Voyage uses it; the others ignore it.
 - `EMBEDDINGS_ADAPTER` (`hashing`, `ollama`, `voyage`) selects the adapter in

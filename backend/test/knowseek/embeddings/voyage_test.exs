@@ -86,6 +86,20 @@ defmodule Knowseek.Embeddings.VoyageTest do
       assert Agent.get(attempts, & &1) == 3
     end
 
+    test "does not retry a :query call" do
+      {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(Voyage, fn conn ->
+        Agent.update(attempts, &(&1 + 1))
+        conn |> Plug.Conn.put_status(503) |> Req.Test.json(%{"detail" => "unavailable"})
+      end)
+
+      assert {:error, {:voyage, 503, "unavailable"}} =
+               Voyage.embed(["one"], dimensions: 4, input_type: :query)
+
+      assert Agent.get(attempts, & &1) == 1
+    end
+
     test "returns an error when retries run out" do
       Req.Test.stub(Voyage, fn conn ->
         conn |> Plug.Conn.put_status(500) |> Req.Test.json(%{"detail" => "boom"})
@@ -119,6 +133,13 @@ defmodule Knowseek.Embeddings.VoyageTest do
       end)
 
       assert {:error, {:voyage, :unexpected_response}} = Voyage.embed(["a", "b"], @opts)
+    end
+
+    test "returns an error, not a crash, when data items have the wrong shape" do
+      for data <- [["x"], [[1.0]], [%{"index" => "0", "embedding" => [1.0]}], [%{"index" => 0}]] do
+        Req.Test.stub(Voyage, &Req.Test.json(&1, %{"data" => data}))
+        assert {:error, {:voyage, :unexpected_response}} = Voyage.embed(["a"], @opts)
+      end
     end
 
     test "returns an error when no API key is configured", %{config: config} do

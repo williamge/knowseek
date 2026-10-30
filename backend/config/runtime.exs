@@ -23,47 +23,51 @@ end
 config :knowseek, KnowseekWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
-# Embeddings. EMBEDDINGS_ADAPTER selects the provider:
-#   * hashing (default) - local stand-in, no semantics
-#   * ollama            - local model through Ollama (`make ollama`), free
-#   * voyage            - Voyage AI API, needs VOYAGE_API_KEY
+# Embeddings. Each variable overrides config only when it is set, so an
+# adapter or model in config/*.exs stays in effect otherwise.
+# EMBEDDINGS_ADAPTER selects the provider:
+#   * hashing - local stand-in, no semantics (the default in config.exs)
+#   * ollama  - local model through Ollama (`make ollama`), free
+#   * voyage  - Voyage AI API, needs VOYAGE_API_KEY
 # Tests always use Hashing or a Req.Test stub, so this block is skipped there.
 # Switching adapters makes stored vectors incomparable: re-embed after a switch.
-env = fn name, default ->
-  case System.get_env(name) do
-    value when value in [nil, ""] -> default
-    value -> value
-  end
-end
-
 if config_env() != :test do
-  config :knowseek, Knowseek.Embeddings.Ollama,
-    base_url: env.("OLLAMA_URL", "http://localhost:11434"),
-    model: env.("OLLAMA_MODEL", "bge-m3")
-
-  config :knowseek, Knowseek.Embeddings.Voyage,
-    api_key: env.("VOYAGE_API_KEY", nil),
-    model: env.("VOYAGE_MODEL", "voyage-3.5")
-
-  adapter =
-    case env.("EMBEDDINGS_ADAPTER", "hashing") do
-      "hashing" ->
-        Knowseek.Embeddings.Hashing
-
-      "ollama" ->
-        Knowseek.Embeddings.Ollama
-
-      "voyage" ->
-        env.("VOYAGE_API_KEY", nil) ||
-          raise "EMBEDDINGS_ADAPTER=voyage needs the VOYAGE_API_KEY environment variable"
-
-        Knowseek.Embeddings.Voyage
-
-      other ->
-        raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
+  env = fn name ->
+    case System.get_env(name) do
+      nil -> nil
+      value -> if String.trim(value) == "", do: nil, else: String.trim(value)
     end
+  end
 
-  config :knowseek, Knowseek.Embeddings, adapter: adapter
+  set = fn pairs -> Enum.reject(pairs, fn {_key, value} -> is_nil(value) end) end
+
+  config :knowseek,
+         Knowseek.Embeddings.Ollama,
+         set.(base_url: env.("OLLAMA_URL"), model: env.("OLLAMA_MODEL"))
+
+  config :knowseek,
+         Knowseek.Embeddings.Voyage,
+         set.(api_key: env.("VOYAGE_API_KEY"), model: env.("VOYAGE_MODEL"))
+
+  case env.("EMBEDDINGS_ADAPTER") do
+    nil ->
+      :ok
+
+    "hashing" ->
+      config :knowseek, Knowseek.Embeddings, adapter: Knowseek.Embeddings.Hashing
+
+    "ollama" ->
+      config :knowseek, Knowseek.Embeddings, adapter: Knowseek.Embeddings.Ollama
+
+    "voyage" ->
+      env.("VOYAGE_API_KEY") ||
+        raise "EMBEDDINGS_ADAPTER=voyage needs the VOYAGE_API_KEY environment variable"
+
+      config :knowseek, Knowseek.Embeddings, adapter: Knowseek.Embeddings.Voyage
+
+    other ->
+      raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
+  end
 end
 
 if config_env() == :prod do

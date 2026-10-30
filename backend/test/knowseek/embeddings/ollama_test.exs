@@ -28,7 +28,13 @@ defmodule Knowseek.Embeddings.OllamaTest do
       assert b == vector(1, 4)
 
       assert_received {:request, "/api/embed", body}
-      assert body == %{"model" => "bge-m3", "input" => ["one", "two"], "truncate" => true}
+
+      assert body == %{
+               "model" => "bge-m3",
+               "input" => ["one", "two"],
+               "truncate" => true,
+               "keep_alive" => "24h"
+             }
     end
 
     test "splits texts into batches and keeps the order", %{config: config} do
@@ -59,6 +65,20 @@ defmodule Knowseek.Embeddings.OllamaTest do
 
       assert {:ok, [_]} = Ollama.embed(["one"], @opts)
       assert Agent.get(attempts, & &1) == 2
+    end
+
+    test "does not retry a :query call" do
+      {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(Ollama, fn conn ->
+        Agent.update(attempts, &(&1 + 1))
+        conn |> Plug.Conn.put_status(503) |> Req.Test.json(%{"error" => "loading"})
+      end)
+
+      assert {:error, {:ollama, 503, "loading"}} =
+               Ollama.embed(["one"], dimensions: 4, input_type: :query)
+
+      assert Agent.get(attempts, & &1) == 1
     end
 
     test "returns an error when the model is not pulled" do
