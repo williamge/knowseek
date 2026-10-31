@@ -39,7 +39,7 @@ jobs:
         with:
           otp-version: "28"
           elixir-version: "1.20"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             backend/deps
@@ -112,7 +112,7 @@ jobs:
         with:
           otp-version: "28"
           elixir-version: "1.20"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             backend/deps
@@ -154,7 +154,7 @@ jobs:
         with:
           otp-version: "28"
           elixir-version: "1.20"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             backend/deps
