@@ -1,0 +1,5 @@
+# Advisory IDs that `mix deps.audit --ignore-file .mix-audit-ignore` skips.
+# One ID per line. Put the reason on a comment line above it: the file format has
+# no inline comments. Policy: docs/decisions/0020-ci-hardening.md.
+# An ID belongs here only when no fixed version exists or the code path is not
+# reachable; remove the line when the dependency is upgraded.

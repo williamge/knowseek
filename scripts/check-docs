@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# Checks that the backlog, the ADRs, and the markdown links agree with each other.
+#
+# Fails when:
+#   - two task files or two ADR files share a number,
+#   - a task or ADR file has no row in docs/tasks/README.md or
+#     docs/decisions/README.md, a row points to a missing file, the row's number
+#     differs from the file name, or the rows are not in number order,
+#   - a task file has no `- Status:` line, or its value is not one of the values
+#     in use (see TASK_STATUS below),
+#   - a task's `- Depends on:` line is missing or names a task that does not exist,
+#   - a relative markdown link in README.md, AGENTS.md, SECURITY.md, or
+#     docs/**/*.md points to a file that does not exist, or to a heading anchor
+#     that does not exist in a markdown target.
+#
+# Links in fenced code blocks and in `inline code` are ignored, and so are
+# http(s)/mailto links and links that are only an anchor (#section).
+# Uses only bash 3.2 (macOS default), coreutils, grep, sed, and awk.
+#
+# Usage: scripts/check-docs
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+status=0
+
+fail() {
+  echo "check-docs: $1" >&2
+  status=1
+}
+
+# `- Status:` values in use in docs/tasks. The text after the value (a reason or
+# a branch name in parentheses, a period) is free.
+TASK_STATUS="^(open|done|parked|in progress|folded into [0-9]{3}|merged into [0-9]{3}|won't do)([^a-z0-9].*)?$"
+TASK_STATUS_LIST="open, in progress (<branch>), done, parked (<reason>), folded into NNN, merged into NNN, won't do"
+
+# check_numbered <label> <dir> <readme> <file-glob-regex> <excluded-name>
+# Checks unique numbers, README rows <-> files, and row order for one index.
+check_numbered() {
+  label="$1"
+  dir="$2"
+  readme="$3"
+  pattern="$4"
+  excluded="$5"
+
+  files="$(find "$dir" -maxdepth 1 -type f -name '*.md' | sed 's|.*/||' | grep -E "$pattern" | grep -v -x "$excluded" | sort || true)"
+
+  # Two files with one number.
+  dups="$(printf '%s\n' "$files" | sed 's/-.*//' | sort | uniq -d)"
+  for number in $dups; do
+    others="$(printf '%s\n' "$files" | grep "^$number-" | tr '\n' ' ')"
+    fail "duplicate $label number $number: $others"
+  done
+
+  # Rows: "| [NNN](file.md) | ..." -> "NNN file.md".
+  rows="$(sed -n 's/^| \[\([0-9]*\)\](\([^)]*\)).*/\1 \2/p' "$readme")"
+
+  # Every file has a row, and the row's number matches the file name.
+  for file in $files; do
+    number="${file%%-*}"
+    if ! printf '%s\n' "$rows" | grep -q -x "$number $file"; then
+      fail "$label $file has no row '| [$number]($file) | ... |' in $readme"
+    fi
+  done
+
+  # Every row points to a file, and rows are in number order.
+  previous=""
+  while read -r number target; do
+    [ -n "$number" ] || continue
+    if [ ! -f "$dir/$target" ]; then
+      fail "$readme: row [$number]($target) points to a missing file"
+    elif [ "${target%%-*}" != "$number" ]; then
+      fail "$readme: row [$number]($target): the number differs from the file name"
+    fi
+    # Same width, so a string comparison orders the numbers.
+    if [ -n "$previous" ] && ! [[ "$number" > "$previous" ]]; then
+      fail "$readme: row [$number] is not after row [$previous]: keep the rows in number order"
+    fi
+    previous="$number"
+  done <<EOF
+$rows
+EOF
+}
+
+check_numbered "task" docs/tasks docs/tasks/README.md '^[0-9]{3}-.*\.md$' "none"
+check_numbered "ADR" docs/decisions docs/decisions/README.md '^[0-9]{4}-.*\.md$' "0000-template.md"
+
+# Task files: Status and Depends on.
+for path in docs/tasks/[0-9][0-9][0-9]-*.md; do
+  name="$(basename "$path")"
+
+  status_line="$(grep -m1 '^- Status:' "$path" || true)"
+  if [ -z "$status_line" ]; then
+    fail "$name: no '- Status: <value>' line. Values: $TASK_STATUS_LIST"
+  else
+    value="${status_line#- Status:}"
+    value="${value# }"
+    if ! [[ "$value" =~ $TASK_STATUS ]]; then
+      fail "$name: Status '$value' is not a known value. Values: $TASK_STATUS_LIST"
+    fi
+  fi
+
+  depends_line="$(grep -m1 '^- Depends on:' "$path" || true)"
+  if [ -z "$depends_line" ]; then
+    fail "$name: no '- Depends on: none' (or task numbers) line"
+  else
+    for number in $(printf '%s\n' "$depends_line" | grep -oE '[0-9]{3}' || true); do
+      if ! ls docs/tasks/"$number"-*.md > /dev/null 2>&1; then
+        fail "$name: 'Depends on' names task $number, which has no file in docs/tasks"
+      fi
+    done
+  fi
+done
+
+# Heading anchors of a markdown file, one per line, in GitHub's format:
+# lowercase, punctuation dropped, spaces to dashes. Headings in fenced code
+# blocks do not count.
+anchors_of() {
+  awk '
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    !fence && /^#+[ \t]/ { sub(/^#+[ \t]+/, ""); sub(/[ \t#]+$/, ""); print }
+  ' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9 _-]//g' -e 's/ /-/g'
+}
+
+# Relative links: "file:line:target" for every ](target) outside code.
+links_of() {
+  awk '
+    /^[ \t]*(```|~~~)/ { fence = !fence; next }
+    fence { next }
+    {
+      line = $0
+      gsub(/`[^`]*`/, "", line)
+      while (match(line, /\]\([^)]*\)/)) {
+        print FILENAME ":" FNR ":" substr(line, RSTART + 2, RLENGTH - 3)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+  ' "$1"
+}
+
+md_files="$( { printf '%s\n' README.md AGENTS.md SECURITY.md; find docs -type f -name '*.md'; } | sort)"
+
+for file in $md_files; do
+  [ -f "$file" ] || { fail "$file: expected markdown file does not exist"; continue; }
+  dir="$(dirname "$file")"
+
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    rest="${entry#*:}"
+    line="${rest%%:*}"
+    target="${rest#*:}"
+
+    target="${target%% *}"   # drop an optional "title"
+    case "$target" in
+      '' | '#'* | '<'* | http://* | https://* | mailto:*) continue ;;
+    esac
+    # Any other scheme (ftp:, tel:, ...).
+    if [[ "$target" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*: ]]; then
+      continue
+    fi
+
+    path="${target%%#*}"
+    anchor=""
+    case "$target" in
+      *'#'*) anchor="${target#*#}" ;;
+    esac
+    path="${path%%\?*}"
+
+    case "$path" in
+      /*) resolved="${path#/}" ;;
+      *) resolved="$dir/$path" ;;
+    esac
+
+    if [ ! -e "$resolved" ]; then
+      fail "$file:$line: broken link '$target': $resolved does not exist"
+      continue
+    fi
+
+    # Heading anchors: only into markdown files, only plain ASCII anchors.
+    if [ -n "$anchor" ] && [ -f "$resolved" ] && [[ "$resolved" == *.md ]] && [[ "$anchor" =~ ^[A-Za-z0-9_-]+$ ]]; then
+      wanted="$(printf '%s' "$anchor" | tr '[:upper:]' '[:lower:]')"
+      # GitHub numbers repeated headings: heading, heading-1, heading-2.
+      base="$(printf '%s' "$wanted" | sed 's/-[0-9][0-9]*$//')"
+      found="$(anchors_of "$resolved" | grep -c -x -e "$wanted" -e "$base" || true)"
+      if [ "$found" = "0" ]; then
+        fail "$file:$line: broken link '$target': $resolved has no heading with anchor #$anchor"
+      fi
+    fi
+  done <<EOF
+$(links_of "$file")
+EOF
+done
+
+if [ "$status" = "0" ]; then
+  echo "check-docs: OK"
+fi
+exit "$status"

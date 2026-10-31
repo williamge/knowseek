@@ -1,0 +1,18 @@
+# Sobelow (Phoenix static security analysis). Run `make check-security` from the
+# repository root, or `cd backend && mix sobelow --config`. CI runs it in the
+# `security` job. Policy: docs/decisions/0020-ci-hardening.md.
+#
+# Any finding fails the build (`exit: "low"` = exit 1 on low confidence and up).
+# To accept a finding, add an inline `# sobelow_skip ["Module.Check"]` above the
+# code, or the check name to `ignore:` below. Either way, add a one-line reason
+# next to it. Currently nothing is skipped.
+[
+  verbose: false,
+  private: false,
+  skip: false,
+  exit: "low",
+  threshold: "low",
+  format: "txt",
+  ignore: [],
+  ignore_files: []
+]

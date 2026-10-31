@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# Proves that the migrations a branch adds work on a real database.
+#
+# "Added" means: files in backend/priv/repo/migrations that are not in the
+# merge base with the base ref (default origin/main). Old migrations are never
+# rolled back, so history that is irreversible does not matter.
+#
+# Phase A, empty database
+#   1. migrate everything, roll the added migrations back, and migrate again;
+#   2. run priv/repo/seeds.exs.
+# Phase B, only when the branch adds migrations: a database that holds data
+#   1. check out the merge base into a temporary git worktree, migrate it and run
+#      ITS seeds with ITS code (the data the base branch creates);
+#   2. migrate with this branch's migrations on top of that data, run this
+#      branch's seeds, roll the added migrations back, and migrate again.
+#
+# Irreversible migrations. A rollback runs `down`, so a migration without one
+# fails this check. When that is deliberate, make the FIRST LINE of the file
+#
+#   # irreversible: <why it cannot be undone>
+#
+# The check then skips the rollback of that file and of the added migrations
+# older than it (a rollback cannot jump over a migration), and says so. The
+# migration still runs forward. The reason is required.
+#
+# Database: knowseek_test[_<workspace>]_migcheck, dropped before and after (the
+# MIX_TEST_PARTITION suffix `_migcheck` is set here, so the dev and test
+# databases are never touched). Run it through `make check-migration-roundtrip`
+# so .env (KNOWSEEK_WORKSPACE) is loaded and each worktree gets its own database.
+#
+# Usage: scripts/check-migration-roundtrip [base-ref]   (default: $BASE or origin/main)
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+backend="$root/backend"
+migrations_dir="backend/priv/repo/migrations"
+base_ref="${1:-${BASE:-origin/main}}"
+
+export MIX_ENV=test
+export MIX_TEST_PARTITION=_migcheck
+
+tmp=""
+base_tree=""
+
+step() { printf '\n==> %s\n' "$*"; }
+
+die() {
+  echo "check-migration-roundtrip: $1" >&2
+  exit 1
+}
+
+mix_in() {
+  local dir="$1"
+  shift
+  (cd "$dir" && mix "$@")
+}
+
+drop_database() {
+  mix_in "$backend" ecto.drop --quiet > /dev/null 2>&1 || true
+}
+
+cleanup() {
+  local code=$?
+  trap - EXIT
+  if [ -n "$base_tree" ]; then
+    git -C "$root" worktree remove --force "$base_tree" > /dev/null 2>&1 || true
+  fi
+  if [ -n "$tmp" ]; then
+    rm -rf "$tmp"
+  fi
+  drop_database
+  exit "$code"
+}
+trap cleanup EXIT
+
+if ! merge_base="$(git -C "$root" merge-base "$base_ref" HEAD 2> /dev/null)"; then
+  die "cannot find the merge base with '$base_ref'. Run 'git fetch origin main' (CI needs fetch-depth: 0), or pass a ref."
+fi
+
+# Migration file names on the merge base, and the added ones here (sorted).
+base_names="$(git -C "$root" ls-tree -r --name-only "$merge_base" -- "$migrations_dir" | sed 's|.*/||')"
+added=""
+for path in "$backend"/priv/repo/migrations/*.exs; do
+  name="$(basename "$path")"
+  if ! printf '%s\n' "$base_names" | grep -q -x -F "$name"; then
+    added="$added$name"$'\n'
+  fi
+done
+added="$(printf '%s' "$added" | sed '/^$/d' | sort)"
+
+if [ -z "$added" ]; then
+  echo "No migrations added since $(git -C "$root" rev-parse --short "$merge_base") ($base_ref): checking that every migration applies to an empty database."
+else
+  echo "Migrations added since $(git -C "$root" rev-parse --short "$merge_base") ($base_ref):"
+  printf '%s\n' "$added" | sed 's/^/  /'
+fi
+
+# Which added migrations can be rolled back? Every one, newer than the newest
+# one that is marked irreversible.
+rollback_from=""
+newest_irreversible=""
+for name in $added; do
+  first_line="$(head -n 1 "$backend/priv/repo/migrations/$name")"
+  if [[ "$first_line" =~ ^#[[:space:]]*irreversible ]]; then
+    if ! [[ "$first_line" =~ ^#[[:space:]]*irreversible:[[:space:]]*[^[:space:]] ]]; then
+      die "$name: the first line must be '# irreversible: <reason>', with a reason. Got: $first_line"
+    fi
+    newest_irreversible="${name%%_*}"
+    echo "  note: $name is marked irreversible: it is not rolled back ($first_line)"
+  fi
+done
+for name in $added; do
+  version="${name%%_*}"
+  if [ -n "$newest_irreversible" ] && ! [[ "$version" > "$newest_irreversible" ]]; then
+    if [ "$version" != "$newest_irreversible" ]; then
+      echo "  note: $name is not rolled back (it is older than the irreversible migration $newest_irreversible)"
+    fi
+    continue
+  fi
+  if [ -z "$rollback_from" ]; then
+    rollback_from="$version"
+  fi
+done
+
+# Rolls back the added migrations, proves they are down, migrates again.
+roundtrip() {
+  if [ -z "$rollback_from" ]; then
+    echo "Nothing to roll back."
+    return 0
+  fi
+  step "Roll back migrations from version $rollback_from"
+  if ! mix_in "$backend" ecto.rollback --to "$rollback_from"; then
+    die "rollback failed (see above). Give the migration a working 'down' (use 'change' only with reversible commands). If it cannot be undone on purpose, make the first line of the file '# irreversible: <reason>'."
+  fi
+  status_table="$(mix_in "$backend" ecto.migrations)"
+  if ! printf '%s\n' "$status_table" | grep -q -E "^[[:space:]]*down[[:space:]]+${rollback_from}[[:space:]]"; then
+    die "after the rollback, migration $rollback_from is not 'down'. The rollback did not do what this check expects."
+  fi
+  step "Migrate again"
+  mix_in "$backend" ecto.migrate || die "migrating again after the rollback failed (see above): 'down' leaves a state that 'up' cannot rebuild, or 'up' cannot handle the rows that are in the tables."
+}
+
+recreate_database() {
+  drop_database
+  mix_in "$backend" ecto.create --quiet
+}
+
+step "Phase A: empty database"
+recreate_database
+mix_in "$backend" ecto.migrate || die "migrating an empty database failed (see above)."
+roundtrip
+mix_in "$backend" run priv/repo/seeds.exs || die "priv/repo/seeds.exs failed on a migrated empty database (see above)."
+
+if [ -z "$added" ]; then
+  echo
+  echo "check-migration-roundtrip: OK (no added migrations; empty database only)"
+  exit 0
+fi
+
+step "Phase B: data created by the base branch ($merge_base)"
+recreate_database
+tmp="$(mktemp -d)"
+base_tree="$tmp/base"
+git -C "$root" worktree add --detach "$base_tree" "$merge_base" > /dev/null 2>&1 || die "cannot check out $merge_base into $base_tree"
+
+# Reuse the dependencies, and their compiled form, of this checkout when the lock
+# files are the same: only the application itself is compiled again. (Mix
+# recompiles it for the next command in this checkout.)
+base_build_path=""
+if cmp -s "$backend/mix.lock" "$base_tree/backend/mix.lock" && [ -d "$backend/deps" ] && [ -d "$backend/_build/test" ]; then
+  ln -s "$backend/deps" "$base_tree/backend/deps"
+  base_build_path="$backend/_build/test"
+else
+  mix_in "$base_tree/backend" deps.get
+fi
+
+# Runs mix in the base checkout, with the same database.
+base_mix() {
+  (cd "$base_tree/backend" && if [ -n "$base_build_path" ]; then MIX_BUILD_PATH="$base_build_path" mix "$@"; else mix "$@"; fi)
+}
+
+base_mix ecto.migrate || die "the base branch's own migrations failed (see above). This is not caused by the added migrations."
+base_mix run priv/repo/seeds.exs || die "the base branch's own seeds failed (see above). This is not caused by the added migrations."
+# Informational: shows that the database holds data.
+base_mix run -e '%{rows: [[n]]} = Knowseek.Repo.query!("SELECT count(*) FROM documents"); IO.puts("Base data: #{n} documents")' || true
+
+step "Migrate with the added migrations on top of that data"
+mix_in "$backend" ecto.migrate || die "the added migrations fail on a database that holds data from the base branch (see above)."
+mix_in "$backend" run priv/repo/seeds.exs || die "priv/repo/seeds.exs fails after the added migrations on a database that holds data (see above)."
+roundtrip
+
+echo
+echo "check-migration-roundtrip: OK"
