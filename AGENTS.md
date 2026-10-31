@@ -38,6 +38,7 @@ Run everything from the repository root.
 | `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. See "How to work on a task". |
 | `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree. |
 | `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
+| `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
 
@@ -49,7 +50,7 @@ To save tokens:
 - Run `make check-quiet` one time at the end, not after each edit.
 - Do not read whole large files when a `grep` or a line range answers the question.
 
-New migration: `cd backend && mix ecto.gen.migration name_with_underscores`.
+New migration: `cd backend && mix ecto.gen.migration name_with_underscores`. Never write the version by hand. Two branches that generate a migration in the same second get the same version, and each passes CI alone. After `git fetch origin && git rebase origin/main`, run `make check-quiet`. If `check-migrations` reports a duplicate, delete your new file and generate it again.
 
 ### Databases and parallel workspaces
 

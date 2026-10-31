@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Checks the file names in backend/priv/repo/migrations.
+#
+# Ecto orders and tracks migrations by the version in the file name. Two files
+# with the same version break `mix ecto.migrate`. That can happen when two
+# branches each run `mix ecto.gen.migration` in the same second, and each
+# branch passes CI alone. After `git rebase origin/main` this check fails on
+# the branch that merges second.
+#
+# Fails when a file name:
+#   - is not <14 digit UTC timestamp>_<snake_case_name>.exs (what
+#     `mix ecto.gen.migration` writes),
+#   - shares its version with another file, or
+#   - has a version in the future (a hand-made version would sort after
+#     every later migration).
+#
+# Usage: scripts/check-migrations [migrations-dir]
+
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+dir="${1:-$root/backend/priv/repo/migrations}"
+now="$(date -u +%Y%m%d%H%M%S)"
+status=0
+
+if [ ! -d "$dir" ]; then
+  echo "check-migrations: no such directory: $dir" >&2
+  exit 2
+fi
+
+fail() {
+  echo "check-migrations: $1" >&2
+  status=1
+}
+
+previous_version=""
+previous_file=""
+
+# `sort` puts files with equal versions next to each other.
+while IFS= read -r file; do
+  name="$(basename "$file")"
+
+  if ! [[ "$name" =~ ^([0-9]{14})_[a-z0-9_]+\.exs$ ]]; then
+    fail "$name: expected <YYYYMMDDHHMMSS>_<snake_case_name>.exs. Create migrations with 'cd backend && mix ecto.gen.migration name_with_underscores'."
+    continue
+  fi
+
+  version="${BASH_REMATCH[1]}"
+
+  if [ "$version" = "$previous_version" ]; then
+    fail "duplicate version $version: $previous_file and $name. Delete the newer file and run 'mix ecto.gen.migration' again."
+  fi
+
+  if [[ "$version" > "$now" ]]; then
+    fail "$name: version $version is in the future (now: $now UTC). Do not choose a version by hand."
+  fi
+
+  previous_version="$version"
+  previous_file="$name"
+done < <(find "$dir" -maxdepth 1 -type f -name '*.exs' ! -name '.formatter.exs' | sort)
+
+exit "$status"

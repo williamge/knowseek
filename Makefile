@@ -14,7 +14,7 @@ BASE ?= origin/main
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-quiet web-check fmt worktree worktree-rm
+.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-migrations check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -54,10 +54,13 @@ iex: db-up ## Run the API server inside an IEx shell
 test: db-up ## Run the test suite. Single file: make test ARGS=test/knowseek/search_test.exs
 	$(LOAD_ENV); cd backend && mix test $(ARGS)
 
-check: db-up web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
+check-migrations: ## Check migration file names: unique versions, generator format, none in the future
+	@scripts/check-migrations
+
+check: db-up check-migrations web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
 	$(LOAD_ENV); cd backend && mix precommit
 
-check-quiet: db-up ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
+check-quiet: db-up check-migrations ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
 	@mkdir -p backend/_build
 	@if $(MAKE) --no-print-directory web-check > backend/_build/web-check.log 2>&1; then \
 		echo "make check (web): OK"; \
