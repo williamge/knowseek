@@ -13,7 +13,7 @@ Implement one backlog task end to end and open a pull request.
 
 # Contract
 - Read first (relative to the main checkout): AGENTS.md (especially "How to work on a task" and "CI"), backend/AGENTS.md, docs/ARCHITECTURE.md, then your whole task file in docs/tasks/.
-- WORKFLOW IS MANDATORY. From <main checkout> run `make worktree NAME=<your-name>`. Then do ALL work, including every file read/edit and every command, inside <worktrees dir>/<your-name>. Use ABSOLUTE paths for every file read and edit. NEVER edit files in the main checkout. NEVER commit to or push `main`. NEVER merge the PR.
+- WORKFLOW IS MANDATORY. From <main checkout> run `make worktree NAME=<your-name>`. Then do ALL work, including every file read/edit and every command, inside <worktrees dir>/<your-name>. Your read/edit/write/grep/glob tools resolve RELATIVE paths against the MAIN checkout, not against `cd` in bash, so EVERY file path MUST start with <worktrees dir>/<your-name>/. NEVER edit files in the main checkout. Run `git -C <main checkout> status --short` before your first edit and again before you open the PR; it must print nothing (if not, you caused it: move the change into the worktree, restore main with `git -C <main checkout> checkout -- <file>`, delete untracked files you created, tell the parent). `make guard-main` / `make check-quiet` check this too. NEVER commit to or push `main`. NEVER merge the PR.
 - Run single backend test files with `make test ARGS=test/...` from your worktree root (never bare `mix test`). Run `make check-quiet` once at the end; it must pass.
 - Migrations: only with `cd backend && mix ecto.gen.migration <name>`. Never write a version by hand.
 - Shared state: never run `docker compose down -v`; never touch the shared Postgres volume or other worktrees' databases; stop only containers you started; drop only databases you created.
@@ -23,7 +23,7 @@ Implement one backlog task end to end and open a pull request.
 - Finish: commit, `git push -u origin <your-name>`, `gh pr create --base main` using .github/pull_request_template.md (fill every section honestly), then `gh pr checks --watch`. If CI fails, fix on the same branch and push again until green.
 - Set your task file to `Status: done` with an `## Outcome` section (built, left out, follow-ups).
 - Do not run `make worktree-rm`; leave the worktree in place.
-- Final report: PR URL, CI result, what you verified by running it, what you left out.
+- Final report: PR URL, CI result, what you verified by running it, what you left out, and the result of the main-checkout status check.
 ```
 
 ## 2. Task prompt (one per agent)
@@ -68,3 +68,8 @@ same worktree, absolute paths, never merge. List each finding with the fix you
 want, mark which ones to skip, and say which design choice is decided. End with:
 rebase on `origin/main`, `make check-quiet`, push, `gh pr checks --watch`, and
 report a table of finding, fixed or declined (with a reason), and the CI result.
+
+## 5. Parent-side checks
+
+- After EVERY subagent returns, run `git status --short` in the main checkout (what `scripts/assert-main-clean` does from a worktree) before you report success. It must print nothing.
+- Restart the owner's dev servers after merges.

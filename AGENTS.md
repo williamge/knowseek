@@ -38,6 +38,7 @@ Run everything from the repository root.
 | `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. See "How to work on a task". |
 | `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree. |
 | `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
+| `make guard-main` | Fail if the main checkout has uncommitted changes (you edited it by mistake). Set `ALLOW_DIRTY_MAIN=1` to skip when the owner has local edits there. |
 | `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
@@ -86,7 +87,7 @@ These keep the code base coherent while many agents work in parallel. If a task 
 Every task is one worktree, one branch, and one pull request. **Never commit to or push `main`.** Never merge a pull request. A human merges.
 
 1. Pick a task in `docs/tasks/` (or take the one you were given). Read the whole task file.
-2. Create a worktree from the main checkout: `make worktree NAME=task-014-one-hit` (lowercase letters, digits, and dashes; at most 31 characters). It branches from `origin/main`. Work only inside `../knowseek-worktrees/<name>`. Do not edit the main checkout.
+2. Create a worktree from the main checkout: `make worktree NAME=task-014-one-hit` (lowercase letters, digits, and dashes; at most 31 characters). It branches from `origin/main`. Work only inside `../knowseek-worktrees/<name>`. Do not edit the main checkout. The read/edit/write/grep/glob tools resolve relative paths against the main checkout, not against `cd` in bash, so every file path MUST be absolute under the worktree. Run `make guard-main` (one line when clean) before the first commit and before opening the PR; `make check-quiet` runs it too.
 3. Keep the change small enough to review.
 4. If you make a decision that a later agent needs to know about (new dependency, new service, schema change, changed contract), add an ADR in `docs/decisions/` with the next free number.
 5. Update the docs that your change makes wrong: `README.md` (API table), `docs/ARCHITECTURE.md`, this file.

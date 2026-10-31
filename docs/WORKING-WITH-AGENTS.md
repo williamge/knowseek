@@ -68,10 +68,19 @@ The independent review still found these. CI did not see any of them:
 | Tests that pass with the new code deleted (candidate factor, `hnsw.ef_search`, create-database). | 014, 012 |
 | Design hazards: an alias URL with a changed body rewrote the aliased document; a mirror overwrote source and title. | 011 |
 | A claim in the docs that was not true: separate worktrees do not get separate `app` containers in one compose project. | 012 |
+| An agent edited the main checkout through relative tool paths; the owner's dev server broke. CI cannot see it. | see below |
 
 A test was also broken only after the rebase: 014's test used five documents
 with the same body, and 011's exact-duplicate aliasing merged them into one.
 It is a reminder that "green alone" does not mean "green together".
+
+One incident was not in a PR: an agent used relative paths in read/edit, and
+the edits landed in the main checkout, where the owner's dev server was
+watching. The dev server broke. Cause: the tools resolve relative paths against
+the main checkout, not against a `cd` in bash. CI cannot catch it, because the
+PR itself was fine. Mitigation: absolute paths in every brief, plus the
+tripwire `scripts/assert-main-clean` (run by `make check`, `make check-quiet`,
+and `make guard-main`). The tripwire detects the mistake; it does not prevent it.
 
 Practical consequences:
 
