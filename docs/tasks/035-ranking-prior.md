@@ -4,10 +4,6 @@
 - Area: `Knowseek.Search`, `Knowseek.Documents`
 - Depends on: none (page views were chosen, so 030 is not needed)
 
-The owner has not decided the priority of this task. It is a proposal from the
-live-facts design session ([028](028-live-facts-for-entities.md), [ADR
-0017](../decisions/0017-live-fact-cards.md)).
-
 ## Goal
 
 Rank more important documents higher when relevance is otherwise similar, so
@@ -74,16 +70,19 @@ Left out:
 
 - A refresh job. The figure is taken at ingest and refreshed only when a
   document is re-ingested. No mechanism re-fetches an existing document today.
-  How indexed documents are refreshed is undecided (on-demand re-fetch,
-  scheduled, never); that is an open dependency of this feature. No Oban
-  worker and no cron were added.
+  Decided 2026-10-31: no re-fetch mechanism for now; the figure is refreshed
+  only when a document is re-ingested; revisit when a source where age matters
+  is added (news, repo docs). A month-old view count still separates important
+  from lesser same-name pages. No Oban worker and no cron were added.
 - The figure is not in the JSON API; `Hit.score` includes the prior.
 - Signals for other sources (only Wikipedia has one).
 
 Follow-ups (no task files written):
 
-- Re-fetch policy for stored documents (decides how the figure stays current).
+- Re-fetch policy for stored documents, when a source where age matters is
+  added (decides how the figure stays current).
 - Show the prior (or the views) in the UI or API if people need to see why a
   result ranks where it does.
-- Wikidata sitelinks as a second signal once the entity context (task 030)
-  exists, if page views prove too noisy for entities with no page.
+- Wikidata sitelinks as a second signal (`Knowseek.Entities`, task 030, now
+  carries a sitelink count), if page views prove too noisy for entities with
+  no page.

@@ -88,20 +88,21 @@ the REST API's October figures, 14x here).
   document's (ADR 0013) keeps its own figure.
 - Documents from sources without such a figure (manual ingest) have `NULL`.
 
-### Refresh: none, and that is a named open dependency
+### Refresh: none
 
 The figure changes monthly. It is taken at ingest and refreshed **only when the
 document is re-ingested**, which today means when a discovery run finds the
 page again. **No mechanism re-fetches an existing document.** Nothing runs on a
 schedule (ADR 0015 removed the cron), and an on-demand re-fetch does not exist.
-The owner has not decided how indexed documents are kept current (on-demand
-re-fetch, a schedule, or never). So this ADR adds **no Oban worker, no cron
-and no re-fetch**: a figure on a stored document can be arbitrarily old.
-The cost of the staleness is bounded: the prior is a log, capped at +30%, so
-an old figure that is off by 2x moves the score by about 1.5%. Once the owner
-decides how documents are refreshed, the figure refreshes with them, because
-it rides on the same ingest. That decision is an **open dependency** of this
-feature, not something it solves.
+
+Decided 2026-10-31: no re-fetch mechanism for now; the figure is refreshed only
+when a document is re-ingested; revisit when a source where age matters is
+added (news, repo docs). A month-old view count still separates important from
+lesser same-name pages. So this ADR adds **no Oban worker, no cron and no
+re-fetch**: a figure on a stored document can be arbitrarily old. The cost of
+the staleness is bounded: the prior is a log, capped at +30%, so an old figure
+that is off by 2x moves the score by about 1.5%. If a re-fetch is added later,
+the figure refreshes with it, because it rides on the same ingest.
 
 ### Formula
 
@@ -152,8 +153,8 @@ score  = rrf_score_of_best_chunk * factor
   and it needs a Wikidata call per candidate and an entity-resolution context.
 - **The REST pageviews API per candidate.** The same numbers, one more HTTP
   call per page, and a 429 under load (it rate limited the probes).
-- **A refresh job or a cron.** Out of scope until the owner decides how
-  documents are refreshed (see above), and ADR 0015 removed the cron.
+- **A refresh job or a cron.** Decided against for now (see "Refresh"), and
+  ADR 0015 removed the cron.
 - **A larger or unbounded prior.** A raw `log(views)` boost lets a popular but
   loosely related page outrank a relevant one. The bound is the point.
 - **Penalising documents without a signal.** Unknown is not unpopular: manual
