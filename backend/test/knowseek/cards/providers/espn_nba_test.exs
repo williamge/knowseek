@@ -332,12 +332,17 @@ defmodule Knowseek.Cards.Providers.EspnNbaTest do
              {:too_few_teams, 0}},
             {short, {:too_few_teams, 24}}
           ] do
+        # A failed answer that is read starts a refetch in the background
+        # (the backoff is 0). Let it finish before the stub changes, or it
+        # would answer for the next body.
+        :ok = Knowseek.Cache.await(Knowseek.Cards.EspnTeams, :nba)
         Req.Test.stub(Knowseek.Cards.Espn, &Req.Test.json(&1, body))
         assert EspnNba.fetch(team("New York Knicks")) == {:error, expected}
       end
 
       # The list comes back: the next request fetches it again (the test
       # config has no backoff) and the card works.
+      :ok = Knowseek.Cache.await(Knowseek.Cards.EspnTeams, :nba)
       stub_espn()
       assert {:ok, %{title: "New York Knicks"}, _ttl} = EspnNba.fetch(team("New York Knicks"))
     end
