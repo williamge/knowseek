@@ -27,8 +27,11 @@ Task 012 asks for `docker compose up` to serve `/api/health`.
   `bin/migrate && exec bin/server`. `Knowseek.Release.migrate/0` first creates
   the database if it is missing (best effort: an error is logged and the
   migrations then fail with the real connection error), then runs all
-  migrations. A failed migration stops the container. Several replicas starting
-  together are safe because Ecto takes a migration lock.
+  migrations. A failed migration stops the container. Once the database exists,
+  several replicas starting together are safe, because Ecto takes a migration
+  lock. That lock covers only the migration step: two replicas starting against
+  a fresh server can both run `CREATE DATABASE`, and one of them fails and
+  restarts.
 - **`vector` extension.** The first migration runs
   `CREATE EXTENSION IF NOT EXISTS vector`. That works with the compose
   database, whose user is a superuser. A managed Postgres needs the extension
@@ -37,8 +40,19 @@ Task 012 asks for `docker compose up` to serve `/api/health`.
 - **Compose.** An `app` service in `docker-compose.yml` behind
   `profiles: [app]`, so `make dev` and `make db-up` start only `db`. It waits
   for `db` to be healthy. Its database name is `APP_DB_NAME` (default
-  `knowseek_prod`) in the shared Postgres, so it never touches the dev or test
-  databases of any workspace. The host port is `APP_PORT` (default 4000).
+  `knowseek_prod_<KNOWSEEK_WORKSPACE>`, or `knowseek_prod` when unset) in the
+  shared Postgres, so it never touches the dev or test databases of any
+  workspace. The port is published on `127.0.0.1` only, as `APP_PORT` (default
+  4000).
+  The compose project name is fixed (`knowseek`), so there is one `app`
+  container per project, not per worktree: `up` in a second worktree replaces
+  the first one's container. Compose cannot isolate it, because containers are
+  matched by project and service, not by `container_name`. The image tag
+  (`knowseek-app:<workspace>`) and the database follow the workspace, so the
+  replacement runs its own code against its own database. Two apps at once need
+  two compose projects; that is not set up. `make db-down` runs
+  `docker compose --profile app down`, since a plain `down` skips the `app`
+  service and leaves its container running without a database.
   `SECRET_KEY_BASE` has an insecure local default because compose resolves
   `${VAR:?}` even for services outside the active profile, so a required
   variable would break `docker compose up db`. Embedding variables pass
@@ -57,7 +71,8 @@ Task 012 asks for `docker compose up` to serve `/api/health`.
   Oban, against the compose Postgres.
 - Production still needs a TLS-terminating proxy: `config/prod.exs` redirects
   plain HTTP for hosts other than `localhost` and `127.0.0.1`, honouring
-  `X-Forwarded-Proto`.
+  `X-Forwarded-Proto`. `/api/health` is excluded from the redirect, so a probe
+  that uses the container's IP or service name gets 200 over HTTP.
 - The Dockerfile pins Elixir, OTP, and Debian tags by hand. They age; updating
   them is a manual step with `.tool-versions`.
 - There is no container healthcheck: the runtime image has no `curl`. A

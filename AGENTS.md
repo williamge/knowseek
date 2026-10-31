@@ -97,7 +97,7 @@ Every task is one worktree, one branch, and one pull request. **Never commit to 
 
 ### CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. The `backend` job compiles with warnings as errors, checks formatting, runs Credo, checks for unused dependencies, and runs the tests against Postgres + pgvector. The `frontend` job runs the type check, the format check, the tests, and the build. This is the same as `make check`, plus the build. A PR must be green before it is merged. The `backend` and `frontend` jobs are the required checks. GitHub does not enforce this on this private repository (branch protection needs a paid plan), so the rule is a team convention: see `docs/decisions/0010-worktrees-and-pull-requests.md`.
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. The `backend` job compiles with warnings as errors, checks formatting, runs Credo, checks for unused dependencies, and runs the tests against Postgres + pgvector. The `frontend` job runs the type check, the format check, the tests, and the build. The `image` job builds `backend/Dockerfile` without pushing it. This is the same as `make check`, plus the build. A PR must be green before it is merged. The `backend`, `frontend`, and `image` jobs are the required checks. GitHub does not enforce this on this private repository (branch protection needs a paid plan), so the rule is a team convention: see `docs/decisions/0010-worktrees-and-pull-requests.md`.
 
 ## Definition of done
 

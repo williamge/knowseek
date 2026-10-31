@@ -11,17 +11,22 @@ defmodule Knowseek.Release do
 
   @doc """
   Creates the database if it is missing, then runs all pending migrations.
-
-  Creating is best effort: a managed database often exists already and the
-  user may not be allowed to create databases. Then the migration step is the
-  one that fails, with the real connection error. The first migration runs
-  `CREATE EXTENSION vector`, which needs a superuser or an already enabled
-  extension.
   """
-  def migrate do
+  def migrate, do: migrate(repos())
+
+  @doc """
+  Like `migrate/0`, for the given repos.
+
+  Creating is best effort. A database that exists already needs no create
+  permission. If it is missing and the user may not create it, a warning is
+  logged and the migration step fails with the real connection error. The first
+  migration runs `CREATE EXTENSION vector`, which needs a superuser or an
+  already enabled extension.
+  """
+  def migrate(repos) when is_list(repos) do
     load_app()
 
-    for repo <- repos() do
+    for repo <- repos do
       create_database(repo)
       {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
     end
@@ -29,6 +34,7 @@ defmodule Knowseek.Release do
     :ok
   end
 
+  @doc "Rolls back `repo` down to and including migration `version`."
   def rollback(repo, version) do
     load_app()
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
