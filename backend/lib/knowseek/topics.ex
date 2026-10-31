@@ -21,8 +21,38 @@ defmodule Knowseek.Topics do
     end
   end
 
-  @spec create_topic(map()) :: {:ok, Topic.t()} | {:error, Ecto.Changeset.t()}
-  def create_topic(attrs), do: %Topic{} |> Topic.changeset(attrs) |> Repo.insert()
+  @doc """
+  Follows a query. Topics are unique by normalized query
+  (`Knowseek.Discovery.normalize/1`).
+
+  Returns `{:ok, topic, :created}` for a new topic. When the query is already
+  followed, returns `{:ok, topic, :existing}` with the stored topic,
+  unchanged: the settings in `attrs` are ignored. The unique index decides, so
+  two simultaneous follows of one query also give one topic.
+  """
+  @spec follow_topic(map()) ::
+          {:ok, Topic.t(), :created | :existing} | {:error, Ecto.Changeset.t()}
+  def follow_topic(attrs) do
+    changeset = Topic.changeset(%Topic{}, attrs)
+
+    case Repo.insert(changeset) do
+      {:ok, topic} ->
+        {:ok, topic, :created}
+
+      {:error, %Ecto.Changeset{} = failed} ->
+        with true <- Keyword.has_key?(failed.errors, :normalized_query),
+             %Topic{} = topic <-
+               Repo.get_by(Topic,
+                 normalized_query: Ecto.Changeset.get_change(failed, :normalized_query)
+               ) do
+          {:ok, topic, :existing}
+        else
+          # Unique conflict, but the topic was unfollowed before we read it: insert again.
+          nil -> follow_topic(attrs)
+          false -> {:error, failed}
+        end
+    end
+  end
 
   @spec delete_topic(Topic.t()) :: {:ok, Topic.t()} | {:error, Ecto.Changeset.t()}
   def delete_topic(%Topic{} = topic), do: Repo.delete(topic)

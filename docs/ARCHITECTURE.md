@@ -39,7 +39,7 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
 | `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
-| `Knowseek.Topics` | Topics a user follows. `RefreshWorker` (cron) enqueues one `CheckWorker` job per due topic. Without `max_age_seconds`, the check requests discovery. With it, the check runs a `Lookup` with that freshness need, so discovery runs only when fresh coverage is not sufficient. |
+| `Knowseek.Topics` | Topics a user follows, unique by normalized query: `follow_topic/1` returns the existing topic for a query that is already followed (ADR 0012). `RefreshWorker` (cron) enqueues one `CheckWorker` job per due topic. Without `max_age_seconds`, the check requests discovery. With it, the check runs a `Lookup` with that freshness need, so discovery runs only when fresh coverage is not sufficient. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
@@ -75,7 +75,8 @@ erDiagram
     }
     topics {
         uuid id
-        text query
+        text query "as typed"
+        text normalized_query "unique, from Discovery.normalize/1"
         bool active
         int refresh_interval_seconds
         int max_age_seconds "null: every refresh seeks new data"

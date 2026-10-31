@@ -26,8 +26,11 @@ export function useTopics(): TopicsApi {
   }, []);
 
   const follow = useCallback(async (input: NewTopic) => {
+    // The API returns the existing topic when the query is already followed.
     const topic = await api.createTopic(input);
-    setTopics((current) => [...current, topic]);
+    setTopics((current) =>
+      current.some((existing) => existing.id === topic.id) ? current : [...current, topic],
+    );
     return topic;
   }, []);
 

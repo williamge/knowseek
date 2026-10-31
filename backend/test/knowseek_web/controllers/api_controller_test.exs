@@ -132,6 +132,34 @@ defmodule KnowseekWeb.ApiControllerTest do
                |> json_response(422)
     end
 
+    test "following an existing query returns the topic with 200, unchanged", %{conn: conn} do
+      %{"data" => %{"id" => id} = first} =
+        conn
+        |> post(~p"/api/topics",
+          topic: %{query: "Rust", refresh_interval_seconds: 3600, max_age_seconds: 600}
+        )
+        |> json_response(201)
+
+      assert %{"data" => ^first} =
+               conn
+               |> post(~p"/api/topics",
+                 topic: %{query: "  rust ", refresh_interval_seconds: 604_800}
+               )
+               |> json_response(200)
+
+      assert %{"data" => [%{"id" => ^id, "query" => "Rust"}]} =
+               conn |> get(~p"/api/topics") |> json_response(200)
+    end
+
+    test "invalid settings are rejected even for an existing query", %{conn: conn} do
+      conn |> post(~p"/api/topics", topic: %{query: "Rust"}) |> json_response(201)
+
+      assert %{"errors" => %{"refresh_interval_seconds" => _}} =
+               conn
+               |> post(~p"/api/topics", topic: %{query: "rust", refresh_interval_seconds: 1})
+               |> json_response(422)
+    end
+
     test "create, list, delete", %{conn: conn} do
       %{"data" => %{"id" => id}} =
         conn |> post(~p"/api/topics", topic: %{query: "fusion energy"}) |> json_response(201)

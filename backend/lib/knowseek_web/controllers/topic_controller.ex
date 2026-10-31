@@ -16,9 +16,11 @@ defmodule KnowseekWeb.TopicController do
   end
 
   def create(conn, %{"topic" => params}) do
-    with {:ok, topic} <- Topics.create_topic(params) do
+    with {:ok, topic, outcome} <- Topics.follow_topic(params) do
+      status = if outcome == :created, do: :created, else: :ok
+
       conn
-      |> put_status(:created)
+      |> put_status(status)
       |> render(:show, topic: topic)
     end
   end
