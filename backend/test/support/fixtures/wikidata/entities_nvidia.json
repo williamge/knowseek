@@ -1,0 +1,1008 @@
+{
+  "success": 1,
+  "entities": {
+    "Q182477": {
+      "id": "Q182477",
+      "type": "item",
+      "claims": {
+        "P414": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P414",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 82059,
+                  "id": "Q82059"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {
+              "P249": [
+                {
+                  "snaktype": "value",
+                  "property": "P249",
+                  "datavalue": {
+                    "value": "NVDA",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            }
+          }
+        ],
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 891723,
+                  "id": "Q891723"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 4830453,
+                  "id": "Q4830453"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "afwiki": {
+          "site": "afwiki",
+          "title": "Nvidia"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "إنفيديا"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "انڤيديا"
+        },
+        "astwiki": {
+          "site": "astwiki",
+          "title": "Nvidia"
+        },
+        "azbwiki": {
+          "site": "azbwiki",
+          "title": "انویدیا"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Nvidia"
+        },
+        "banwiki": {
+          "site": "banwiki",
+          "title": "NVIDIA"
+        },
+        "be_x_oldwiki": {
+          "site": "be_x_oldwiki",
+          "title": "Nvidia"
+        },
+        "bewiki": {
+          "site": "bewiki",
+          "title": "Nvidia"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "Nvidia"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "এনভিডিয়া"
+        },
+        "brwiki": {
+          "site": "brwiki",
+          "title": "Nvidia"
+        },
+        "bswiki": {
+          "site": "bswiki",
+          "title": "NVIDIA"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Nvidia"
+        },
+        "ckbwiki": {
+          "site": "ckbwiki",
+          "title": "ئینڤیدیا"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Nvidia"
+        },
+        "dawiki": {
+          "site": "dawiki",
+          "title": "Nvidia"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Nvidia"
+        },
+        "elwiki": {
+          "site": "elwiki",
+          "title": "Nvidia"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Nvidia"
+        },
+        "enwikibooks": {
+          "site": "enwikibooks",
+          "title": "NVIDIA"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Nvidia"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "NVIDIA"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Nvidia"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Nvidia"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "انویدیا"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Nvidia"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Nvidia"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Nvidia"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "אנבידיה"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "एनवीडिया"
+        },
+        "hrwiki": {
+          "site": "hrwiki",
+          "title": "NVIDIA"
+        },
+        "huwiki": {
+          "site": "huwiki",
+          "title": "Nvidia"
+        },
+        "hywiki": {
+          "site": "hywiki",
+          "title": "Nvidia"
+        },
+        "hywwiki": {
+          "site": "hywwiki",
+          "title": "Nvidia"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "NVIDIA"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "NVIDIA"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "NVIDIA"
+        },
+        "jvwiki": {
+          "site": "jvwiki",
+          "title": "Nvidia"
+        },
+        "kabwiki": {
+          "site": "kabwiki",
+          "title": "Nvidia"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "Nvidia"
+        },
+        "kkwiki": {
+          "site": "kkwiki",
+          "title": "Nvidia"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "엔비디아"
+        },
+        "lbwiki": {
+          "site": "lbwiki",
+          "title": "NVIDIA"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Nvidia"
+        },
+        "lvwiki": {
+          "site": "lvwiki",
+          "title": "Nvidia"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "എൻവിഡിയ കോർപ്പറേഷൻ"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "Nvidia"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Nvidia"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "NVIDIA"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Nvidia"
+        },
+        "ocwiki": {
+          "site": "ocwiki",
+          "title": "Nvidia"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Nvidia"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Nvidia"
+        },
+        "ptwikiquote": {
+          "site": "ptwikiquote",
+          "title": "Nvidia"
+        },
+        "quwiki": {
+          "site": "quwiki",
+          "title": "Nvidia"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Nvidia"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Nvidia"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:Nvidia"
+        },
+        "sahwiki": {
+          "site": "sahwiki",
+          "title": "Nvidia"
+        },
+        "scowiki": {
+          "site": "scowiki",
+          "title": "Nvidia"
+        },
+        "shwiki": {
+          "site": "shwiki",
+          "title": "Nvidia"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Nvidia"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "NVIDIA"
+        },
+        "slwiki": {
+          "site": "slwiki",
+          "title": "NVIDIA"
+        },
+        "sqwiki": {
+          "site": "sqwiki",
+          "title": "Nvidia"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Nvidia"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Nvidia"
+        },
+        "swwiki": {
+          "site": "swwiki",
+          "title": "Nvidia"
+        },
+        "tawiki": {
+          "site": "tawiki",
+          "title": "என்விடியா"
+        },
+        "tgwiki": {
+          "site": "tgwiki",
+          "title": "Nvidia"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "เอ็นวิเดีย"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Nvidia"
+        },
+        "ugwiki": {
+          "site": "ugwiki",
+          "title": "نىۋىدىيا"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Nvidia"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "نویڈیا"
+        },
+        "uzwiki": {
+          "site": "uzwiki",
+          "title": "Nvidia"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "NVIDIA"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "英伟达"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "NVIDIA"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "輝達"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "英伟达"
+        }
+      }
+    },
+    "Q56274119": {
+      "id": "Q56274119",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 431289,
+                  "id": "Q431289"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "arwiki": {
+          "site": "arwiki",
+          "title": "إنفيديا آر تي إكس"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Nvidia RTX"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Nvidia GeForce RTX"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Nvidia RTX"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Nvidia RTX"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Nvidia RTX"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Nvidia RTX"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "Nvidia RTX"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "Nvidia RTX"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "엔비디아 RTX"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Nvidia RTX"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Nvidia RTX"
+        },
+        "sqwiki": {
+          "site": "sqwiki",
+          "title": "Nvidia RTX"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Nvidia RTX"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "NVIDIA RTX"
+        }
+      }
+    },
+    "Q114062792": {
+      "id": "Q114062792",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 122760264,
+                  "id": "Q122760264"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "Category:NVIDIA GeForce RTX 4080"
+        }
+      }
+    },
+    "Q116004030": {
+      "id": "Q116004030",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 122760264,
+                  "id": "Q122760264"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q957576": {
+      "id": "Q957576",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 11016,
+                  "id": "Q11016"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Nvidia Optimus"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Nvidia Optimus"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Nvidia Optimus"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Nvidia Optimus"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Optimus (NVIDIA)"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "엔비디아 옵티머스"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "Nvidia Optimus"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Nvidia Optimus"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "NVIDIA Optimus"
+        }
+      }
+    },
+    "Q825762": {
+      "id": "Q825762",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 2519914,
+                  "id": "Q2519914"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "arwiki": {
+          "site": "arwiki",
+          "title": "جيفورس"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "জিফোর্স"
+        },
+        "bswiki": {
+          "site": "bswiki",
+          "title": "GeForce"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "GeForce"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "GeForce"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Nvidia GeForce"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "GeForce"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "GeForce"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "GeForce"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "GeForce"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "جی‌فورس"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "GeForce"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "GeForce"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "GeForce"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "GeForce"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "GeForce"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "NVIDIA GeForce"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "지포스"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "GeForce"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "GeForce"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "GeForce"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "GeForce"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "GeForce"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "GeForce"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "GeForce"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:GeForce"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "GeForce"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "GeForce"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "GeForce"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Geforce"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "จีฟอร์ซ"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "GeForce"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "GeForce"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "جیفورس"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "GeForce"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "GeForce"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "GeForce"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "GeForce"
+        }
+      }
+    },
+    "Q477690": {
+      "id": "Q477690",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 7558983,
+                  "id": "Q7558983"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 165194,
+                  "id": "Q165194"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 971505,
+                  "id": "Q971505"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "afwiki": {
+          "site": "afwiki",
+          "title": "CUDA"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "كودا"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "CUDA"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "CUDA"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "CUDA"
+        },
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "Category:CUDA"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "CUDA"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "CUDA"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "CUDA"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "CUDA"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "CUDA"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "CUDA"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "کودا"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "CUDA"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Compute Unified Device Architecture"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "CUDA"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "CUDA"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "CUDA"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "CUDA"
+        },
+        "jvwiki": {
+          "site": "jvwiki",
+          "title": "CUDA"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "CUDA"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "CUDA"
+        },
+        "mkwiki": {
+          "site": "mkwiki",
+          "title": "CUDA"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "ക്യൂഡ"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "CUDA (компьютер)"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "CUDA"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "CUDA"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "CUDA"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "CUDA"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "CUDA"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "CUDA"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "CUDA"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "CUDA"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "CUDA"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "CUDA"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "CUDA"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "CUDA"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "CUDA"
+        }
+      }
+    }
+  }
+}

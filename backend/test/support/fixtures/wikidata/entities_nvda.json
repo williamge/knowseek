@@ -1,0 +1,677 @@
+{
+  "success": 1,
+  "entities": {
+    "Q1116614": {
+      "id": "Q1116614",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 1328864,
+                  "id": "Q1328864"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 166142,
+                  "id": "Q166142"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 341,
+                  "id": "Q341"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 136207022,
+                  "id": "Q136207022"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "arwiki": {
+          "site": "arwiki",
+          "title": "الوصول غير المرئي لسطح المكتب"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "Category:NonVisual Desktop Access"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "Nvda"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "넌비주얼 데스크톱 액세스"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "NonVisual Desktop Access"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "非視覺桌面存取系統"
+        }
+      }
+    },
+    "Q182477": {
+      "id": "Q182477",
+      "type": "item",
+      "claims": {
+        "P414": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P414",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 82059,
+                  "id": "Q82059"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {
+              "P249": [
+                {
+                  "snaktype": "value",
+                  "property": "P249",
+                  "datavalue": {
+                    "value": "NVDA",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            }
+          }
+        ],
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 891723,
+                  "id": "Q891723"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 4830453,
+                  "id": "Q4830453"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "afwiki": {
+          "site": "afwiki",
+          "title": "Nvidia"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "إنفيديا"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "انڤيديا"
+        },
+        "astwiki": {
+          "site": "astwiki",
+          "title": "Nvidia"
+        },
+        "azbwiki": {
+          "site": "azbwiki",
+          "title": "انویدیا"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Nvidia"
+        },
+        "banwiki": {
+          "site": "banwiki",
+          "title": "NVIDIA"
+        },
+        "be_x_oldwiki": {
+          "site": "be_x_oldwiki",
+          "title": "Nvidia"
+        },
+        "bewiki": {
+          "site": "bewiki",
+          "title": "Nvidia"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "Nvidia"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "এনভিডিয়া"
+        },
+        "brwiki": {
+          "site": "brwiki",
+          "title": "Nvidia"
+        },
+        "bswiki": {
+          "site": "bswiki",
+          "title": "NVIDIA"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Nvidia"
+        },
+        "ckbwiki": {
+          "site": "ckbwiki",
+          "title": "ئینڤیدیا"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Nvidia"
+        },
+        "dawiki": {
+          "site": "dawiki",
+          "title": "Nvidia"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Nvidia"
+        },
+        "elwiki": {
+          "site": "elwiki",
+          "title": "Nvidia"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Nvidia"
+        },
+        "enwikibooks": {
+          "site": "enwikibooks",
+          "title": "NVIDIA"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Nvidia"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "NVIDIA"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Nvidia"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Nvidia"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "انویدیا"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Nvidia"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Nvidia"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Nvidia"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "אנבידיה"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "एनवीडिया"
+        },
+        "hrwiki": {
+          "site": "hrwiki",
+          "title": "NVIDIA"
+        },
+        "huwiki": {
+          "site": "huwiki",
+          "title": "Nvidia"
+        },
+        "hywiki": {
+          "site": "hywiki",
+          "title": "Nvidia"
+        },
+        "hywwiki": {
+          "site": "hywwiki",
+          "title": "Nvidia"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "NVIDIA"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "NVIDIA"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "NVIDIA"
+        },
+        "jvwiki": {
+          "site": "jvwiki",
+          "title": "Nvidia"
+        },
+        "kabwiki": {
+          "site": "kabwiki",
+          "title": "Nvidia"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "Nvidia"
+        },
+        "kkwiki": {
+          "site": "kkwiki",
+          "title": "Nvidia"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "엔비디아"
+        },
+        "lbwiki": {
+          "site": "lbwiki",
+          "title": "NVIDIA"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Nvidia"
+        },
+        "lvwiki": {
+          "site": "lvwiki",
+          "title": "Nvidia"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "എൻവിഡിയ കോർപ്പറേഷൻ"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "Nvidia"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Nvidia"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "NVIDIA"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Nvidia"
+        },
+        "ocwiki": {
+          "site": "ocwiki",
+          "title": "Nvidia"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Nvidia"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Nvidia"
+        },
+        "ptwikiquote": {
+          "site": "ptwikiquote",
+          "title": "Nvidia"
+        },
+        "quwiki": {
+          "site": "quwiki",
+          "title": "Nvidia"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Nvidia"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Nvidia"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:Nvidia"
+        },
+        "sahwiki": {
+          "site": "sahwiki",
+          "title": "Nvidia"
+        },
+        "scowiki": {
+          "site": "scowiki",
+          "title": "Nvidia"
+        },
+        "shwiki": {
+          "site": "shwiki",
+          "title": "Nvidia"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Nvidia"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "NVIDIA"
+        },
+        "slwiki": {
+          "site": "slwiki",
+          "title": "NVIDIA"
+        },
+        "sqwiki": {
+          "site": "sqwiki",
+          "title": "Nvidia"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Nvidia"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Nvidia"
+        },
+        "swwiki": {
+          "site": "swwiki",
+          "title": "Nvidia"
+        },
+        "tawiki": {
+          "site": "tawiki",
+          "title": "என்விடியா"
+        },
+        "tgwiki": {
+          "site": "tgwiki",
+          "title": "Nvidia"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "เอ็นวิเดีย"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Nvidia"
+        },
+        "ugwiki": {
+          "site": "ugwiki",
+          "title": "نىۋىدىيا"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Nvidia"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "نویڈیا"
+        },
+        "uzwiki": {
+          "site": "uzwiki",
+          "title": "Nvidia"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "NVIDIA"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "英伟达"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "NVIDIA"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "輝達"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "英伟达"
+        }
+      }
+    },
+    "Q117051054": {
+      "id": "Q117051054",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 47018901,
+                  "id": "Q47018901"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q117051065": {
+      "id": "Q117051065",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 47018901,
+                  "id": "Q47018901"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q117051064": {
+      "id": "Q117051064",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 47018901,
+                  "id": "Q47018901"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q117051066": {
+      "id": "Q117051066",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 47018901,
+                  "id": "Q47018901"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    },
+    "Q117051060": {
+      "id": "Q117051060",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 47018901,
+                  "id": "Q47018901"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {}
+    }
+  }
+}

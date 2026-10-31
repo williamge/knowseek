@@ -1,0 +1,3124 @@
+{
+  "success": 1,
+  "entities": {
+    "Q1490": {
+      "id": "Q1490",
+      "type": "item",
+      "claims": {
+        "P625": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P625",
+              "datavalue": {
+                "value": {
+                  "latitude": 35.68944444444445,
+                  "longitude": 139.69166666666666,
+                  "altitude": null,
+                  "precision": 0.0002777777777777778,
+                  "globe": "http://www.wikidata.org/entity/Q2"
+                },
+                "type": "globecoordinate"
+              },
+              "datatype": "globe-coordinate"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 124313007,
+                  "id": "Q124313007"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {}
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 1025961,
+                  "id": "Q1025961"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {}
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 1200957,
+                  "id": "Q1200957"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 200250,
+                  "id": "Q200250"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {}
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 208511,
+                  "id": "Q208511"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 174844,
+                  "id": "Q174844"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 51929311,
+                  "id": "Q51929311"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {}
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 1549591,
+                  "id": "Q1549591"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 50337,
+                  "id": "Q50337"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 200250,
+                  "id": "Q200250"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 1066984,
+                  "id": "Q1066984"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "abstractwiki": {
+          "site": "abstractwiki",
+          "title": "Q1490"
+        },
+        "abwiki": {
+          "site": "abwiki",
+          "title": "Токио"
+        },
+        "acewiki": {
+          "site": "acewiki",
+          "title": "Tokyô"
+        },
+        "adywiki": {
+          "site": "adywiki",
+          "title": "Токио"
+        },
+        "afwiki": {
+          "site": "afwiki",
+          "title": "Tokio"
+        },
+        "alswiki": {
+          "site": "alswiki",
+          "title": "Tokio"
+        },
+        "amwiki": {
+          "site": "amwiki",
+          "title": "ቶክዮ"
+        },
+        "angwiki": {
+          "site": "angwiki",
+          "title": "Geddoburg"
+        },
+        "anpwiki": {
+          "site": "anpwiki",
+          "title": "टोक्यो"
+        },
+        "anwiki": {
+          "site": "anwiki",
+          "title": "Tokio"
+        },
+        "arcwiki": {
+          "site": "arcwiki",
+          "title": "ܛܘܩܝܘ"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "طوكيو"
+        },
+        "arywiki": {
+          "site": "arywiki",
+          "title": "طوكيو"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "طوكيو"
+        },
+        "astwiki": {
+          "site": "astwiki",
+          "title": "Tokiu"
+        },
+        "aswiki": {
+          "site": "aswiki",
+          "title": "টকিঅ'"
+        },
+        "avkwiki": {
+          "site": "avkwiki",
+          "title": "Tokyo"
+        },
+        "awawiki": {
+          "site": "awawiki",
+          "title": "टोकियो"
+        },
+        "aywiki": {
+          "site": "aywiki",
+          "title": "Tokyo"
+        },
+        "azbwiki": {
+          "site": "azbwiki",
+          "title": "توکیو"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Tokio"
+        },
+        "azwikiquote": {
+          "site": "azwikiquote",
+          "title": "Tokio"
+        },
+        "banwiki": {
+          "site": "banwiki",
+          "title": "Tokyo"
+        },
+        "barwiki": {
+          "site": "barwiki",
+          "title": "Prefektua Tokio"
+        },
+        "bat_smgwiki": {
+          "site": "bat_smgwiki",
+          "title": "Tokėjės"
+        },
+        "bawiki": {
+          "site": "bawiki",
+          "title": "Токио"
+        },
+        "bclwiki": {
+          "site": "bclwiki",
+          "title": "Tokyo"
+        },
+        "be_x_oldwiki": {
+          "site": "be_x_oldwiki",
+          "title": "Токіё"
+        },
+        "bewiki": {
+          "site": "bewiki",
+          "title": "Токіа"
+        },
+        "bewwiki": {
+          "site": "bewwiki",
+          "title": "Tokio"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "Токио"
+        },
+        "bhwiki": {
+          "site": "bhwiki",
+          "title": "टोकियो"
+        },
+        "biwiki": {
+          "site": "biwiki",
+          "title": "Tokio"
+        },
+        "bjnwiki": {
+          "site": "bjnwiki",
+          "title": "Tokyo"
+        },
+        "blkwiki": {
+          "site": "blkwiki",
+          "title": "ဝေင်ꩻတိုကျို"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "টোকিও"
+        },
+        "bowiki": {
+          "site": "bowiki",
+          "title": "ཐོ་ཁེ་ཡོ།"
+        },
+        "brwiki": {
+          "site": "brwiki",
+          "title": "Tokyo"
+        },
+        "bswiki": {
+          "site": "bswiki",
+          "title": "Tokio"
+        },
+        "bxrwiki": {
+          "site": "bxrwiki",
+          "title": "Токио"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Tòquio"
+        },
+        "cbk_zamwiki": {
+          "site": "cbk_zamwiki",
+          "title": "Tokio"
+        },
+        "cdowiki": {
+          "site": "cdowiki",
+          "title": "Dŭng-gĭng-dŭ"
+        },
+        "cebwiki": {
+          "site": "cebwiki",
+          "title": "Tokyo"
+        },
+        "cewiki": {
+          "site": "cewiki",
+          "title": "Токио"
+        },
+        "chrwiki": {
+          "site": "chrwiki",
+          "title": "ᏙᎩᏲ"
+        },
+        "chwiki": {
+          "site": "chwiki",
+          "title": "Tokyo"
+        },
+        "ckbwiki": {
+          "site": "ckbwiki",
+          "title": "تۆکیۆ"
+        },
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "東京"
+        },
+        "cowiki": {
+          "site": "cowiki",
+          "title": "Tokiu"
+        },
+        "crhwiki": {
+          "site": "crhwiki",
+          "title": "Tokyo"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Tokio"
+        },
+        "cuwiki": {
+          "site": "cuwiki",
+          "title": "Тѡкио"
+        },
+        "cvwiki": {
+          "site": "cvwiki",
+          "title": "Токио"
+        },
+        "cywiki": {
+          "site": "cywiki",
+          "title": "Tokyo"
+        },
+        "dawiki": {
+          "site": "dawiki",
+          "title": "Tokyo"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Präfektur Tokio"
+        },
+        "dewikiquote": {
+          "site": "dewikiquote",
+          "title": "Tokio"
+        },
+        "dewikivoyage": {
+          "site": "dewikivoyage",
+          "title": "Tokio (Präfektur)"
+        },
+        "diqwiki": {
+          "site": "diqwiki",
+          "title": "Tokyo"
+        },
+        "dsbwiki": {
+          "site": "dsbwiki",
+          "title": "Tokio"
+        },
+        "dtpwiki": {
+          "site": "dtpwiki",
+          "title": "Tokyo"
+        },
+        "dtywiki": {
+          "site": "dtywiki",
+          "title": "टोकियो"
+        },
+        "dvwiki": {
+          "site": "dvwiki",
+          "title": "ޓޯކިޔޯ"
+        },
+        "dzwiki": {
+          "site": "dzwiki",
+          "title": "ཊོ་ཀི་ཡ"
+        },
+        "eewiki": {
+          "site": "eewiki",
+          "title": "Tokyo"
+        },
+        "elwiki": {
+          "site": "elwiki",
+          "title": "Τόκιο"
+        },
+        "emlwiki": {
+          "site": "emlwiki",
+          "title": "Tokyo"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Tokyo"
+        },
+        "enwikinews": {
+          "site": "enwikinews",
+          "title": "Category:Tokyo"
+        },
+        "enwikiquote": {
+          "site": "enwikiquote",
+          "title": "Tokyo"
+        },
+        "enwikivoyage": {
+          "site": "enwikivoyage",
+          "title": "Tokyo (prefecture)"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Tokio"
+        },
+        "eowikinews": {
+          "site": "eowikinews",
+          "title": "Kategorio:Tokio"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Tokio"
+        },
+        "eswikinews": {
+          "site": "eswikinews",
+          "title": "Categoría:Tokio"
+        },
+        "eswikivoyage": {
+          "site": "eswikivoyage",
+          "title": "Prefectura de Tokio"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Tokyo prefektuur"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Tokio"
+        },
+        "extwiki": {
+          "site": "extwiki",
+          "title": "Tóquiu"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "توکیو"
+        },
+        "fiu_vrowiki": {
+          "site": "fiu_vrowiki",
+          "title": "Tokio"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Tokio"
+        },
+        "fjwiki": {
+          "site": "fjwiki",
+          "title": "Tokio"
+        },
+        "fowiki": {
+          "site": "fowiki",
+          "title": "Tokyo"
+        },
+        "frpwiki": {
+          "site": "frpwiki",
+          "title": "Toquio"
+        },
+        "frrwiki": {
+          "site": "frrwiki",
+          "title": "Prefektuur Tokio"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Tokyo"
+        },
+        "frwikinews": {
+          "site": "frwikinews",
+          "title": "Catégorie:Tokyo"
+        },
+        "frwikivoyage": {
+          "site": "frwikivoyage",
+          "title": "Tokyo (préfecture)"
+        },
+        "furwiki": {
+          "site": "furwiki",
+          "title": "Tokyo"
+        },
+        "fywiki": {
+          "site": "fywiki",
+          "title": "Tokio"
+        },
+        "ganwiki": {
+          "site": "ganwiki",
+          "title": "東京"
+        },
+        "gawiki": {
+          "site": "gawiki",
+          "title": "Tóiceo"
+        },
+        "gcrwiki": {
+          "site": "gcrwiki",
+          "title": "Tokyo"
+        },
+        "gdwiki": {
+          "site": "gdwiki",
+          "title": "Tokyo"
+        },
+        "glkwiki": {
+          "site": "glkwiki",
+          "title": "تؤکيؤ"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Tokyo"
+        },
+        "gnwiki": {
+          "site": "gnwiki",
+          "title": "Tókio"
+        },
+        "gorwiki": {
+          "site": "gorwiki",
+          "title": "Tokyo"
+        },
+        "gotwiki": {
+          "site": "gotwiki",
+          "title": "𐍄𐍉𐌺𐌾𐍉"
+        },
+        "hakwiki": {
+          "site": "hakwiki",
+          "title": "Tûng-kîn-tû"
+        },
+        "hawiki": {
+          "site": "hawiki",
+          "title": "Tokyo"
+        },
+        "hawwiki": {
+          "site": "hawwiki",
+          "title": "Tōkiō"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "טוקיו"
+        },
+        "hewikivoyage": {
+          "site": "hewikivoyage",
+          "title": "טוקיו רבתי"
+        },
+        "hifwiki": {
+          "site": "hifwiki",
+          "title": "Tokyo"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "टोक्यो"
+        },
+        "hrwiki": {
+          "site": "hrwiki",
+          "title": "Tokio"
+        },
+        "hsbwiki": {
+          "site": "hsbwiki",
+          "title": "Tokio"
+        },
+        "htwiki": {
+          "site": "htwiki",
+          "title": "Tokyo"
+        },
+        "huwiki": {
+          "site": "huwiki",
+          "title": "Tokió"
+        },
+        "hywiki": {
+          "site": "hywiki",
+          "title": "Տոկիո"
+        },
+        "hywikiquote": {
+          "site": "hywikiquote",
+          "title": "Տոկիո"
+        },
+        "hywwiki": {
+          "site": "hywwiki",
+          "title": "Թոքիօ"
+        },
+        "iawiki": {
+          "site": "iawiki",
+          "title": "Tokyo"
+        },
+        "ibawiki": {
+          "site": "ibawiki",
+          "title": "Tokyo"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "Tokyo"
+        },
+        "iewiki": {
+          "site": "iewiki",
+          "title": "Tōkyō"
+        },
+        "ikwiki": {
+          "site": "ikwiki",
+          "title": "Tukiu"
+        },
+        "ilowiki": {
+          "site": "ilowiki",
+          "title": "Tokyo"
+        },
+        "inhwiki": {
+          "site": "inhwiki",
+          "title": "Токио"
+        },
+        "iowiki": {
+          "site": "iowiki",
+          "title": "Tokyo"
+        },
+        "iswiki": {
+          "site": "iswiki",
+          "title": "Tókýó"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "Tokyo"
+        },
+        "itwikinews": {
+          "site": "itwikinews",
+          "title": "Categoria:Tokyo"
+        },
+        "itwikiquote": {
+          "site": "itwikiquote",
+          "title": "Tokyo"
+        },
+        "itwikivoyage": {
+          "site": "itwikivoyage",
+          "title": "Prefettura di Tokyo"
+        },
+        "jamwiki": {
+          "site": "jamwiki",
+          "title": "Tuokio"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京都"
+        },
+        "jawikibooks": {
+          "site": "jawikibooks",
+          "title": "日本のすがた 地理 都道府県/東京都"
+        },
+        "jawikinews": {
+          "site": "jawikinews",
+          "title": "カテゴリ:東京都"
+        },
+        "jawikiquote": {
+          "site": "jawikiquote",
+          "title": "東京"
+        },
+        "jawikivoyage": {
+          "site": "jawikivoyage",
+          "title": "東京都"
+        },
+        "jbowiki": {
+          "site": "jbowiki",
+          "title": "tokios"
+        },
+        "jvwiki": {
+          "site": "jvwiki",
+          "title": "Tokyo"
+        },
+        "kaawiki": {
+          "site": "kaawiki",
+          "title": "Tokio"
+        },
+        "kabwiki": {
+          "site": "kabwiki",
+          "title": "Tokyo"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "ტოკიო"
+        },
+        "kbpwiki": {
+          "site": "kbpwiki",
+          "title": "Tokiyo"
+        },
+        "kgewiki": {
+          "site": "kgewiki",
+          "title": "Tokyo"
+        },
+        "kiwiki": {
+          "site": "kiwiki",
+          "title": "Tokyo"
+        },
+        "kkwiki": {
+          "site": "kkwiki",
+          "title": "Токио"
+        },
+        "kmwiki": {
+          "site": "kmwiki",
+          "title": "តូក្យូ"
+        },
+        "kncwiki": {
+          "site": "kncwiki",
+          "title": "Tokyo"
+        },
+        "knwiki": {
+          "site": "knwiki",
+          "title": "ತೋಕ್ಯೋ"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "도쿄도"
+        },
+        "kowikinews": {
+          "site": "kowikinews",
+          "title": "분류:도쿄 도"
+        },
+        "kshwiki": {
+          "site": "kshwiki",
+          "title": "Tokio"
+        },
+        "kswiki": {
+          "site": "kswiki",
+          "title": "ٹوکیو"
+        },
+        "kuwiki": {
+          "site": "kuwiki",
+          "title": "Tokyo"
+        },
+        "kwwiki": {
+          "site": "kwwiki",
+          "title": "Tokyo"
+        },
+        "kywiki": {
+          "site": "kywiki",
+          "title": "Токио"
+        },
+        "ladwiki": {
+          "site": "ladwiki",
+          "title": "Tokio"
+        },
+        "lawiki": {
+          "site": "lawiki",
+          "title": "Tokium"
+        },
+        "lbwiki": {
+          "site": "lbwiki",
+          "title": "Prefektur Tokio"
+        },
+        "lezwiki": {
+          "site": "lezwiki",
+          "title": "Токио"
+        },
+        "lfnwiki": {
+          "site": "lfnwiki",
+          "title": "Tokyo"
+        },
+        "lgwiki": {
+          "site": "lgwiki",
+          "title": "Tokyo"
+        },
+        "lijwiki": {
+          "site": "lijwiki",
+          "title": "Tòkyo"
+        },
+        "liwiki": {
+          "site": "liwiki",
+          "title": "Tokio"
+        },
+        "lldwiki": {
+          "site": "lldwiki",
+          "title": "Tokio"
+        },
+        "lmowiki": {
+          "site": "lmowiki",
+          "title": "Tokyo"
+        },
+        "lnwiki": {
+          "site": "lnwiki",
+          "title": "Tokyo"
+        },
+        "lowiki": {
+          "site": "lowiki",
+          "title": "ໂຕກຽວ"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Tokijas"
+        },
+        "lvwiki": {
+          "site": "lvwiki",
+          "title": "Tokija"
+        },
+        "magwiki": {
+          "site": "magwiki",
+          "title": "टोकियो"
+        },
+        "maiwiki": {
+          "site": "maiwiki",
+          "title": "टोक्यो"
+        },
+        "mdfwiki": {
+          "site": "mdfwiki",
+          "title": "Токиа"
+        },
+        "mgwiki": {
+          "site": "mgwiki",
+          "title": "Tokyo"
+        },
+        "mhrwiki": {
+          "site": "mhrwiki",
+          "title": "Токио"
+        },
+        "minwiki": {
+          "site": "minwiki",
+          "title": "Tokyo"
+        },
+        "miwiki": {
+          "site": "miwiki",
+          "title": "Tōkio"
+        },
+        "mkwiki": {
+          "site": "mkwiki",
+          "title": "Токио"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "ടോക്കിയോ"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "Токио"
+        },
+        "mnwwiki": {
+          "site": "mnwwiki",
+          "title": "တိုကျို"
+        },
+        "mrjwiki": {
+          "site": "mrjwiki",
+          "title": "Токио"
+        },
+        "mrwiki": {
+          "site": "mrwiki",
+          "title": "तोक्यो"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Tokyo"
+        },
+        "mtwiki": {
+          "site": "mtwiki",
+          "title": "Tokjo"
+        },
+        "mwlwiki": {
+          "site": "mwlwiki",
+          "title": "Tóquio"
+        },
+        "myvwiki": {
+          "site": "myvwiki",
+          "title": "Токио ош"
+        },
+        "mywiki": {
+          "site": "mywiki",
+          "title": "တိုကျိုမြို့"
+        },
+        "mznwiki": {
+          "site": "mznwiki",
+          "title": "توکيو"
+        },
+        "napwiki": {
+          "site": "napwiki",
+          "title": "Tokyo"
+        },
+        "nds_nlwiki": {
+          "site": "nds_nlwiki",
+          "title": "Tokio"
+        },
+        "ndswiki": {
+          "site": "ndswiki",
+          "title": "Tokio"
+        },
+        "newiki": {
+          "site": "newiki",
+          "title": "टोकियो"
+        },
+        "newwiki": {
+          "site": "newwiki",
+          "title": "तोक्यो"
+        },
+        "niawiki": {
+          "site": "niawiki",
+          "title": "Tokyo"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "Tokio"
+        },
+        "nlwikinews": {
+          "site": "nlwikinews",
+          "title": "Categorie:Tokio"
+        },
+        "nnwiki": {
+          "site": "nnwiki",
+          "title": "Tokyo"
+        },
+        "novwiki": {
+          "site": "novwiki",
+          "title": "Tokyo"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Tokyo"
+        },
+        "nrmwiki": {
+          "site": "nrmwiki",
+          "title": "Tokyo"
+        },
+        "nvwiki": {
+          "site": "nvwiki",
+          "title": "Táłtsʼá Hiníyíní"
+        },
+        "nywiki": {
+          "site": "nywiki",
+          "title": "Tokyo"
+        },
+        "ocwiki": {
+          "site": "ocwiki",
+          "title": "Tòquio"
+        },
+        "olowiki": {
+          "site": "olowiki",
+          "title": "Tokio"
+        },
+        "orwiki": {
+          "site": "orwiki",
+          "title": "ଟୋକିଓ"
+        },
+        "oswiki": {
+          "site": "oswiki",
+          "title": "Токио"
+        },
+        "pamwiki": {
+          "site": "pamwiki",
+          "title": "Tokyo"
+        },
+        "papwiki": {
+          "site": "papwiki",
+          "title": "Tokyo"
+        },
+        "pawiki": {
+          "site": "pawiki",
+          "title": "ਟੋਕੀਓ"
+        },
+        "pcdwiki": {
+          "site": "pcdwiki",
+          "title": "Tokyo"
+        },
+        "pflwiki": {
+          "site": "pflwiki",
+          "title": "Tokio"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Tokio"
+        },
+        "plwikinews": {
+          "site": "plwikinews",
+          "title": "Kategoria:Tokio"
+        },
+        "plwikiquote": {
+          "site": "plwikiquote",
+          "title": "Tokio"
+        },
+        "pmswiki": {
+          "site": "pmswiki",
+          "title": "Tokyo"
+        },
+        "pnbwiki": {
+          "site": "pnbwiki",
+          "title": "ٹوکیو"
+        },
+        "pntwiki": {
+          "site": "pntwiki",
+          "title": "Τόκιο"
+        },
+        "pswiki": {
+          "site": "pswiki",
+          "title": "توکیو"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Tóquio"
+        },
+        "ptwikinews": {
+          "site": "ptwikinews",
+          "title": "Categoria:Tóquio"
+        },
+        "ptwikivoyage": {
+          "site": "ptwikivoyage",
+          "title": "Tóquio (província)"
+        },
+        "quwiki": {
+          "site": "quwiki",
+          "title": "Tokyo"
+        },
+        "rmwiki": {
+          "site": "rmwiki",
+          "title": "Tokio"
+        },
+        "roa_rupwiki": {
+          "site": "roa_rupwiki",
+          "title": "Tokyo"
+        },
+        "roa_tarawiki": {
+          "site": "roa_tarawiki",
+          "title": "Tokyo"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Tōkyō"
+        },
+        "rowikivoyage": {
+          "site": "rowikivoyage",
+          "title": "Tokio"
+        },
+        "ruewiki": {
+          "site": "ruewiki",
+          "title": "Токіо"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Токио"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:Токио"
+        },
+        "rwwiki": {
+          "site": "rwwiki",
+          "title": "Tokyo"
+        },
+        "sahwiki": {
+          "site": "sahwiki",
+          "title": "Токио"
+        },
+        "satwiki": {
+          "site": "satwiki",
+          "title": "ᱴᱚᱠᱭᱚ"
+        },
+        "sawiki": {
+          "site": "sawiki",
+          "title": "टोक्यो"
+        },
+        "scnwiki": {
+          "site": "scnwiki",
+          "title": "Tochiu"
+        },
+        "scowiki": {
+          "site": "scowiki",
+          "title": "Tokyo"
+        },
+        "scwiki": {
+          "site": "scwiki",
+          "title": "Tokio"
+        },
+        "sdwiki": {
+          "site": "sdwiki",
+          "title": "ٽوڪيو"
+        },
+        "sewiki": {
+          "site": "sewiki",
+          "title": "Tokio"
+        },
+        "shiwiki": {
+          "site": "shiwiki",
+          "title": "Tokyo"
+        },
+        "shwiki": {
+          "site": "shwiki",
+          "title": "Tōkyō"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Tokyo Metropolis"
+        },
+        "siwiki": {
+          "site": "siwiki",
+          "title": "ටෝකියෝ"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "Tokio"
+        },
+        "slwiki": {
+          "site": "slwiki",
+          "title": "Tokio"
+        },
+        "smnwiki": {
+          "site": "smnwiki",
+          "title": "Tokio"
+        },
+        "smwiki": {
+          "site": "smwiki",
+          "title": "Tokyo"
+        },
+        "snwiki": {
+          "site": "snwiki",
+          "title": "Tokyo"
+        },
+        "sowiki": {
+          "site": "sowiki",
+          "title": "Tokyo"
+        },
+        "sqwiki": {
+          "site": "sqwiki",
+          "title": "Tokio"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Токио"
+        },
+        "srwikinews": {
+          "site": "srwikinews",
+          "title": "Категорија:Токио"
+        },
+        "srwikiquote": {
+          "site": "srwikiquote",
+          "title": "Токио"
+        },
+        "sswiki": {
+          "site": "sswiki",
+          "title": "ITokyo"
+        },
+        "stqwiki": {
+          "site": "stqwiki",
+          "title": "Tokio"
+        },
+        "suwiki": {
+          "site": "suwiki",
+          "title": "Tokyo"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Tokyo"
+        },
+        "svwikivoyage": {
+          "site": "svwikivoyage",
+          "title": "Tokyo (prefektur)"
+        },
+        "swwiki": {
+          "site": "swwiki",
+          "title": "Tokyo"
+        },
+        "szlwiki": {
+          "site": "szlwiki",
+          "title": "Tokjo"
+        },
+        "tawiki": {
+          "site": "tawiki",
+          "title": "தோக்கியோ"
+        },
+        "tcywiki": {
+          "site": "tcywiki",
+          "title": "ಟೋಕಿಯೋ"
+        },
+        "tetwiki": {
+          "site": "tetwiki",
+          "title": "Tokio"
+        },
+        "tewiki": {
+          "site": "tewiki",
+          "title": "టోక్యో"
+        },
+        "tgwiki": {
+          "site": "tgwiki",
+          "title": "Токио"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "โตเกียว"
+        },
+        "tkwiki": {
+          "site": "tkwiki",
+          "title": "Tokio"
+        },
+        "tlwiki": {
+          "site": "tlwiki",
+          "title": "Tokyo"
+        },
+        "tlywiki": {
+          "site": "tlywiki",
+          "title": "Tokio"
+        },
+        "tnwiki": {
+          "site": "tnwiki",
+          "title": "Tokyo"
+        },
+        "tokwiki": {
+          "site": "tokwiki",
+          "title": "ma tomo Tokijo"
+        },
+        "towiki": {
+          "site": "towiki",
+          "title": "Tokio"
+        },
+        "tpiwiki": {
+          "site": "tpiwiki",
+          "title": "Tokyo"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Tokyo"
+        },
+        "ttwiki": {
+          "site": "ttwiki",
+          "title": "Токио"
+        },
+        "tumwiki": {
+          "site": "tumwiki",
+          "title": "Tokyo"
+        },
+        "twwiki": {
+          "site": "twwiki",
+          "title": "Tokyo"
+        },
+        "tyvwiki": {
+          "site": "tyvwiki",
+          "title": "Токио"
+        },
+        "tywiki": {
+          "site": "tywiki",
+          "title": "Tokyo"
+        },
+        "udmwiki": {
+          "site": "udmwiki",
+          "title": "Токио"
+        },
+        "ugwiki": {
+          "site": "ugwiki",
+          "title": "توكيو"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Токіо"
+        },
+        "ukwikiquote": {
+          "site": "ukwikiquote",
+          "title": "Токіо"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "توکیو"
+        },
+        "uzwiki": {
+          "site": "uzwiki",
+          "title": "Tokio"
+        },
+        "vecwiki": {
+          "site": "vecwiki",
+          "title": "Prefetura de Tokyo"
+        },
+        "vepwiki": {
+          "site": "vepwiki",
+          "title": "Tokio"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "Tokyo"
+        },
+        "viwikiquote": {
+          "site": "viwikiquote",
+          "title": "Tokyo"
+        },
+        "vlswiki": {
+          "site": "vlswiki",
+          "title": "Tokio"
+        },
+        "vowiki": {
+          "site": "vowiki",
+          "title": "Tokyo"
+        },
+        "warwiki": {
+          "site": "warwiki",
+          "title": "Tokyo"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "东京都"
+        },
+        "xmfwiki": {
+          "site": "xmfwiki",
+          "title": "ტოკიო"
+        },
+        "yiwiki": {
+          "site": "yiwiki",
+          "title": "טאקיא"
+        },
+        "yowiki": {
+          "site": "yowiki",
+          "title": "Tokyo"
+        },
+        "zawiki": {
+          "site": "zawiki",
+          "title": "Dunghgingh"
+        },
+        "zeawiki": {
+          "site": "zeawiki",
+          "title": "Tokyo"
+        },
+        "zh_classicalwiki": {
+          "site": "zh_classicalwiki",
+          "title": "東京都"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Tang-kiaⁿ-to͘"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "東京都"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "東京都"
+        },
+        "zhwikinews": {
+          "site": "zhwikinews",
+          "title": "Category:東京"
+        },
+        "zhwikivoyage": {
+          "site": "zhwikivoyage",
+          "title": "东京都"
+        },
+        "zuwiki": {
+          "site": "zuwiki",
+          "title": "ITokyo"
+        }
+      }
+    },
+    "Q7473516": {
+      "id": "Q7473516",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 129319205,
+                  "id": "Q129319205"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 515,
+                  "id": "Q515"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P625": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P625",
+              "datavalue": {
+                "value": {
+                  "latitude": 35.683889,
+                  "longitude": 139.774444,
+                  "altitude": null,
+                  "precision": 1.0e-5,
+                  "globe": "http://www.wikidata.org/entity/Q2"
+                },
+                "type": "globecoordinate"
+              },
+              "datatype": "globe-coordinate"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "arwiki": {
+          "site": "arwiki",
+          "title": "طوكيو (اليابان)"
+        },
+        "barwiki": {
+          "site": "barwiki",
+          "title": "Tokio"
+        },
+        "bnwikivoyage": {
+          "site": "bnwikivoyage",
+          "title": "টোকিও"
+        },
+        "cdowiki": {
+          "site": "cdowiki",
+          "title": "Dŭng-gĭng"
+        },
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "Tokyo"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Tokio"
+        },
+        "dewikivoyage": {
+          "site": "dewikivoyage",
+          "title": "Tokio"
+        },
+        "elwikivoyage": {
+          "site": "elwikivoyage",
+          "title": "Τόκιο"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Tokyo Proper"
+        },
+        "enwikivoyage": {
+          "site": "enwikivoyage",
+          "title": "Tokyo"
+        },
+        "eowikivoyage": {
+          "site": "eowikivoyage",
+          "title": "Tokio"
+        },
+        "eswikivoyage": {
+          "site": "eswikivoyage",
+          "title": "Tokio"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Tokyo"
+        },
+        "fawikivoyage": {
+          "site": "fawikivoyage",
+          "title": "توکیو"
+        },
+        "fiwikivoyage": {
+          "site": "fiwikivoyage",
+          "title": "Tokio"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Tokyo (23 arrondissements)"
+        },
+        "frwikivoyage": {
+          "site": "frwikivoyage",
+          "title": "Tokyo"
+        },
+        "hakwiki": {
+          "site": "hakwiki",
+          "title": "Tûng-kîn"
+        },
+        "hewikivoyage": {
+          "site": "hewikivoyage",
+          "title": "טוקיו"
+        },
+        "idwikivoyage": {
+          "site": "idwikivoyage",
+          "title": "Tokyo"
+        },
+        "itwikivoyage": {
+          "site": "itwikivoyage",
+          "title": "Tokyo"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京"
+        },
+        "jawikivoyage": {
+          "site": "jawikivoyage",
+          "title": "東京"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "도쿄"
+        },
+        "lbwiki": {
+          "site": "lbwiki",
+          "title": "Tokio"
+        },
+        "nlwikivoyage": {
+          "site": "nlwikivoyage",
+          "title": "Tokio"
+        },
+        "papwiki": {
+          "site": "papwiki",
+          "title": "Tokio"
+        },
+        "plwikivoyage": {
+          "site": "plwikivoyage",
+          "title": "Tokio"
+        },
+        "ptwikivoyage": {
+          "site": "ptwikivoyage",
+          "title": "Tóquio"
+        },
+        "rowikivoyage": {
+          "site": "rowikivoyage",
+          "title": "Tokyo"
+        },
+        "ruwikivoyage": {
+          "site": "ruwikivoyage",
+          "title": "Токио"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Tokyo"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Staden Tokyo"
+        },
+        "svwikivoyage": {
+          "site": "svwikivoyage",
+          "title": "Tokyo"
+        },
+        "trwikivoyage": {
+          "site": "trwikivoyage",
+          "title": "Tokyo"
+        },
+        "ukwikivoyage": {
+          "site": "ukwikivoyage",
+          "title": "Токіо"
+        },
+        "viwikivoyage": {
+          "site": "viwikivoyage",
+          "title": "Tokyo"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "东京"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Tang-kiaⁿ"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "東京"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "东京"
+        },
+        "zhwikivoyage": {
+          "site": "zhwikivoyage",
+          "title": "東京"
+        }
+      }
+    },
+    "Q41187": {
+      "id": "Q41187",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 219577,
+                  "id": "Q219577"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 778575,
+                  "id": "Q778575"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 891723,
+                  "id": "Q891723"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 11294827,
+                  "id": "Q11294827"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 161726,
+                  "id": "Q161726"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 4830453,
+                  "id": "Q4830453"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P414": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P414",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 217475,
+                  "id": "Q217475"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {
+              "P249": [
+                {
+                  "snaktype": "value",
+                  "property": "P249",
+                  "datavalue": {
+                    "value": "6758",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            }
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P414",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 13677,
+                  "id": "Q13677"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal",
+            "qualifiers": {
+              "P249": [
+                {
+                  "snaktype": "value",
+                  "property": "P249",
+                  "datavalue": {
+                    "value": "SONY",
+                    "type": "string"
+                  },
+                  "datatype": "string"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "sitelinks": {
+        "afwiki": {
+          "site": "afwiki",
+          "title": "Sony"
+        },
+        "alswiki": {
+          "site": "alswiki",
+          "title": "Sony"
+        },
+        "amwiki": {
+          "site": "amwiki",
+          "title": "ሶኒ"
+        },
+        "angwiki": {
+          "site": "angwiki",
+          "title": "Sonygegyld"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "سوني"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "سونى"
+        },
+        "astwiki": {
+          "site": "astwiki",
+          "title": "Sony"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Sony"
+        },
+        "bawiki": {
+          "site": "bawiki",
+          "title": "Sony"
+        },
+        "be_x_oldwiki": {
+          "site": "be_x_oldwiki",
+          "title": "Соні"
+        },
+        "bewiki": {
+          "site": "bewiki",
+          "title": "Sony"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "Сони"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "সনি"
+        },
+        "bswiki": {
+          "site": "bswiki",
+          "title": "Sony"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Sony"
+        },
+        "ckbwiki": {
+          "site": "ckbwiki",
+          "title": "سۆنی"
+        },
+        "cowiki": {
+          "site": "cowiki",
+          "title": "Sony"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Sony"
+        },
+        "dawiki": {
+          "site": "dawiki",
+          "title": "Sony"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Sony"
+        },
+        "dewikinews": {
+          "site": "dewikinews",
+          "title": "Kategorie:Sony"
+        },
+        "diqwiki": {
+          "site": "diqwiki",
+          "title": "Sony"
+        },
+        "elwiki": {
+          "site": "elwiki",
+          "title": "Sony"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Sony"
+        },
+        "enwikinews": {
+          "site": "enwikinews",
+          "title": "Category:Sony"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Sony"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Sony"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Sony"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Sony"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "سونی"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Sony"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Sony"
+        },
+        "ganwiki": {
+          "site": "ganwiki",
+          "title": "Sony"
+        },
+        "gawiki": {
+          "site": "gawiki",
+          "title": "Sony"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Sony"
+        },
+        "hakwiki": {
+          "site": "hakwiki",
+          "title": "Sony"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "סוני"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "सोनी"
+        },
+        "hrwiki": {
+          "site": "hrwiki",
+          "title": "Sony"
+        },
+        "huwiki": {
+          "site": "huwiki",
+          "title": "Sony Corporation"
+        },
+        "hywiki": {
+          "site": "hywiki",
+          "title": "Սոնի"
+        },
+        "hywwiki": {
+          "site": "hywwiki",
+          "title": "Սօնի"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "Sony"
+        },
+        "iowiki": {
+          "site": "iowiki",
+          "title": "Sony"
+        },
+        "iswiki": {
+          "site": "iswiki",
+          "title": "Sony"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "Sony"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "ソニーグループ"
+        },
+        "jvwiki": {
+          "site": "jvwiki",
+          "title": "Sony"
+        },
+        "kaawiki": {
+          "site": "kaawiki",
+          "title": "Sony"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "Sony"
+        },
+        "kkwiki": {
+          "site": "kkwiki",
+          "title": "Sony"
+        },
+        "knwiki": {
+          "site": "knwiki",
+          "title": "ಸೋನಿ"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "소니그룹"
+        },
+        "kuwiki": {
+          "site": "kuwiki",
+          "title": "Sony"
+        },
+        "kywiki": {
+          "site": "kywiki",
+          "title": "Sony"
+        },
+        "lawiki": {
+          "site": "lawiki",
+          "title": "Sony"
+        },
+        "liwiki": {
+          "site": "liwiki",
+          "title": "Sony"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Sony"
+        },
+        "lvwiki": {
+          "site": "lvwiki",
+          "title": "Sony"
+        },
+        "mgwiki": {
+          "site": "mgwiki",
+          "title": "Sony"
+        },
+        "minwiki": {
+          "site": "minwiki",
+          "title": "Sony"
+        },
+        "mkwiki": {
+          "site": "mkwiki",
+          "title": "Sony"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "സോണി കോർപ്പറേഷൻ"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "Sony"
+        },
+        "mrwiki": {
+          "site": "mrwiki",
+          "title": "सोनी"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Sony"
+        },
+        "mywiki": {
+          "site": "mywiki",
+          "title": "ဆိုနီ"
+        },
+        "newiki": {
+          "site": "newiki",
+          "title": "सोनी"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "Sony"
+        },
+        "nnwiki": {
+          "site": "nnwiki",
+          "title": "Sony"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Sony"
+        },
+        "pawiki": {
+          "site": "pawiki",
+          "title": "ਸੋਨੀ"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Sony"
+        },
+        "pnbwiki": {
+          "site": "pnbwiki",
+          "title": "سونی"
+        },
+        "pswiki": {
+          "site": "pswiki",
+          "title": "سوني"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Sony"
+        },
+        "quwiki": {
+          "site": "quwiki",
+          "title": "Sony"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Sony"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Sony"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:Sony"
+        },
+        "ruwikiquote": {
+          "site": "ruwikiquote",
+          "title": "Sony"
+        },
+        "sahwiki": {
+          "site": "sahwiki",
+          "title": "Sony"
+        },
+        "scowiki": {
+          "site": "scowiki",
+          "title": "Sony"
+        },
+        "shwiki": {
+          "site": "shwiki",
+          "title": "Sony"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Sony"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "Sony (spoločnosť)"
+        },
+        "slwiki": {
+          "site": "slwiki",
+          "title": "Sony"
+        },
+        "sqwiki": {
+          "site": "sqwiki",
+          "title": "Sony"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Sony"
+        },
+        "suwiki": {
+          "site": "suwiki",
+          "title": "Sony"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Sony"
+        },
+        "swwiki": {
+          "site": "swwiki",
+          "title": "Sony"
+        },
+        "szlwiki": {
+          "site": "szlwiki",
+          "title": "Sony"
+        },
+        "tawiki": {
+          "site": "tawiki",
+          "title": "சோனி"
+        },
+        "tewiki": {
+          "site": "tewiki",
+          "title": "సోనీ"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "โซนี่"
+        },
+        "tkwiki": {
+          "site": "tkwiki",
+          "title": "SONY"
+        },
+        "tlwiki": {
+          "site": "tlwiki",
+          "title": "Sony"
+        },
+        "tlywiki": {
+          "site": "tlywiki",
+          "title": "SONY"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Sony"
+        },
+        "trwikinews": {
+          "site": "trwikinews",
+          "title": "Kategori:Sony"
+        },
+        "ttwiki": {
+          "site": "ttwiki",
+          "title": "Sony"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Sony"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "سونی کارپوریشن"
+        },
+        "uzwiki": {
+          "site": "uzwiki",
+          "title": "Sony"
+        },
+        "vecwiki": {
+          "site": "vecwiki",
+          "title": "Sony"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "Sony"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "索尼"
+        },
+        "xmfwiki": {
+          "site": "xmfwiki",
+          "title": "Sony"
+        },
+        "yowiki": {
+          "site": "yowiki",
+          "title": "Sony"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Sony"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "索尼"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "索尼"
+        },
+        "zhwikinews": {
+          "site": "zhwikinews",
+          "title": "Category:索尼"
+        }
+      }
+    },
+    "Q308891": {
+      "id": "Q308891",
+      "type": "item",
+      "claims": {
+        "P625": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P625",
+              "datavalue": {
+                "value": {
+                  "latitude": 35.676666666667,
+                  "longitude": 139.76472222222,
+                  "altitude": null,
+                  "precision": 0.00027777777777778,
+                  "globe": "http://www.wikidata.org/entity/Q2"
+                },
+                "type": "globecoordinate"
+              },
+              "datatype": "globe-coordinate"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 82794,
+                  "id": "Q82794"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 135236643,
+                  "id": "Q135236643"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "acewiki": {
+          "site": "acewiki",
+          "title": "Wilayah kusuh Tokyô"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "أحياء طوكيو الخاصة"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Tokionun xüsusi rayonları"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Districtes especials de Tòquio"
+        },
+        "dawiki": {
+          "site": "dawiki",
+          "title": "Tokyos specielle bydistrikter"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Bezirke Tokios"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Special wards of Tokyo"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Tokiaj specialaj kvartaloj"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Barrios especiales de Tokio"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Tokioko auzo bereziak"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "مناطق ویژه توکیو"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Tokion erillisalueet"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Arrondissement spécial de Tokyo"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Barrios de Tokyo"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "टोक्यो के विशेष वार्ड"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "Distrik Kota Khusus di Tokyo"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "Quartieri speciali di Tokyo"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京都区部"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "ტოკიოს სპეციალური რაიონები"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "도쿄도 구부"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Tokijo seniūnijos"
+        },
+        "mkwiki": {
+          "site": "mkwiki",
+          "title": "Посебни окрузи во Токио"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "ടോക്യോയിലെ പ്രത്യേക വാർഡുകൾ"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Wad khas di Tokyo"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "Speciale wijken van Tokio"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Okręgi specjalne w Tokio"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Bairros de Tóquio"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Sectoarele speciale din Tōkyō"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Специальные районы Токио"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "Special wards of Tokyo"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "Zvláštny obvod (Tokio)"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Посебни окрузи Токија"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "เขตพิเศษของโตเกียว"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Tokyo'nun özel semtleri"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Особливі райони Токіо"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "ٹوکیو کے خصوصی وارڈ"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "Các quận đặc biệt của Tokyo"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "东京都区部"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Tang-kiaⁿ-to͘ ê te̍k-pia̍t-khu"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "東京都區部"
+        }
+      }
+    },
+    "Q7813796": {
+      "id": "Q7813796",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 134556,
+                  "id": "Q134556"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Tokyo (Masaharu Fukuyama song)"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京 (福山雅治の曲)"
+        }
+      }
+    },
+    "Q7842": {
+      "id": "Q7842",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 15936437,
+                  "id": "Q15936437"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 265662,
+                  "id": "Q265662"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "preferred"
+          },
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 96888669,
+                  "id": "Q96888669"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P625": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P625",
+              "datavalue": {
+                "value": {
+                  "latitude": 35.71339,
+                  "longitude": 139.76232,
+                  "altitude": null,
+                  "precision": 1.0e-5,
+                  "globe": "http://www.wikidata.org/entity/Q2"
+                },
+                "type": "globecoordinate"
+              },
+              "datatype": "globe-coordinate"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "afwiki": {
+          "site": "afwiki",
+          "title": "Universiteit van Tokio"
+        },
+        "arwiki": {
+          "site": "arwiki",
+          "title": "جامعة طوكيو"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "جامعة طوكيو"
+        },
+        "astwiki": {
+          "site": "astwiki",
+          "title": "Universidá de Tokiu"
+        },
+        "azbwiki": {
+          "site": "azbwiki",
+          "title": "توکیو بیلیم‌یوردو"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Tokio Universiteti"
+        },
+        "banwiki": {
+          "site": "banwiki",
+          "title": "Univérsitas Tokyo"
+        },
+        "bawiki": {
+          "site": "bawiki",
+          "title": "Токио университеты"
+        },
+        "be_x_oldwiki": {
+          "site": "be_x_oldwiki",
+          "title": "Такійскі ўнівэрсытэт"
+        },
+        "bewiki": {
+          "site": "bewiki",
+          "title": "Такійскі ўніверсітэт"
+        },
+        "bgwiki": {
+          "site": "bgwiki",
+          "title": "Токийски университет"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "টোকিও বিশ্ববিদ্যালয়"
+        },
+        "brwiki": {
+          "site": "brwiki",
+          "title": "Skol-veur Tokyo"
+        },
+        "cawiki": {
+          "site": "cawiki",
+          "title": "Universitat de Tòquio"
+        },
+        "cdowiki": {
+          "site": "cdowiki",
+          "title": "東京大學"
+        },
+        "commonswiki": {
+          "site": "commonswiki",
+          "title": "University of Tokyo"
+        },
+        "cswiki": {
+          "site": "cswiki",
+          "title": "Tokijská univerzita"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Universität Tokio"
+        },
+        "elwiki": {
+          "site": "elwiki",
+          "title": "Πανεπιστήμιο του Τόκιο"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "University of Tokyo"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Universitato de Tokio"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Universidad de Tokio"
+        },
+        "etwiki": {
+          "site": "etwiki",
+          "title": "Tokyo Ülikool"
+        },
+        "euwiki": {
+          "site": "euwiki",
+          "title": "Tokioko Unibertsitatea"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "دانشگاه توکیو"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Tokion yliopisto"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Université de Tokyo"
+        },
+        "glwiki": {
+          "site": "glwiki",
+          "title": "Universidade de Tokyo"
+        },
+        "hewiki": {
+          "site": "hewiki",
+          "title": "אוניברסיטת טוקיו"
+        },
+        "hiwiki": {
+          "site": "hiwiki",
+          "title": "टोक्यो विश्वविद्यालय"
+        },
+        "hrwiki": {
+          "site": "hrwiki",
+          "title": "Sveučilište u Tokiju"
+        },
+        "huwiki": {
+          "site": "huwiki",
+          "title": "Tokiói Egyetem"
+        },
+        "hywiki": {
+          "site": "hywiki",
+          "title": "Տոկիոյի համալսարան"
+        },
+        "idwiki": {
+          "site": "idwiki",
+          "title": "Universitas Tokyo"
+        },
+        "itwiki": {
+          "site": "itwiki",
+          "title": "Università imperiale di Tokyo"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京大学"
+        },
+        "jawikibooks": {
+          "site": "jawikibooks",
+          "title": "東大対策"
+        },
+        "kawiki": {
+          "site": "kawiki",
+          "title": "ტოკიოს უნივერსიტეტი"
+        },
+        "kkwiki": {
+          "site": "kkwiki",
+          "title": "Токио университеті"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "도쿄 대학"
+        },
+        "lawiki": {
+          "site": "lawiki",
+          "title": "Universitas Tokiensis"
+        },
+        "ltwiki": {
+          "site": "ltwiki",
+          "title": "Tokijo universitetas"
+        },
+        "lvwiki": {
+          "site": "lvwiki",
+          "title": "Tokijas Universitāte"
+        },
+        "madwiki": {
+          "site": "madwiki",
+          "title": "Universitas Tokyo"
+        },
+        "mlwiki": {
+          "site": "mlwiki",
+          "title": "ടോക്കിയോ സർവകലാശാല"
+        },
+        "mnwiki": {
+          "site": "mnwiki",
+          "title": "Токиогийн Их Сургууль"
+        },
+        "mswiki": {
+          "site": "mswiki",
+          "title": "Universiti Tokyo"
+        },
+        "mywiki": {
+          "site": "mywiki",
+          "title": "တိုကျို တက္ကသိုလ်"
+        },
+        "newiki": {
+          "site": "newiki",
+          "title": "टोकियो विश्वविद्यालय"
+        },
+        "nlwiki": {
+          "site": "nlwiki",
+          "title": "Universiteit van Tokio"
+        },
+        "nowiki": {
+          "site": "nowiki",
+          "title": "Universitetet i Tokyo"
+        },
+        "pawiki": {
+          "site": "pawiki",
+          "title": "ਟੋਕੀਓ ਯੂਨੀਵਰਸਿਟੀ"
+        },
+        "plwiki": {
+          "site": "plwiki",
+          "title": "Uniwersytet Tokijski"
+        },
+        "pnbwiki": {
+          "site": "pnbwiki",
+          "title": "یونیورسٹی آف ٹوکیو"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Universidade de Tóquio"
+        },
+        "quwiki": {
+          "site": "quwiki",
+          "title": "Tokyo Yachay Sunturnin"
+        },
+        "rkiwiki": {
+          "site": "rkiwiki",
+          "title": "တိုကျို တက္ကသိုလ်"
+        },
+        "rowiki": {
+          "site": "rowiki",
+          "title": "Universitatea Tokio"
+        },
+        "ruwiki": {
+          "site": "ruwiki",
+          "title": "Токийский университет"
+        },
+        "ruwikinews": {
+          "site": "ruwikinews",
+          "title": "Категория:Токийский университет"
+        },
+        "scowiki": {
+          "site": "scowiki",
+          "title": "University o Tokyo"
+        },
+        "shwiki": {
+          "site": "shwiki",
+          "title": "Univerzitet u Tokiju"
+        },
+        "simplewiki": {
+          "site": "simplewiki",
+          "title": "University of Tokyo"
+        },
+        "skwiki": {
+          "site": "skwiki",
+          "title": "Tokijská univerzita"
+        },
+        "slwiki": {
+          "site": "slwiki",
+          "title": "Univerza v Tokiu"
+        },
+        "srwiki": {
+          "site": "srwiki",
+          "title": "Универзитет у Токију"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Tokyos universitet"
+        },
+        "tawiki": {
+          "site": "tawiki",
+          "title": "தோக்கியோ பல்கலைக்கழகம்"
+        },
+        "tewiki": {
+          "site": "tewiki",
+          "title": "టోక్యో విశ్వవిద్యాలయం"
+        },
+        "tgwiki": {
+          "site": "tgwiki",
+          "title": "Донишгоҳи Токио"
+        },
+        "thwiki": {
+          "site": "thwiki",
+          "title": "มหาวิทยาลัยโตเกียว"
+        },
+        "tlwiki": {
+          "site": "tlwiki",
+          "title": "Unibersidad ng Tokyo"
+        },
+        "trwiki": {
+          "site": "trwiki",
+          "title": "Tokyo Üniversitesi"
+        },
+        "ttwiki": {
+          "site": "ttwiki",
+          "title": "Токио университеты"
+        },
+        "ugwiki": {
+          "site": "ugwiki",
+          "title": "توكيو ئۇنىۋېرستېتى"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Токійський університет"
+        },
+        "urwiki": {
+          "site": "urwiki",
+          "title": "جامعہ ٹوکیو"
+        },
+        "uzwiki": {
+          "site": "uzwiki",
+          "title": "Tokio universiteti"
+        },
+        "viwiki": {
+          "site": "viwiki",
+          "title": "Đại học Tokyo"
+        },
+        "warwiki": {
+          "site": "warwiki",
+          "title": "Unibersidad han Tokyo"
+        },
+        "wuuwiki": {
+          "site": "wuuwiki",
+          "title": "东京大学"
+        },
+        "zawiki": {
+          "site": "zawiki",
+          "title": "Dunghgingh Dayoz"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Tang-kiaⁿ Tāi-ha̍k"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "東京大學"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "东京大学"
+        }
+      }
+    },
+    "Q1069994": {
+      "id": "Q1069994",
+      "type": "item",
+      "claims": {
+        "P31": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P31",
+              "datavalue": {
+                "value": {
+                  "entity-type": "item",
+                  "numeric-id": 3918,
+                  "id": "Q3918"
+                },
+                "type": "wikibase-entityid"
+              },
+              "datatype": "wikibase-item"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ],
+        "P625": [
+          {
+            "mainsnak": {
+              "snaktype": "value",
+              "property": "P625",
+              "datavalue": {
+                "value": {
+                  "latitude": 35.699375,
+                  "longitude": 139.741325,
+                  "altitude": null,
+                  "precision": 2.777777777777778e-6,
+                  "globe": "http://www.wikidata.org/entity/Q2"
+                },
+                "type": "globecoordinate"
+              },
+              "datatype": "globe-coordinate"
+            },
+            "type": "statement",
+            "rank": "normal"
+          }
+        ]
+      },
+      "sitelinks": {
+        "arwiki": {
+          "site": "arwiki",
+          "title": "جامعة طوكيو للعلوم"
+        },
+        "arzwiki": {
+          "site": "arzwiki",
+          "title": "جامعة طوكيو للعلوم"
+        },
+        "azwiki": {
+          "site": "azwiki",
+          "title": "Tokio Elm Universiteti"
+        },
+        "bnwiki": {
+          "site": "bnwiki",
+          "title": "টোকিও বিজ্ঞান বিশ্ববিদ্যালয়"
+        },
+        "dewiki": {
+          "site": "dewiki",
+          "title": "Naturwissenschaftliche Universität Tokio"
+        },
+        "enwiki": {
+          "site": "enwiki",
+          "title": "Tokyo University of Science"
+        },
+        "eowiki": {
+          "site": "eowiki",
+          "title": "Scienca Universitato de Tokio"
+        },
+        "eswiki": {
+          "site": "eswiki",
+          "title": "Universidad de Ciencias de Tokio"
+        },
+        "fawiki": {
+          "site": "fawiki",
+          "title": "دانشگاه علوم توکیو"
+        },
+        "fiwiki": {
+          "site": "fiwiki",
+          "title": "Tokion luonnontieteiden yliopisto"
+        },
+        "frwiki": {
+          "site": "frwiki",
+          "title": "Université des sciences naturelles de Tokyo"
+        },
+        "jawiki": {
+          "site": "jawiki",
+          "title": "東京理科大学"
+        },
+        "jawikibooks": {
+          "site": "jawikibooks",
+          "title": "東京理科大対策"
+        },
+        "kowiki": {
+          "site": "kowiki",
+          "title": "도쿄 이과대학"
+        },
+        "lawiki": {
+          "site": "lawiki",
+          "title": "Universitas Scientiarum Tokiensis"
+        },
+        "ptwiki": {
+          "site": "ptwiki",
+          "title": "Universidade de Ciências de Tóquio"
+        },
+        "svwiki": {
+          "site": "svwiki",
+          "title": "Tokyo University of Science"
+        },
+        "tlwiki": {
+          "site": "tlwiki",
+          "title": "Tokyo University of Science"
+        },
+        "ukwiki": {
+          "site": "ukwiki",
+          "title": "Токійський університет природничих наук"
+        },
+        "zh_classicalwiki": {
+          "site": "zh_classicalwiki",
+          "title": "東京理科大學"
+        },
+        "zh_min_nanwiki": {
+          "site": "zh_min_nanwiki",
+          "title": "Tang-kiaⁿ Lí-kho Tāi-ha̍k"
+        },
+        "zh_yuewiki": {
+          "site": "zh_yuewiki",
+          "title": "東京理科大學"
+        },
+        "zhwiki": {
+          "site": "zhwiki",
+          "title": "東京理科大學"
+        }
+      }
+    }
+  }
+}

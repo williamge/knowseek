@@ -36,6 +36,8 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
 | `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
+| `Knowseek.Entities` | Entity resolution (task 030, ADR 0017). `resolve(query, opts)` turns a query into `{:ok, %{intent, entity, alternatives}}`, `:none`, `{:pending, query}` (cold cache) or `{:error, reason}`. It reads only the cache; a cold query starts one background fetch. `Entities.Intent` splits `weather in <place>` and `<place> weather` into intent `:weather` and the place. `Entities.Resolver` is the behaviour for a resolver; `Entities.Wikidata` (`wbsearchentities` for candidates, one `wbgetentities` for claims) is the configured one. The top entity is the first candidate whose type a card provider handles (`kind/1`, the `supported_types` config); the other candidates of that kind, at most 5, are the alternatives. `Entities.Entity` is the struct. |
+| `Knowseek.Cache` | A disposable in-memory cache (ETS) with a supervised background refresher: `get(cache, key, fetch_fun, opts)` never fetches in the caller. Single-flight per key, TTL (a number or a function of the value), stale-while-revalidate, the old value kept on failure, a backoff after a failure, a fetch timeout, a cap on entries. Entity resolution uses one instance (`Knowseek.Entities.Cache`); the card framework (task 031) will use another. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
@@ -85,14 +87,20 @@ Oban stores its jobs in `oban_jobs` in the same database.
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
 
-## Live fact cards (decided design, not built yet)
+## Live fact cards (entity resolution built, cards not built yet)
 
-[ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Tasks 030-034 build it; none of it is shipped. The design:
+[ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Task 030 (entity resolution, `Knowseek.Entities`, `Knowseek.Cache`) is built. Tasks 031-034 (the cards, their endpoint) are not. The design:
 
-- Entities are resolved through Wikidata (task 030). Cards come from swappable provider behaviours: ESPN, a Yahoo-style chart endpoint, and Open-Meteo.
+- Entities are resolved through Wikidata (task 030, built). Cards come from swappable provider behaviours: ESPN, a Yahoo-style chart endpoint, and Open-Meteo.
 - A separate endpoint is cache-only. It reads an in-memory cache and never calls a provider in the request path. Its response has `status` (`fresh`, `stale`, `pending`, `unavailable`), `as_of`, and the card data.
-- A supervised in-process refresher fills the cache, single-flight per entity, with a short timeout and a backoff. The UI polls. Nothing runs when nobody is looking. The cache is disposable: no Oban job, no table.
+- A supervised in-process refresher fills the cache, single-flight per entity, with a short timeout and a backoff. The UI polls. Nothing runs when nobody is looking. The cache is disposable: no Oban job, no table. `Knowseek.Cache` is this mechanism and entity resolution already runs on it: `resolve/2` returns `{:pending, query}` on a cold query, and the caller asks again.
 - Rule 6 in `AGENTS.md` is amended accordingly. The request path never calls an external provider, except query embedding in `Search`. Index writes still go through Oban.
+
+### Entity resolution
+
+`Entities.resolve/2` splits the intent word off (`weather in tokyo` gives `:weather` and `tokyo`), then reads the cache entry for the lowercased text. A cold entry starts a fetch: one `wbsearchentities` call (20 candidates), one `wbgetentities` call for all of their claims and sitelinks, then the choice of the top entity. The result, including "no match", is cached for a day. A failure (HTTP 429, timeout) is `{:error, reason}` when nothing is cached, and the old answer is kept when something is. No new fetch starts for a minute after a failure.
+
+An entity has a *kind* when a type it is an instance of (P31) is in the `supported_types` config for that kind and it has what the provider needs: a company needs an exchange ticker (P414 with the P249 qualifier), a place needs coordinates (P625), a sports team needs nothing more. The list is flat on purpose: Tokyo is a "big city" and a "megacity", not a "city". The config lists the ids seen in the probes.
 
 ## Configuration
 
@@ -104,6 +112,8 @@ Oban stores its jobs in `oban_jobs` in the same database.
 - `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`. `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
 - `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
 - `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
+- `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`). `Knowseek.Cache` options, `max_entries` and `clock`, are set where the cache is started (`application.ex`).
+- `Knowseek.Entities.Wikidata`: `base_url`, `search_limit` (20), `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Oban`: the `discovery` queue and the pruner.
 
 Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
