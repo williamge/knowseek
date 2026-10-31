@@ -107,6 +107,10 @@ Oban stores its jobs in `oban_jobs` in the same database.
 
 Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
+## Deployment
+
+The backend builds into a Mix release image (`backend/Dockerfile`). `docker compose --profile app up --build` runs it next to the compose Postgres. The container creates its database, runs the migrations (`Knowseek.Release.migrate/0`, which includes `CREATE EXTENSION vector`), and serves the API. Environment variables are listed in `README.md`. The image has no web UI yet (task 018). See `docs/decisions/0014-release-and-container.md`.
+
 ## Known limitations
 
 - With the default `EMBEDDINGS_ADAPTER=hashing`, search matches words, not meaning.

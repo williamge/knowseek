@@ -28,8 +28,8 @@ setup: db-up ## Install deps and create + migrate the dev and test databases
 db-up: ## Start Postgres (pgvector) in Docker
 	docker compose up -d --wait db
 
-db-down: ## Stop Postgres (data is kept in a Docker volume)
-	docker compose down
+db-down: ## Stop Postgres and the app container (data is kept in a Docker volume)
+	docker compose --profile app down
 
 db-reset: db-up ## Drop and recreate this workspace's dev database
 	$(LOAD_ENV); cd backend && mix ecto.reset
