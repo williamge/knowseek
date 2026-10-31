@@ -6,7 +6,8 @@ defmodule Knowseek.Search.Hit do
   `similarity` describe the document's best chunk. The document's other
   matching chunks are in `passages`.
 
-    * `score` - the fused (reciprocal rank fusion) score of the best chunk.
+    * `score` - the fused (reciprocal rank fusion) score of the best chunk,
+      times the document's prior factor (1.0 without a signal; ADR 0018).
       Higher is better. It is not a sum over the document's chunks.
     * `passages` - other relevant chunks of the same document, best first,
       at most `:max_passages` (see `Knowseek.Search`). Each has `:chunk_id`,

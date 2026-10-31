@@ -6,6 +6,10 @@ defmodule Knowseek.Documents.Document do
   (`Knowseek.Documents.URL`). Ingesting the same URL again updates the
   existing row. Other URLs that served the same body are recorded in
   `Knowseek.Documents.DocumentAlias`.
+
+  `monthly_views` is an optional importance signal: how often the page that
+  the document came from is read, per 30 days. It is `nil` when the source has
+  no such figure. `Knowseek.Search` turns it into a ranking prior (ADR 0018).
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -25,6 +29,7 @@ defmodule Knowseek.Documents.Document do
     field :published_at, :utc_datetime
     field :fetched_at, :utc_datetime
     field :metadata, :map, default: %{}
+    field :monthly_views, :integer
 
     has_many :chunks, Knowseek.Documents.Chunk
 
@@ -38,7 +43,17 @@ defmodule Knowseek.Documents.Document do
   """
   def ingest_changeset(document, attrs) do
     document
-    |> cast(attrs, [:url, :title, :body, :source, :published_at, :fetched_at, :metadata])
+    |> cast(attrs, [
+      :url,
+      :title,
+      :body,
+      :source,
+      :published_at,
+      :fetched_at,
+      :metadata,
+      :monthly_views
+    ])
+    |> validate_number(:monthly_views, greater_than_or_equal_to: 0)
     |> validate_required([:body, :source])
     |> update_change(:url, &URL.canonicalize/1)
     |> put_content_hash()

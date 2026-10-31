@@ -38,6 +38,16 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert hnsw.metadata == %{"pageid" => 76_162_223}
     end
 
+    test "carries the page's views per 30 days, and none when the API gave no figure" do
+      stub_api()
+
+      assert {:ok, [vector_db, hnsw]} = Wikipedia.discover("pgvector", [])
+
+      # Recorded response: 59 days with data (today's is null), 60 days asked for.
+      assert vector_db.monthly_views == 6_752
+      refute Map.has_key?(hnsw, :monthly_views)
+    end
+
     test "searches articles, then fetches each page's plain text, with a User-Agent" do
       stub_api()
 
@@ -57,7 +67,8 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       assert_received {:request,
                        %{
-                         "prop" => "extracts|info|pageprops",
+                         "prop" => "extracts|info|pageprops|pageviews",
+                         "pvipdays" => "60",
                          "explaintext" => "1",
                          "pageids" => "74020014"
                        }, _}
@@ -197,6 +208,26 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
     end
   end
 
+  describe "monthly_views/1" do
+    test "averages the days with data and scales to 30 days" do
+      assert Wikipedia.monthly_views(%{"2026-10-01" => 100, "2026-10-02" => 200}) == 4_500
+    end
+
+    test "ignores days without data" do
+      assert Wikipedia.monthly_views(%{"2026-10-01" => 100, "2026-10-02" => nil}) == 3_000
+    end
+
+    test "is nil when no day has data or the API sent nothing" do
+      assert Wikipedia.monthly_views(%{"2026-10-01" => nil}) == nil
+      assert Wikipedia.monthly_views(%{}) == nil
+      assert Wikipedia.monthly_views(nil) == nil
+    end
+
+    test "a page with zero views has zero" do
+      assert Wikipedia.monthly_views(%{"2026-10-01" => 0}) == 0
+    end
+  end
+
   describe "with Discovery.run/2" do
     test "ingests the pages as wikipedia documents" do
       stub_api()
@@ -205,6 +236,9 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       assert [_, _] = documents = Documents.list_documents()
       assert Enum.all?(documents, &(&1.source == "wikipedia"))
+
+      assert %{monthly_views: 6_752} = Enum.find(documents, &(&1.title == "Vector database"))
+      assert %{monthly_views: nil} = Enum.find(documents, &(&1.title =~ "small world"))
     end
   end
 end

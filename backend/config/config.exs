@@ -36,13 +36,19 @@ config :knowseek, Knowseek.Embeddings,
 # `candidate_factor`: each ranked list fetches `limit * candidate_factor`
 # chunks, so grouping them by document still fills `limit` hits.
 # `max_passages`: the most extra chunks a hit carries in `passages`.
+# `prior_weight` and `prior_saturation_views`: the document prior (ADR 0018).
+# A document's score is multiplied by 1 + prior_weight * min(1,
+# log10(1 + views) / log10(1 + prior_saturation_views)), at most +30% by
+# default. A weight of 0 turns the prior off.
 config :knowseek, Knowseek.Search,
   default_limit: 10,
   candidate_factor: 40,
   max_passages: 3,
   min_similarity: 0.5,
   min_strong_hits: 3,
-  max_age_seconds: nil
+  max_age_seconds: nil,
+  prior_weight: 0.3,
+  prior_saturation_views: 1_000_000
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
 config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]

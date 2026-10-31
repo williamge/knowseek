@@ -96,6 +96,52 @@ defmodule Knowseek.DocumentsTest do
 
       assert %{body: ["can't be blank"]} = errors_on(changeset)
     end
+
+    test "stores monthly_views, updates it on re-ingest, and keeps it when it is left out" do
+      url = "https://example.com/views"
+      assert {:ok, %Document{monthly_views: nil}} = Documents.ingest(doc(url, nil))
+
+      assert {:ok, %Document{id: id, monthly_views: 81_520}} = Documents.ingest(doc(url, 81_520))
+      assert Documents.get_document(id).monthly_views == 81_520
+
+      # Same URL, body changed: the figure moves with the re-chunked document.
+      assert {:ok, _} = Documents.ingest(%{doc(url, 90_000) | body: "different body"})
+      assert Documents.get_document(id).monthly_views == 90_000
+
+      # A candidate without a figure does not erase the stored one.
+      assert {:ok, _} = Documents.ingest(doc(url, nil))
+      assert Documents.get_document(id).monthly_views == 90_000
+
+      assert {:ok, _} = Documents.ingest(%{doc(url, nil) | body: "different body"})
+      assert Documents.get_document(id).monthly_views == 90_000
+    end
+
+    test "rejects a negative monthly_views" do
+      assert {:error, changeset} = Documents.ingest(doc("https://example.com/neg", -1))
+      assert %{monthly_views: [_]} = errors_on(changeset)
+    end
+
+    test "a copy of another document's body does not change its monthly_views" do
+      body = long_body("views")
+
+      {:ok, original} =
+        Documents.ingest(%{
+          url: "https://example.com/o",
+          body: body,
+          source: "t",
+          monthly_views: 500
+        })
+
+      {:ok, _} =
+        Documents.ingest(%{
+          url: "https://example.com/c",
+          body: body,
+          source: "t",
+          monthly_views: 9
+        })
+
+      assert Documents.get_document(original.id).monthly_views == 500
+    end
   end
 
   describe "ingest/1 URL canonicalization" do
@@ -443,4 +489,8 @@ defmodule Knowseek.DocumentsTest do
 
   defp chunks(document),
     do: Repo.all(from c in Chunk, where: c.document_id == ^document.id, order_by: c.position)
+
+  # A candidate as a source builds it: no `:monthly_views` key without a figure.
+  defp doc(url, nil), do: %{url: url, body: "same body", source: "test"}
+  defp doc(url, views), do: Map.put(doc(url, nil), :monthly_views, views)
 end

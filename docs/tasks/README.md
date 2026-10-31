@@ -51,7 +51,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [032](032-company-card.md) | Company card | 031 |
 | [033](033-weather-card.md) | Weather card | 031 |
 | [034](034-weather-location-context.md) | Location context for bare "weather" | 033 |
-| [035](035-ranking-prior.md) | Ranking prior from document importance (open; priority undecided) | none |
+| [035](035-ranking-prior.md) | Ranking prior from document importance (done, [ADR 0018](../decisions/0018-ranking-prior.md)) | none |
 | [036](036-public-repo-readiness.md) | Prepare the repository for going public | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004

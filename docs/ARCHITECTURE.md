@@ -27,7 +27,7 @@ All modules live in `backend/lib/knowseek/`.
 | Module | Responsibility |
 | --- | --- |
 | `Knowseek.Lookup` | Entry point for a query. Searches, then requests discovery if coverage is not sufficient. |
-| `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (`tsvector`) and vector (cosine, HNSW) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). |
+| `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (`tsvector`) and vector (cosine, HNSW) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). Then a bounded prior from the document's `monthly_views` multiplies that score and the hits are sorted again (see "Ranking prior"). |
 | `Knowseek.Search.Coverage` | Pure heuristic that classifies a hit list as `:sufficient`, `:partial`, or `:none`. Each hit is one document, so it counts documents with a relevant, fresh hit. With `max_age_seconds`, it counts only documents whose `fetched_at` is within that many seconds. |
 | `Knowseek.Documents` | The only write path into the index. Validates, canonicalizes the URL, chunks, embeds, and stores documents. Re-ingesting a URL updates it. A body that is long enough (`min_alias_body_length/0`) and already stored under another URL is not a new document: the URL becomes an alias of the stored one, and only that document's `fetched_at` moves (a document that has only a `urn:` URL takes the real URL instead). An alias URL that later serves a different body loses its alias and becomes a new document. An unchanged body at a document's own URL is not re-chunked or re-embedded, but the other fields and `fetched_at` are updated. See `docs/decisions/0013-url-canonicalization-and-aliases.md`. |
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
@@ -35,7 +35,7 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Ollama` (local `bge-m3` through Ollama, free; the default, ADR 0016), `Embeddings.Hashing` (local stand-in, no semantics; the opt-out and the adapter in tests), `Embeddings.Voyage` (Voyage AI API). |
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
-| `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
+| `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each, with each article's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request). Skips disambiguation pages. |
 | `Knowseek.Entities` | Entity resolution (task 030, ADR 0017). `resolve(query, opts)` turns a query into `{:ok, %{intent, entity, alternatives}}`, `:none`, `{:pending, query}` (cold cache) or `{:error, reason}`. It reads only the cache; a cold query starts one background fetch. `Entities.Intent` splits `weather in <place>` and `<place> weather` into intent `:weather` and the place. `Entities.Resolver` is the behaviour for a resolver; `Entities.Wikidata` (`wbsearchentities` for candidates, one `wbgetentities` for claims) is the configured one. The top entity is the first candidate whose type a card provider handles (`kind/1`, the `supported_types` config); the other candidates of that kind, at most 5, are the alternatives. `Entities.Entity` is the struct. |
 | `Knowseek.Cache` | A disposable in-memory cache (ETS) with a supervised background refresher: `get(cache, key, fetch_fun, opts)` never fetches in the caller. Single-flight per key, TTL (a number or a function of the value), stale-while-revalidate, the old value kept on failure, a backoff after a failure, a fetch timeout, a cap on entries. Entity resolution uses one instance (`Knowseek.Entities.Cache`); the card framework (task 031) will use another. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
@@ -63,6 +63,7 @@ erDiagram
         timestamp published_at
         timestamp fetched_at
         jsonb metadata
+        bigint monthly_views "nullable; page views per 30 days, set at ingest (ADR 0018)"
     }
     document_aliases {
         uuid id
@@ -87,6 +88,20 @@ Oban stores its jobs in `oban_jobs` in the same database.
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
 
+## Ranking prior
+
+[ADR 0018](decisions/0018-ranking-prior.md). After chunk fusion and grouping, `Knowseek.Search` multiplies each document's score by a factor from `documents.monthly_views` and sorts again (a stable sort, so equal scores keep the fused order):
+
+```
+factor = 1 + prior_weight * min(1, log10(1 + views) / log10(1 + prior_saturation_views))
+score  = best_chunk_rrf_score * factor
+```
+
+- The factor is between 1.0 and `1 + prior_weight` (1.3 by default). It never lowers a score, so relevance dominates: a document at rank 1 in both lists (2/61) is overtaken only by one within about 20 ranks of it. A document with no figure (`NULL`) gets exactly 1.0 and ranks as before. `prior_weight: 0` turns the prior off. Both knobs can be passed to `Search.search/2`.
+- 81,520 views give 1.245 and 6,276 give 1.190, a 4.6% lead.
+- The figure is taken at ingest (the Wikipedia source reads it from the same API call as the text) and written by `Documents.ingest/1`. It is refreshed only when the document is re-ingested. No mechanism re-fetches an existing document, so the figure can be old. Decided 2026-10-31: no re-fetch for now; revisit when a source where age matters is added (ADR 0018).
+- `Hit.score` includes the factor. `passages[].score` do not.
+
 ## Live fact cards (entity resolution built, cards not built yet)
 
 [ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Task 030 (entity resolution, `Knowseek.Entities`, `Knowseek.Cache`) is built. Tasks 031-034 (the cards, their endpoint) are not. The design:
@@ -109,7 +124,7 @@ An entity has a *kind* when a type it is an instance of (P31) is in the `support
 - `Knowseek.Embeddings`: `adapter`, `dimensions` (must match the migration).
 - `Knowseek.Embeddings.Ollama`: `base_url`, `model`, `max_batch_size`, `req_options`. Set from `OLLAMA_URL` and `OLLAMA_MODEL` in `config/runtime.exs`.
 - `Knowseek.Embeddings.Voyage`: `model`, batch limits, `req_options`. `api_key` comes from `VOYAGE_API_KEY` in `config/runtime.exs`.
-- `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`. `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
+- `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`, `prior_weight` (0.3), `prior_saturation_views` (1,000,000; see "Ranking prior"). `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
 - `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
 - `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`). `Knowseek.Cache` options, `max_entries` and `clock`, are set where the cache is started (`application.ex`).

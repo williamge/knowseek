@@ -17,7 +17,8 @@ defmodule Knowseek.Discovery.Source do
           required(:body) => String.t(),
           optional(:title) => String.t(),
           optional(:published_at) => DateTime.t(),
-          optional(:metadata) => map()
+          optional(:metadata) => map(),
+          optional(:monthly_views) => non_neg_integer()
         }
 
   @doc "Short stable name. Stored in `documents.source`."

@@ -165,6 +165,110 @@ defmodule Knowseek.SearchTest do
     end
   end
 
+  describe "document prior (ADR 0018)" do
+    @knicks_views 81_520
+    @westchester_views 6_276
+
+    test "of two equally relevant documents, the more viewed one ranks first" do
+      for popular_first? <- [true, false] do
+        Repo.delete_all(Knowseek.Documents.Document)
+
+        {popular, other} = knicks_pair(popular_first?)
+
+        assert {:ok, %{hits: [first, second]}} = Search.search("knicks basketball")
+        assert first.document_id == popular.id
+        assert second.document_id == other.id
+        assert first.score > second.score
+      end
+    end
+
+    test "without the prior the same two documents are within a few percent of each other" do
+      {_popular, _other} = knicks_pair(true)
+
+      assert {:ok, %{hits: [first, second]}} = Search.search("knicks basketball", prior_weight: 0)
+      assert first.score / second.score < 1.04
+    end
+
+    test "documents without a signal rank and score as before" do
+      for i <- 1..4, do: document_fixture(body: "Knicks basketball note #{i}.")
+      document_fixture(body: "Knicks basketball. " <> long_body("knicks", 2))
+
+      assert {:ok, %{hits: hits}} = Search.search("knicks basketball")
+      assert {:ok, %{hits: baseline}} = Search.search("knicks basketball", prior_weight: 0)
+
+      assert length(hits) == 5
+      assert Enum.map(hits, & &1.document_id) == Enum.map(baseline, & &1.document_id)
+      assert Enum.map(hits, & &1.score) == Enum.map(baseline, & &1.score)
+    end
+
+    test "multiplies only the score of a document that has a signal" do
+      with_views =
+        document_fixture(body: "Knicks basketball team, edition A.", monthly_views: 10_000)
+
+      without = document_fixture(body: "Knicks basketball team, edition B.")
+
+      assert {:ok, %{hits: raw}} = Search.search("knicks basketball", prior_weight: 0)
+      assert {:ok, %{hits: boosted}} = Search.search("knicks basketball")
+
+      score = fn hits, doc -> Enum.find(hits, &(&1.document_id == doc.id)).score end
+      assert score.(boosted, without) == score.(raw, without)
+
+      factor = Search.prior_factor(10_000, 0.3, 1_000_000)
+      assert_in_delta score.(boosted, with_views), score.(raw, with_views) * factor, 1.0e-12
+    end
+
+    test "a popular but clearly less relevant document does not outrank a relevant one" do
+      relevant = document_fixture(body: "Knicks basketball knicks basketball knicks.")
+
+      # Twenty better-than-the-popular-one matches push it far down both lists.
+      for i <- 1..20, do: document_fixture(body: "Knicks basketball note #{i}.")
+
+      popular =
+        document_fixture(
+          title: "Popular",
+          body:
+            String.pad_trailing("A page about knicks basketball. ", 1_000, "Unrelated filler. "),
+          monthly_views: 1_000_000_000
+        )
+
+      assert {:ok, %{hits: [top | _] = hits}} = Search.search("knicks basketball", limit: 30)
+      assert top.document_id == relevant.id
+
+      popular_rank = Enum.find_index(hits, &(&1.document_id == popular.id))
+      assert popular_rank > 0
+
+      # The bound is the weight: with a huge one the same popular page wins.
+      assert {:ok, %{hits: [top | _]}} =
+               Search.search("knicks basketball", limit: 30, prior_weight: 1_000)
+
+      assert top.document_id == popular.id
+    end
+  end
+
+  describe "prior_factor/3" do
+    test "is exactly 1.0 without a signal" do
+      assert Search.prior_factor(nil, 0.3, 1_000_000) === 1.0
+    end
+
+    test "is 1.0 for zero views and 1 + weight at saturation and beyond" do
+      assert Search.prior_factor(0, 0.3, 1_000_000) === 1.0
+      assert_in_delta Search.prior_factor(1_000_000, 0.3, 1_000_000), 1.3, 1.0e-9
+      assert_in_delta Search.prior_factor(50_000_000_000, 0.3, 1_000_000), 1.3, 1.0e-9
+    end
+
+    test "grows with the logarithm of the views" do
+      small = Search.prior_factor(6_276, 0.3, 1_000_000)
+      large = Search.prior_factor(81_520, 0.3, 1_000_000)
+
+      assert 1.0 < small and small < large and large < 1.3
+      assert_in_delta large / small, 1.046, 0.005
+    end
+
+    test "a weight of 0 turns the prior off" do
+      assert Search.prior_factor(81_520, 0, 1_000_000) == 1.0
+    end
+  end
+
   describe "group/2" do
     test "keeps the fused order for documents with equal scores" do
       ranked = [
@@ -279,5 +383,18 @@ defmodule Knowseek.SearchTest do
 
   defp hit(attrs) do
     struct!(Hit, Keyword.merge([document_id: Ecto.UUID.generate(), fetched_at: @now], attrs))
+  end
+
+  # Two documents that differ only in a word the query does not use, so their
+  # relevance is equal. The first returned is the one with more views.
+  defp knicks_pair(popular_first?) do
+    popular = %{body: "Knicks basketball team, edition one.", monthly_views: @knicks_views}
+    other = %{body: "Knicks basketball team, edition two.", monthly_views: @westchester_views}
+
+    [first, second] = if popular_first?, do: [popular, other], else: [other, popular]
+    a = document_fixture(first)
+    b = document_fixture(second)
+
+    if popular_first?, do: {a, b}, else: {b, a}
   end
 end

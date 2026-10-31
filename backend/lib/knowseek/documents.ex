@@ -40,7 +40,11 @@ defmodule Knowseek.Documents do
   4. a new document.
 
   Required attrs: `:body`, `:source`. Optional: `:url`, `:title`,
-  `:published_at`, `:fetched_at`, `:metadata`.
+  `:published_at`, `:fetched_at`, `:metadata`, `:monthly_views` (a
+  non-negative integer; an attr that is left out keeps the stored value, so a
+  source that has no figure this time does not erase an earlier one).
+  A document that is only touched (the URL is an alias, or the body is the
+  copy of another document's) keeps the original's `monthly_views`.
 
   If the stored document found by its own URL already has the same body,
   nothing is re-chunked or re-embedded. The other fields are still updated,
