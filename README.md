@@ -39,6 +39,48 @@ curl -X POST localhost:4000/api/search -H 'content-type: application/json' \
   -d '{"query": "postgres vector search"}'
 ```
 
+## Run in a container
+
+The backend builds into a release image (`backend/Dockerfile`, Elixir 1.20 / OTP 28 on Debian trixie). The `app` service in `docker-compose.yml` runs it next to the Postgres service. It sits behind a compose profile, so `make dev` and `make db-up` still start only Postgres.
+
+```sh
+docker compose --profile app up --build   # API on http://localhost:4000 (or $APP_PORT)
+curl localhost:4000/api/health            # {"status":"ok","database":"ok"}
+```
+
+On start, the container creates its database (`knowseek_prod`, or `$APP_DB_NAME`) if it is missing, runs the migrations, then serves. Port 4000 and the Postgres port are shared with `make dev` and `make db-up`: set `APP_PORT` when `make dev` runs too. Stop the app with `docker compose --profile app stop app`. Do not use `docker compose down -v`: that deletes the Postgres volume with every database in it.
+
+The web UI is not in the image yet (task 018). The container serves only the JSON API.
+
+### Environment variables
+
+The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`, the first five are already set for the compose database.
+
+| Variable | Required | Default | Example |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes (prod) | none; compose sets `ecto://postgres:postgres@db/$APP_DB_NAME` | `ecto://user:pass@host/knowseek` |
+| `SECRET_KEY_BASE` | yes (prod) | none; compose has an insecure local-only default | output of `mix phx.gen.secret` |
+| `PHX_SERVER` | yes in a release | none; `bin/server` and compose set `true` | `true` |
+| `PHX_HOST` | no | `example.com`; compose uses `localhost` | `knowseek.example.com` |
+| `PORT` | no | `4000` | `4000` |
+| `POOL_SIZE` | no | `10` | `20` |
+| `ECTO_IPV6` | no | off | `true` |
+| `DNS_CLUSTER_QUERY` | no | off | `knowseek.internal` |
+| `EMBEDDINGS_ADAPTER` | no | `hashing` | `ollama`, `voyage` |
+| `OLLAMA_URL` | no | `http://localhost:11434`; compose reads `APP_OLLAMA_URL`, default `http://host.docker.internal:11434` | `http://host.docker.internal:11434` |
+| `OLLAMA_MODEL` | no | `bge-m3` | `bge-m3` |
+| `VOYAGE_API_KEY` | with `voyage` | none | `pa-...` |
+| `VOYAGE_MODEL` | no | `voyage-3.5` | `voyage-3.5` |
+
+Compose only: `APP_PORT` (host port, default 4000), `APP_DB_NAME` (default `knowseek_prod`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
+
+Notes:
+
+- Production sets `force_ssl` with `x_forwarded_proto`: a request for any host other than `localhost` or `127.0.0.1` over plain HTTP gets a redirect to HTTPS. Run the container behind a TLS-terminating proxy that sets `X-Forwarded-Proto`.
+- Migration `create_index_tables` runs `CREATE EXTENSION IF NOT EXISTS vector`. The compose database user is a superuser, so this works. On a managed Postgres, enable the `vector` extension first (or use a user that may create it), and create the database yourself if the user cannot.
+- Ollama on the host: Docker Desktop reaches it at `host.docker.internal`. On Linux, start Ollama with `OLLAMA_HOST=0.0.0.0` so it listens beyond loopback.
+- The container never reads `.env` from the repository. Compose does, to fill `${...}` values.
+
 ## API
 
 | Method | Path | Purpose |

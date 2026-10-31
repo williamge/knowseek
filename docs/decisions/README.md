@@ -17,3 +17,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0008](0008-web-frontend.md) | Web frontend in Vite, React, and TypeScript |
 | [0009](0009-search-returns-only-relevant-hits.md) | Search returns only relevant hits |
 | [0010](0010-worktrees-and-pull-requests.md) | One worktree and one pull request per task; CI on every PR |
+| [0014](0014-release-and-container.md) | Release build and app container |

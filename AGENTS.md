@@ -21,7 +21,7 @@ docs/
   ARCHITECTURE.md     components, data flow, data model
   decisions/          ADRs: one file per significant decision
   tasks/              backlog: one file per task
-docker-compose.yml    Postgres + pgvector
+docker-compose.yml    Postgres + pgvector; `app` profile runs the release image (backend/Dockerfile)
 Makefile              all common commands
 ```
 

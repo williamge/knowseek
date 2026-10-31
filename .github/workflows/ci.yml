@@ -68,3 +68,10 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+
+  # Builds the release image (backend/Dockerfile). Nothing is pushed.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag knowseek-app:ci backend
