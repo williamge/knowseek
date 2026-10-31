@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Detects an agent that edited the MAIN checkout instead of its worktree.
+#
+# The read/edit/write/grep/glob tools of an agent resolve relative paths against
+# the main checkout, not against a `cd` in bash. An edit with a relative path
+# lands in main, where the owner's dev servers watch it. This does not prevent
+# that; it detects it.
+#
+#   - Run from the main checkout: exits 0 silently (the owner works there).
+#   - Run from a worktree, main clean: one line, exit 0.
+#   - Run from a worktree, main dirty: the first 15 changed paths and a fix
+#     line, exit 1.
+#   - ALLOW_DIRTY_MAIN=1: skip (the owner has deliberate local edits in main).
+#
+# Usage: scripts/assert-main-clean
+
+set -euo pipefail
+
+main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+here="$(git rev-parse --show-toplevel)"
+
+if [ "$here" = "$main" ]; then
+  exit 0
+fi
+
+if [ "${ALLOW_DIRTY_MAIN:-}" = "1" ]; then
+  echo "assert-main-clean: skipped (ALLOW_DIRTY_MAIN=1)"
+  exit 0
+fi
+
+changed="$(git -C "$main" status --porcelain -uall)"
+
+if [ -z "$changed" ]; then
+  echo "assert-main-clean: OK"
+  exit 0
+fi
+
+total="$(printf '%s\n' "$changed" | wc -l | tr -d ' ')"
+echo "assert-main-clean: FAILED, the main checkout has uncommitted changes. You probably edited it by mistake (relative path in read/edit/write?)." >&2
+printf '%s\n' "$changed" | head -n 15 >&2
+if [ "$total" -gt 15 ]; then
+  echo "... and $((total - 15)) more" >&2
+fi
+echo "Fix: move the change into your worktree, then git -C $main checkout -- <file>, and delete untracked files you created." >&2
+exit 1

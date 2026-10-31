@@ -39,3 +39,13 @@ break another agent's test run.
 - Each worktree costs its own `_build`, `deps`, and `node_modules`, and two
   Postgres databases. `make worktree-rm` reclaims the databases and files.
 - Servers in several worktrees need different ports: `make dev PORT=4010`.
+
+## Update (2026-10-31)
+
+The risk that an agent edits `main` directly still exists: the read/edit/write
+tools resolve relative paths against the main checkout, not against a `cd` in
+bash. `scripts/assert-main-clean` (run by `make check`, `make check-quiet`, and
+`make guard-main`) detects it: from a worktree, it fails when the main checkout
+has uncommitted changes. It does not prevent the edit. When the owner has
+deliberate local edits in main, set `ALLOW_DIRTY_MAIN=1` to skip it. Run from
+the main checkout itself, it does nothing.
