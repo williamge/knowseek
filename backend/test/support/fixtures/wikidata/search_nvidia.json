@@ -1,0 +1,40 @@
+{
+ "success": 1,
+ "search": [
+  {
+   "id": "Q182477",
+   "label": "Nvidia",
+   "description": "American multinational technology company"
+  },
+  {
+   "id": "Q56274119",
+   "label": "Nvidia RTX",
+   "description": "development platform for rendering graphics"
+  },
+  {
+   "id": "Q114062792",
+   "label": "GeForce RTX 4080",
+   "description": "graphics card"
+  },
+  {
+   "id": "Q116004030",
+   "label": "GeForce RTX 4070 Ti",
+   "description": "graphics card by Nvidia"
+  },
+  {
+   "id": "Q957576",
+   "label": "Nvidia Optimus",
+   "description": "technology by Nvidia"
+  },
+  {
+   "id": "Q825762",
+   "label": "GeForce",
+   "description": "brand of graphics processing units by NVIDIA"
+  },
+  {
+   "id": "Q477690",
+   "label": "CUDA",
+   "description": "parallel computing platform and programming model"
+  }
+ ]
+}

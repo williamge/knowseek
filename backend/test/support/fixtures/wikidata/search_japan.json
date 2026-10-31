@@ -1,0 +1,45 @@
+{
+ "success": 1,
+ "search": [
+  {
+   "id": "Q17",
+   "label": "Japan",
+   "description": "island country in East Asia"
+  },
+  {
+   "id": "Q5287",
+   "label": "Japanese",
+   "description": "language spoken in East Asia"
+  },
+  {
+   "id": "Q188712",
+   "label": "Empire of Japan",
+   "description": "empire in the Asia-Pacific region from 1868 to 1947"
+  },
+  {
+   "id": "Q205662",
+   "label": "Tokugawa shogunate",
+   "description": "1603–1868 Japanese military government"
+  },
+  {
+   "id": "Q177837",
+   "label": "Japanese Wikipedia",
+   "description": "Japanese-language edition of Wikipedia"
+  },
+  {
+   "id": "Q19838331",
+   "label": "Japanese encephalitis virus",
+   "description": "species of virus"
+  },
+  {
+   "id": "Q82772",
+   "label": "kanji",
+   "description": "adopted logographic Chinese characters used in the modern Japanese writing system"
+  },
+  {
+   "id": "Q131578",
+   "label": "J-pop",
+   "description": "Japanese popular music genre"
+  }
+ ]
+}

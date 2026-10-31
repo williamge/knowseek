@@ -47,6 +47,64 @@ config :knowseek, Knowseek.Search,
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
 config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
 
+# Entity resolution (ADR 0017, task 030). `resolver` implements
+# Knowseek.Entities.Resolver. `ttl`, `backoff` and `timeout` (milliseconds)
+# go to Knowseek.Cache: entities rarely change, so a long TTL, and a failed
+# Wikidata call is not retried for a minute. `max_query_length`: a longer
+# query is not an entity name. `supported_types` says which Wikidata
+# `instance of` ids make an entity a kind a card provider handles (see
+# "Supported types" in the Knowseek.Entities docs). Ids marked "seen" appeared
+# in the probes of tasks 028 and 030; the others were checked by label.
+config :knowseek, Knowseek.Entities,
+  resolver: Knowseek.Entities.Wikidata,
+  ttl: :timer.hours(24),
+  backoff: :timer.minutes(1),
+  timeout: :timer.seconds(15),
+  max_alternatives: 5,
+  max_query_length: 100,
+  supported_types: [
+    # Q13393265 basketball team (seen: New York Knicks, Westchester Knicks),
+    # Q12973014 sports team, Q847017 sports club, Q476028 association
+    # football club, Q13027888 baseball team, Q4498974 ice hockey team.
+    sports_team: ["Q13393265", "Q12973014", "Q847017", "Q476028", "Q13027888", "Q4498974"],
+    # Needs an exchange ticker (P414 with P249). Q891723 public company and
+    # Q4830453 business (seen: Nvidia), Q783794 company. The screen reader
+    # that `nvda` finds first has none of these.
+    company: ["Q891723", "Q4830453", "Q783794"],
+    # Needs coordinates (P625). Seen on Tokyo: Q1549591 big city, Q174844
+    # megacity, Q208511 global city, Q200250 metropolis. Seen on its special
+    # wards: Q515 city. Seen on Texas: Q35657 U.S. state. Seen on Japan:
+    # Q6256 country, Q3624078 sovereign state, Q112099 island country (so
+    # `weather in texas` and `weather in japan` resolve; the coordinates are
+    # one point for the whole area). Also Q486972 human settlement, Q3957
+    # town, Q532 village, Q5119 capital city, Q1637706 million city.
+    place: [
+      "Q515",
+      "Q1549591",
+      "Q174844",
+      "Q208511",
+      "Q200250",
+      "Q486972",
+      "Q3957",
+      "Q532",
+      "Q5119",
+      "Q1637706",
+      "Q35657",
+      "Q6256",
+      "Q3624078",
+      "Q112099"
+    ]
+  ]
+
+# Wikidata resolver. Wikimedia policy: identify the client in `user_agent`.
+# `search_limit` candidates per query (the API allows 50). Tests put the
+# Req.Test plug in `req_options` (config/test.exs).
+config :knowseek, Knowseek.Entities.Wikidata,
+  base_url: "https://www.wikidata.org/w/api.php",
+  search_limit: 20,
+  user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  req_options: []
+
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,
   url: [host: "localhost"],

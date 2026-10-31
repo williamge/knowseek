@@ -13,6 +13,8 @@ defmodule Knowseek.Application do
       {DNSCluster, query: Application.get_env(:knowseek, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Knowseek.PubSub},
       {Oban, Application.fetch_env!(:knowseek, Oban)},
+      # In-memory, disposable caches with single-flight background refresh.
+      {Knowseek.Cache, name: Knowseek.Entities.Cache},
       # Start to serve requests, typically the last entry
       KnowseekWeb.Endpoint
     ]

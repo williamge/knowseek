@@ -1,0 +1,45 @@
+{
+ "success": 1,
+ "search": [
+  {
+   "id": "Q1439",
+   "label": "Texas",
+   "description": "state of the United States of America"
+  },
+  {
+   "id": "Q916484",
+   "label": "Texas",
+   "description": "Scottish musical group; alternative rock band"
+  },
+  {
+   "id": "Q49213",
+   "label": "University of Texas at Austin",
+   "description": "public university in Austin, Texas, USA"
+  },
+  {
+   "id": "Q37445068",
+   "label": "Texas",
+   "description": "family name"
+  },
+  {
+   "id": "Q66446785",
+   "label": "Texas",
+   "description": "male given name"
+  },
+  {
+   "id": "Q60381099",
+   "label": "Texas",
+   "description": "1985 edition"
+  },
+  {
+   "id": "Q626591",
+   "label": "Texas Southern University",
+   "description": "university"
+  },
+  {
+   "id": "Q193412",
+   "label": "Texas Instruments",
+   "description": "American multinational semiconductor design and manufacturing company"
+  }
+ ]
+}

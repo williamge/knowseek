@@ -1,0 +1,45 @@
+{
+ "success": 1,
+ "search": [
+  {
+   "id": "Q312",
+   "label": "Apple Inc.",
+   "description": "American multinational technology company based in Cupertino, California"
+  },
+  {
+   "id": "Q213710",
+   "label": "Apple Records",
+   "description": "UK international record label; imprint of Apple Corps Ltd."
+  },
+  {
+   "id": "Q89",
+   "label": "apple",
+   "description": "edible fruit of the apple tree"
+  },
+  {
+   "id": "Q20056642",
+   "label": "Apple Music",
+   "description": "Internet online music service by Apple"
+  },
+  {
+   "id": "Q26944931",
+   "label": "Apple",
+   "description": "unisex given name"
+  },
+  {
+   "id": "Q111046003",
+   "label": "Apple",
+   "description": "registered trademark owned by Apple"
+  },
+  {
+   "id": "Q1754545",
+   "label": "Apple",
+   "description": "1990 studio album by Mother Love Bone"
+  },
+  {
+   "id": "Q104819",
+   "label": "Malus",
+   "description": "flowering genus in the rose family Rosaceae"
+  }
+ ]
+}

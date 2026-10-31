@@ -118,8 +118,9 @@ adapter in the request path and returns HTTP 503 when the provider fails
 Rule 5 is untouched: no database connection or transaction is held during a
 refresh. Rules 2 and 3 are untouched: cards never go through
 `Documents.ingest/1`, and card providers never write to the database. The
-amendment is in `AGENTS.md` and `docs/ARCHITECTURE.md`. The card framework is
-decided design (tasks 030-034), not shipped code.
+amendment is in `AGENTS.md` and `docs/ARCHITECTURE.md`. Entity resolution and
+the cache behind it (`Knowseek.Entities`, `Knowseek.Cache`, task 030) are
+built; the card framework (tasks 031-034) is decided design, not shipped code.
 
 ## Consequences
 

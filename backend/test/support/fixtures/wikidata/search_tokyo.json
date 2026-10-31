@@ -1,0 +1,40 @@
+{
+ "success": 1,
+ "search": [
+  {
+   "id": "Q1490",
+   "label": "Tokyo",
+   "description": "capital and largest city of Japan"
+  },
+  {
+   "id": "Q7473516",
+   "label": "Tokyo",
+   "description": "special wards in the eastern part of Tokyo Metropolis in Japan, that used to form a single city"
+  },
+  {
+   "id": "Q41187",
+   "label": "Sony Group",
+   "description": "Japanese multinational conglomerate corporation"
+  },
+  {
+   "id": "Q308891",
+   "label": "ward area of Tokyo",
+   "description": "special municipality in the eastern part of Tokyo Metropolis in Japan. Occupying the site of historical Edo and the former city of Tokyo. For each ward, see Q5327704"
+  },
+  {
+   "id": "Q7813796",
+   "label": "Tokyo",
+   "description": "Masaharu Fukuyama song"
+  },
+  {
+   "id": "Q7842",
+   "label": "University of Tokyo",
+   "description": "national university in Tokyo, Japan"
+  },
+  {
+   "id": "Q1069994",
+   "label": "Tokyo University of Science",
+   "description": "university"
+  }
+ ]
+}

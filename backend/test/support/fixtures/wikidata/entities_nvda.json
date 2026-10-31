@@ -1,0 +1,287 @@
+{
+ "success": 1,
+ "entities": {
+  "Q1116614": {
+   "id": "Q1116614",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1328864,
+         "id": "Q1328864"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 166142,
+         "id": "Q166142"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 341,
+         "id": "Q341"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 136207022,
+         "id": "Q136207022"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{},"x2":{},"x3":{},"x4":{},"enwiki":{"site":"enwiki","title":"NonVisual Desktop Access"},"x6":{},"x7":{},"x8":{},"x9":{},"x10":{},"x11":{},"x12":{},"x13":{},"x14":{}}
+  },
+  "Q182477": {
+   "id": "Q182477",
+   "type": "item",
+   "claims": {
+    "P414": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P414",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 82059,
+         "id": "Q82059"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal",
+      "qualifiers": {
+       "P249": [
+        {
+         "snaktype": "value",
+         "property": "P249",
+         "datavalue": {
+          "value": "NVDA",
+          "type": "string"
+         },
+         "datatype": "string"
+        }
+       ]
+      }
+     }
+    ],
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 891723,
+         "id": "Q891723"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 4830453,
+         "id": "Q4830453"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{},"x2":{},"x3":{},"x4":{},"x5":{},"x6":{},"x7":{},"x8":{},"x9":{},"x10":{},"x11":{},"x12":{},"x13":{},"x14":{},"x15":{},"x16":{},"x17":{},"x18":{},"enwiki":{"site":"enwiki","title":"Nvidia"},"x20":{},"x21":{},"x22":{},"x23":{},"x24":{},"x25":{},"x26":{},"x27":{},"x28":{},"x29":{},"x30":{},"x31":{},"x32":{},"x33":{},"x34":{},"x35":{},"x36":{},"x37":{},"x38":{},"x39":{},"x40":{},"x41":{},"x42":{},"x43":{},"x44":{},"x45":{},"x46":{},"x47":{},"x48":{},"x49":{},"x50":{},"x51":{},"x52":{},"x53":{},"x54":{},"x55":{},"x56":{},"x57":{},"x58":{},"x59":{},"x60":{},"x61":{},"x62":{},"x63":{},"x64":{},"x65":{},"x66":{},"x67":{},"x68":{},"x69":{},"x70":{},"x71":{},"x72":{},"x73":{},"x74":{},"x75":{},"x76":{},"x77":{},"x78":{},"x79":{},"x80":{},"x81":{}}
+  },
+  "Q117051054": {
+   "id": "Q117051054",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47018901,
+         "id": "Q47018901"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q117051065": {
+   "id": "Q117051065",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47018901,
+         "id": "Q47018901"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q117051064": {
+   "id": "Q117051064",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47018901,
+         "id": "Q47018901"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q117051066": {
+   "id": "Q117051066",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47018901,
+         "id": "Q47018901"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q117051060": {
+   "id": "Q117051060",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47018901,
+         "id": "Q47018901"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  }
+ }
+}
