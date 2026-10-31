@@ -14,7 +14,7 @@ BASE ?= origin/main
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations guard-main check-quiet web-check fmt worktree worktree-rm
+.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations check-migration-roundtrip check-docs check-shell check-security check-secrets guard-main check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -65,10 +65,26 @@ guard-main: ## Fail if the main checkout has uncommitted changes (an agent edite
 check-migrations: ## Check migration file names: unique versions, generator format, none in the future
 	@scripts/check-migrations
 
-check: db-up guard-main check-migrations web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
+check-migration-roundtrip: db-up ## Roll back and re-apply the migrations this branch adds, on an empty database and on one with data from origin/main (slow, not part of check; CI runs it)
+	@$(LOAD_ENV); scripts/check-migration-roundtrip
+
+check-docs: ## Check task/ADR numbers, README index rows, Status and Depends on lines, and relative markdown links
+	@scripts/check-docs
+
+check-shell: ## ShellCheck scripts/ (needs shellcheck; skipped with a note when it is not installed)
+	@if command -v shellcheck >/dev/null; then shellcheck scripts/*; else echo "check-shell: shellcheck not installed (brew install shellcheck), skipped. CI runs it."; fi
+
+check-security: ## Dependency and static security scans: hex.audit, deps.audit, sobelow, npm audit (needs the network; not part of check; CI runs it)
+	cd backend && mix hex.audit && mix deps.audit --ignore-file .mix-audit-ignore && mix sobelow --config
+	cd frontend && npm audit --omit=dev --audit-level=high
+
+check-secrets: ## Scan the whole git history for secrets with gitleaks (needs Docker; not part of check; CI runs it)
+	@scripts/check-secrets
+
+check: db-up guard-main check-migrations check-docs check-shell web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
 	$(LOAD_ENV); cd backend && mix precommit
 
-check-quiet: db-up guard-main check-migrations ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
+check-quiet: db-up guard-main check-migrations check-docs check-shell ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
 	@mkdir -p backend/_build
 	@if $(MAKE) --no-print-directory web-check > backend/_build/web-check.log 2>&1; then \
 		echo "make check (web): OK"; \

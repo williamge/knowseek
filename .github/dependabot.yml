@@ -1,0 +1,62 @@
+# Weekly dependency update PRs. Minor and patch updates of one ecosystem come in
+# one grouped PR; a major update gets its own PR. Security updates for
+# vulnerable dependencies are separate and immediate (GitHub setting).
+# GitHub Actions stay pinned by major version tag (actions/checkout@v4), not by
+# commit SHA, and Dependabot proposes the next major.
+version: 2
+updates:
+  - package-ecosystem: mix
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(backend)"
+    groups:
+      mix-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(frontend)"
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # backend/Dockerfile. The base image tags are built from ARGs
+  # (ELIXIR_VERSION, OTP_VERSION, DEBIAN_VERSION), which Dependabot cannot
+  # update: bump those by hand together with .tool-versions.
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "docker"
+
+  # docker-compose.yml (the pgvector image).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "docker"

@@ -75,3 +75,122 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build --tag knowseek-app:ci backend
+
+  # Each check below has its own job (ADR 0020), so a registry outage in
+  # `security` or a failed docs check never hides the test results, and the jobs
+  # run in parallel.
+
+  # The migrations a branch adds must roll back and apply again, on an empty
+  # database and on one that holds the data of origin/main
+  # (scripts/check-migration-roundtrip). Needs the full history to find the
+  # merge base.
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      MIX_ENV: test
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.20"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: mix-${{ runner.os }}-${{ hashFiles('backend/mix.lock') }}
+      - run: mix deps.get
+      - run: ../scripts/check-migration-roundtrip origin/main
+
+  # Task and ADR numbers, README index rows, Status and Depends on lines,
+  # relative markdown links.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check-docs
+
+  # shellcheck is preinstalled on ubuntu-latest runners.
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck --version
+      - run: shellcheck scripts/*
+
+  # Dependency advisories and static security analysis. These steps call
+  # hex.pm and the npm registry, so they can fail for reasons outside the
+  # repository; that is why they are not part of `backend` or `frontend`.
+  # Failure policy: docs/decisions/0020-ci-hardening.md.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.20"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: mix-security-${{ runner.os }}-${{ hashFiles('backend/mix.lock') }}
+      - run: mix deps.get
+        working-directory: backend
+      - name: hex.audit (retired packages)
+        run: mix hex.audit
+        working-directory: backend
+      - name: deps.audit (known advisories in Hex packages)
+        if: ${{ !cancelled() }}
+        run: mix deps.audit --ignore-file .mix-audit-ignore
+        working-directory: backend
+      - name: sobelow (Phoenix static security analysis)
+        if: ${{ !cancelled() }}
+        run: mix sobelow --config
+        working-directory: backend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: npm audit (production dependencies, fails at high or critical)
+        if: ${{ !cancelled() }}
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
+      - name: npm audit (all dependencies, warning only)
+        if: ${{ !cancelled() }}
+        run: npm audit || echo "::warning::npm audit reports advisories (development dependencies, or below high severity). They do not fail the build. See the log."
+        working-directory: frontend
+
+  # gitleaks over the whole git history (.gitleaks.toml), in the official image.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: scripts/check-secrets

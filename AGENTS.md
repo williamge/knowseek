@@ -41,6 +41,11 @@ Run everything from the repository root.
 | `make ollama` | Run `scripts/ensure-ollama`: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB). Does nothing when `EMBEDDINGS_ADAPTER` is not `ollama`. `setup`, `dev`, `iex`, and `start` run it. `make test` and `make check` do not. |
 | `make guard-main` | Fail if the main checkout has uncommitted changes (you edited it by mistake). Set `ALLOW_DIRTY_MAIN=1` to skip when the owner has local edits there. |
 | `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
+| `make check-docs` | Check task and ADR numbers, README index rows, `Status:` and `Depends on:` lines, and relative markdown links. `make check` and `make check-quiet` run it. |
+| `make check-shell` | ShellCheck on `scripts/` (skipped with a note if `shellcheck` is not installed). `make check` and `make check-quiet` run it. |
+| `make check-migration-roundtrip` | Roll back and re-apply the migrations your branch adds, on an empty database and on one with data from `origin/main`. Slow, so not part of `make check`; run it when you add a migration. |
+| `make check-security` | `mix hex.audit`, `mix deps.audit`, `mix sobelow`, `npm audit` (needs the network). CI runs it; not part of `make check`. |
+| `make check-secrets` | gitleaks over the whole git history (needs Docker). CI runs it; not part of `make check`. |
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
 
@@ -53,6 +58,8 @@ To save tokens:
 - Do not read whole large files when a `grep` or a line range answers the question.
 
 New migration: `cd backend && mix ecto.gen.migration name_with_underscores`. Never write the version by hand. Two branches that generate a migration in the same second get the same version, and each passes CI alone. After `git fetch origin && git rebase origin/main`, run `make check-quiet`. If `check-migrations` reports a duplicate, delete your new file and generate it again.
+
+A migration needs a working `down` (or a reversible `change`): CI rolls it back and applies it again. If it cannot be undone on purpose, make the first line of the file `# irreversible: <reason>`. See `docs/decisions/0020-ci-hardening.md`.
 
 ### Databases and parallel workspaces
 
@@ -104,6 +111,8 @@ Every task is one worktree, one branch, and one pull request. **Never commit to 
 ### CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. The `backend` job compiles with warnings as errors, checks formatting, runs Credo, checks for unused dependencies, and runs the tests against Postgres + pgvector. The `frontend` job runs the type check, the format check, the tests, and the build. The `image` job builds `backend/Dockerfile` without pushing it. This is the same as `make check`, plus the build. A PR must be green before it is merged. The `backend`, `frontend`, and `image` jobs are the required checks. The repository is public, and the GitHub ruleset "main protection" enforces this: a pull request is required (0 approvals), the three checks must pass, and `main` cannot be deleted or force-pushed (no bypass actors; merged branches are deleted). A human merges; agents never merge and never push to `main`. See `docs/decisions/0010-worktrees-and-pull-requests.md`.
+
+Five more jobs run in parallel with those three, each for one check: `migrations` (the added migrations roll back and apply again, on an empty database and on one with data from `origin/main`), `docs` (`scripts/check-docs`), `shellcheck` (`scripts/`), `security` (`mix hex.audit`, `mix deps.audit`, `mix sobelow`, `npm audit`; the only job that calls the advisory databases), and `secrets` (gitleaks over the whole history). Locally, `make check` runs the fast ones (`check-docs`, `check-shell`); the others have their own targets, listed in the table above. Failure policy and the `# irreversible:` convention: `docs/decisions/0020-ci-hardening.md`. Dependabot opens weekly update PRs (`.github/dependabot.yml`).
 
 ### Coordinating several agents
 
