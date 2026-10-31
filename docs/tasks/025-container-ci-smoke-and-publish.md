@@ -1,6 +1,6 @@
 # 025. Boot the container in CI and publish the image
 
-- Status: open
+- Status: parked (deployment work, nothing deployed)
 - Area: CI, `backend/Dockerfile`, `docker-compose.yml`
 - Depends on: 012
 

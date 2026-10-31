@@ -4,6 +4,8 @@
 - Area: `Knowseek.Discovery`
 - Depends on: none
 
+Note: parked until the owner wants general web/news coverage. The owner does not want news search now and prefers entity-specific sources first (see [028](028-live-facts-for-entities.md)).
+
 ## Goal
 
 Find new data on the open web for queries that Wikipedia does not cover.

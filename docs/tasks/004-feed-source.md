@@ -4,6 +4,8 @@
 - Area: `Knowseek.Discovery`
 - Depends on: none
 
+**Needs rescoping after 028: it is written around topics, which were removed (ADR 0015)**
+
 > Note: this task was written when topics existed. Topics were removed
 > (task 026, ADR 0015), so "attach feeds to a topic" and "API: add and remove
 > feeds on a topic" no longer have anything to attach to. Task 027 decides what

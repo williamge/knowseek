@@ -1,6 +1,6 @@
 # 023. Group search hits by document in SQL
 
-- Status: open
+- Status: parked (SQL optimization without a measured problem)
 - Area: `Knowseek.Search`
 - Depends on: 014
 

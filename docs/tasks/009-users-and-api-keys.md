@@ -1,6 +1,6 @@
 # 009. Users and API keys
 
-- Status: open
+- Status: parked (no deployment and no users yet)
 - Area: new `Knowseek.Accounts` context, web
 - Depends on: none
 
