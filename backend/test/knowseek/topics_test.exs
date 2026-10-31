@@ -5,18 +5,89 @@ defmodule Knowseek.TopicsTest do
   alias Knowseek.Topics
   alias Knowseek.Topics.{CheckWorker, RefreshWorker}
 
-  test "create_topic/1 validates the query" do
-    assert {:error, changeset} = Topics.create_topic(%{query: ""})
+  test "follow_topic/1 validates the query" do
+    assert {:error, changeset} = Topics.follow_topic(%{query: ""})
     assert %{query: ["can't be blank"]} = errors_on(changeset)
   end
 
-  test "create_topic/1 validates max_age_seconds and refresh_interval_seconds" do
+  describe "follow_topic/1 uniqueness" do
+    test "stores the normalized query" do
+      topic = topic_fixture(query: "  Rust   Lang ")
+
+      assert topic.query == "  Rust   Lang "
+      assert topic.normalized_query == "rust lang"
+    end
+
+    test "following the same query twice gives one topic" do
+      assert {:ok, first, :created} = Topics.follow_topic(%{query: "Rust"})
+      assert {:ok, second, :existing} = Topics.follow_topic(%{query: "  rust "})
+
+      assert second.id == first.id
+      assert [%{id: id}] = Topics.list_topics()
+      assert id == first.id
+    end
+
+    test "an existing topic is returned unchanged, whatever the new settings" do
+      {:ok, first, :created} =
+        Topics.follow_topic(%{query: "Rust", refresh_interval_seconds: 3600, max_age_seconds: 60})
+
+      assert {:ok, existing, :existing} =
+               Topics.follow_topic(%{
+                 query: "rust",
+                 refresh_interval_seconds: 604_800,
+                 max_age_seconds: nil,
+                 active: false
+               })
+
+      assert existing == Topics.get_topic(first.id)
+      assert existing.query == "Rust"
+      assert existing.refresh_interval_seconds == 3600
+      assert existing.max_age_seconds == 60
+      assert existing.active
+    end
+
+    test "invalid settings are still rejected for an existing query" do
+      topic_fixture(query: "Rust")
+
+      assert {:error, changeset} =
+               Topics.follow_topic(%{query: "rust", refresh_interval_seconds: 1})
+
+      assert %{refresh_interval_seconds: [_]} = errors_on(changeset)
+    end
+
+    test "a very long multibyte query is followed once, not rejected by the index" do
+      query = String.duplicate("研", 990)
+      assert byte_size(query) > 2704
+
+      assert {:ok, first, :created} = Topics.follow_topic(%{query: query})
+      assert {:ok, second, :existing} = Topics.follow_topic(%{query: query <> " "})
+      assert second.id == first.id
+    end
+
+    test "the unique index rejects a duplicate that skips the changeset" do
+      topic_fixture(query: "Rust")
+
+      assert_raise Postgrex.Error, ~r/topics_normalized_query_md5_index/, fn ->
+        Repo.insert_all("topics", [
+          %{
+            id: Ecto.UUID.bingenerate(),
+            query: "rust",
+            normalized_query: "rust",
+            inserted_at: DateTime.utc_now(),
+            updated_at: DateTime.utc_now()
+          }
+        ])
+      end
+    end
+  end
+
+  test "follow_topic/1 validates max_age_seconds and refresh_interval_seconds" do
     for attrs <- [
           %{max_age_seconds: 0},
           %{max_age_seconds: 3_000_000_000},
           %{refresh_interval_seconds: 3_000_000_000}
         ] do
-      assert {:error, changeset} = Topics.create_topic(Map.put(attrs, :query, "x y"))
+      assert {:error, changeset} = Topics.follow_topic(Map.put(attrs, :query, "x y"))
       [field] = Map.keys(attrs)
       assert %{^field => [_]} = errors_on(changeset)
     end

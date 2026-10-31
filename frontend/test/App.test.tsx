@@ -197,6 +197,41 @@ describe("App", () => {
     );
   });
 
+  it("follows from the results when the topic already exists on the server", async () => {
+    window.history.replaceState(null, "", "/?q=Octopus");
+    // The list is stale: another tab followed "octopus" after it was loaded.
+    const { calls } = mockApi({
+      "GET /topics": () => [],
+      "POST /search": () => result(),
+      "POST /topics": () => topic({ id: "topic-9", query: "octopus" }),
+    });
+    render(<App watch={FAST} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "+ Follow topic" }));
+
+    expect(await screen.findByRole("button", { name: "✓ Following" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(calls.filter((c) => c.key === "POST /topics")).toHaveLength(1);
+  });
+
+  it("does not list a topic twice when the form follows an existing query", async () => {
+    window.history.replaceState(null, "", "/topics");
+    mockApi({
+      "GET /topics": () => [topic({ id: "t1", query: "Fusion Energy" })],
+      "POST /topics": () => topic({ id: "t1", query: "Fusion Energy" }),
+    });
+    render(<App watch={FAST} />);
+    expect(await screen.findByText("Fusion Energy")).toBeInTheDocument();
+
+    const input = screen.getByRole("textbox", { name: "New topic" });
+    await userEvent.type(input, "  fusion   energy ");
+    await userEvent.click(screen.getByRole("button", { name: "Follow" }));
+
+    await waitFor(() => expect(input).toHaveValue(""));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Unfollow/ })).toHaveLength(1);
+  });
+
   it("opens a document in the reader and closes it with Escape", async () => {
     window.history.replaceState(null, "", "/?q=octopus");
     mockApi({

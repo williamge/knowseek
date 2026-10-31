@@ -18,10 +18,10 @@ defmodule Knowseek.Fixtures do
   end
 
   def topic_fixture(attrs \\ %{}) do
-    {:ok, topic} =
+    {:ok, topic, :created} =
       attrs
       |> Enum.into(%{query: "elixir releases"})
-      |> Knowseek.Topics.create_topic()
+      |> Knowseek.Topics.follow_topic()
 
     topic
   end

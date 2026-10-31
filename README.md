@@ -103,7 +103,7 @@ Notes:
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest |
 | `GET` | `/api/topics` | Topics you follow |
-| `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?, max_age_seconds?}}`. With `max_age_seconds`, a refresh seeks new data only when too few documents were fetched within that time. Without it, every refresh seeks new data. |
+| `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?, max_age_seconds?}}`. With `max_age_seconds`, a refresh seeks new data only when too few documents were fetched within that time. Without it, every refresh seeks new data. Topics are unique by normalized query (lowercase, collapsed whitespace). A new topic returns `201`. A query that is already followed returns the existing topic with `200`, unchanged: the settings of the request are ignored. |
 | `DELETE` | `/api/topics/:id` | Stop following a topic |
 
 ## Documentation
