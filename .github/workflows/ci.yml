@@ -60,7 +60,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -173,7 +173,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: mix sobelow --config
         working-directory: backend
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: npm audit (production dependencies, fails at high or critical)
