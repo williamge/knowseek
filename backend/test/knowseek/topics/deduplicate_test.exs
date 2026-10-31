@@ -7,7 +7,7 @@ defmodule Knowseek.Topics.DeduplicateTest do
   alias Knowseek.Topics.Deduplicate
 
   setup do
-    Repo.query!("DROP INDEX topics_normalized_query_index")
+    Repo.query!("DROP INDEX topics_normalized_query_md5_index")
     Repo.query!("ALTER TABLE topics ALTER COLUMN normalized_query DROP NOT NULL")
     :ok
   end
@@ -59,7 +59,27 @@ defmodule Knowseek.Topics.DeduplicateTest do
 
     # The state the migration leaves behind accepts the unique index.
     Repo.query!("ALTER TABLE topics ALTER COLUMN normalized_query SET NOT NULL")
-    Repo.query!("CREATE UNIQUE INDEX topics_normalized_query_index ON topics (normalized_query)")
+
+    Repo.query!(
+      "CREATE UNIQUE INDEX topics_normalized_query_md5_index ON topics (md5(normalized_query))"
+    )
+  end
+
+  test "merges queries far above the size of a btree index entry" do
+    long = String.duplicate("研", 1000)
+    assert byte_size(long) > 2704
+
+    oldest = insert_legacy(long, ~U[2026-01-01 00:00:00Z], interval: 86_400)
+    insert_legacy(" " <> long <> " ", ~U[2026-01-02 00:00:00Z], interval: 3600)
+
+    assert Deduplicate.run(Repo) == 1
+    assert [%{id: ^oldest, refresh_interval_seconds: 3600}] = topics()
+
+    Repo.query!("ALTER TABLE topics ALTER COLUMN normalized_query SET NOT NULL")
+
+    Repo.query!(
+      "CREATE UNIQUE INDEX topics_normalized_query_md5_index ON topics (md5(normalized_query))"
+    )
   end
 
   test "keeps a null max_age_seconds, because null means every refresh seeks new data" do

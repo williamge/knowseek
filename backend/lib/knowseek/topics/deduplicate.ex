@@ -19,6 +19,10 @@ defmodule Knowseek.Topics.Deduplicate do
     * `last_refreshed_at`: the latest of the group, so the merged topic is
       not refreshed again right away.
 
+  The unique index is on `md5(normalized_query)`, so queries of any length
+  are merged and indexed. (A btree index on the column itself would fail on
+  rows above about 2.7 kB.)
+
   It uses plain SQL on the table, not the `Topic` schema, so later changes to
   the schema cannot change what an old migration does.
   """

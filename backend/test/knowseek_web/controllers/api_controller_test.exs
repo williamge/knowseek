@@ -160,6 +160,21 @@ defmodule KnowseekWeb.ApiControllerTest do
                |> json_response(422)
     end
 
+    test "a 1000-character multibyte query is accepted, and a longer one is rejected", %{
+      conn: conn
+    } do
+      query = String.duplicate("研", 1000)
+
+      assert %{"data" => %{"id" => id}} =
+               conn |> post(~p"/api/topics", topic: %{query: query}) |> json_response(201)
+
+      assert %{"data" => %{"id" => ^id}} =
+               conn |> post(~p"/api/topics", topic: %{query: query}) |> json_response(200)
+
+      assert %{"errors" => %{"query" => _}} =
+               conn |> post(~p"/api/topics", topic: %{query: query <> "研"}) |> json_response(422)
+    end
+
     test "create, list, delete", %{conn: conn} do
       %{"data" => %{"id" => id}} =
         conn |> post(~p"/api/topics", topic: %{query: "fusion energy"}) |> json_response(201)

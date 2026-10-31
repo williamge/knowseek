@@ -12,8 +12,14 @@ unfollow both with one click. `Knowseek.Discovery.normalize/1` already treats
 
 ## Decision
 
-- `topics.normalized_query` is a new `text NOT NULL` column with a unique
-  index (`topics_normalized_query_index`). `Topic.changeset/2` fills it by
+- `topics.normalized_query` is a new `text NOT NULL` column. The unique index
+  is on `md5(normalized_query)` (`topics_normalized_query_md5_index`), not on
+  the column: a btree entry is limited to about 2.7 kB, and a query of up to
+  1000 characters in a multibyte script is larger, so a plain index made the
+  API return 500 and would have aborted the migration on such rows. The hash
+  has a fixed size, so no row can fail it. Lookups compare the hash (to use
+  the index) and the full text (so a hash collision cannot match). The
+  query length limit of 1000 characters is unchanged. `Topic.changeset/2` fills it by
   calling `Knowseek.Discovery.normalize/1`, so the rules (lowercase, collapsed
   whitespace) live in one place. `topics.query` keeps the text the user typed.
 - `Knowseek.Topics.create_topic/1` is replaced by `follow_topic/1`. It returns
@@ -21,20 +27,26 @@ unfollow both with one click. `Knowseek.Discovery.normalize/1` already treats
   It inserts first and lets the unique index decide, then reads the stored
   topic when the insert hit the constraint. It does not check first, so two
   simultaneous follows of one query give one topic and both callers get it.
+  If the topic is unfollowed between the failed insert and the read, it inserts
+  once more, then returns the constraint error. It must not be called inside a
+  transaction: the failed insert would abort it.
 - `POST /api/topics` for a query that is already followed returns the existing
   topic with **`200`**; a new topic still returns `201`. We chose the existing
   topic over `409` because following is idempotent: the caller wants the
   topic followed, and it is. The stored topic is returned **unchanged**. The
   `refresh_interval_seconds`, `max_age_seconds`, and `active` of the request
-  are ignored, so a repeated follow cannot silently change a schedule. Invalid
+  are ignored, so a repeated follow cannot silently change a schedule. The web
+  UI does not tell the user that the settings were ignored. Invalid
   settings still return `422`, also for an existing query. There is no update
   endpoint; to change settings, unfollow and follow again.
 - The migration (`Knowseek.Topics.Deduplicate`, called from the migration)
   backfills `normalized_query` and merges the duplicates that exist. Per
   group of topics with one normalized query:
   - The **oldest** row (`inserted_at`, then `id`) is kept, with its `id` and
-    `query` text. The others are deleted. Queued `CheckWorker` jobs of
-    deleted topics do nothing, because the worker skips missing topics.
+    `query` text. The others are deleted. A queued `CheckWorker` job of a
+    deleted topic skips it (the worker finds no topic). A job that is already
+    running can fail in `mark_refreshed/2` with `Ecto.StaleEntryError`; Oban
+    retries it, and the retry skips the missing topic.
   - `refresh_interval_seconds`: the shortest of the group.
   - `active`: `true` if any row was active.
   - `max_age_seconds`: `NULL` if any row has `NULL`, because `NULL` means

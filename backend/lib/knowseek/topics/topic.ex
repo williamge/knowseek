@@ -8,7 +8,8 @@ defmodule Knowseek.Topics.Topic do
   within `max_age_seconds`. When it is `nil`, every refresh seeks new data.
 
   Topics are unique by `normalized_query`, the query as
-  `Knowseek.Discovery.normalize/1` returns it. `changeset/2` fills it.
+  `Knowseek.Discovery.normalize/1` returns it. `changeset/2` fills it. The
+  unique index is on `md5(normalized_query)`, which has no size limit.
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -42,7 +43,7 @@ defmodule Knowseek.Topics.Topic do
     )
     |> validate_number(:max_age_seconds, greater_than: 0, less_than_or_equal_to: @max_int)
     |> put_normalized_query()
-    |> unique_constraint(:normalized_query)
+    |> unique_constraint(:normalized_query, name: :topics_normalized_query_md5_index)
   end
 
   defp put_normalized_query(changeset) do

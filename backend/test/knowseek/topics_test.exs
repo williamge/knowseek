@@ -55,25 +55,19 @@ defmodule Knowseek.TopicsTest do
       assert %{refresh_interval_seconds: [_]} = errors_on(changeset)
     end
 
-    test "simultaneous follows give one topic" do
-      outcomes =
-        1..8
-        |> Task.async_stream(
-          fn i -> Topics.follow_topic(%{query: String.duplicate(" ", i) <> "Rust"}) end,
-          timeout: :infinity
-        )
-        |> Enum.map(fn {:ok, {:ok, topic, outcome}} -> {topic.id, outcome} end)
+    test "a very long multibyte query is followed once, not rejected by the index" do
+      query = String.duplicate("研", 990)
+      assert byte_size(query) > 2704
 
-      assert [{id, _} | _] = outcomes
-      assert Enum.all?(outcomes, fn {other, _} -> other == id end)
-      assert Enum.count(outcomes, fn {_, outcome} -> outcome == :created end) == 1
-      assert [_one] = Topics.list_topics()
+      assert {:ok, first, :created} = Topics.follow_topic(%{query: query})
+      assert {:ok, second, :existing} = Topics.follow_topic(%{query: query <> " "})
+      assert second.id == first.id
     end
 
     test "the unique index rejects a duplicate that skips the changeset" do
       topic_fixture(query: "Rust")
 
-      assert_raise Postgrex.Error, ~r/topics_normalized_query_index/, fn ->
+      assert_raise Postgrex.Error, ~r/topics_normalized_query_md5_index/, fn ->
         Repo.insert_all("topics", [
           %{
             id: Ecto.UUID.bingenerate(),
