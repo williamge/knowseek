@@ -1,0 +1,11 @@
+title = "knowseek gitleaks config"
+
+[extend]
+useDefault = true
+
+# Phoenix dev and test secret_key_base values are committed on purpose.
+# They are local-only; production reads SECRET_KEY_BASE from the environment.
+[[allowlists]]
+description = "Dev/test-only Phoenix secret_key_base"
+targetRules = ["generic-api-key"]
+paths = ['''backend/config/(dev|test)\.exs''']

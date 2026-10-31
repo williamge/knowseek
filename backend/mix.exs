@@ -5,6 +5,7 @@ defmodule Knowseek.MixProject do
     [
       app: :knowseek,
       version: "0.1.0",
+      package: [licenses: ["AGPL-3.0-only"]],
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
