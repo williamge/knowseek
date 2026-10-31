@@ -26,6 +26,16 @@ defmodule KnowseekWeb.FallbackController do
     |> json(%{errors: %{detail: message}})
   end
 
+  # The embedding provider (Ollama, Voyage) is down or timed out. There is no
+  # fallback to another adapter (ADR 0016), so the caller gets a 503, not a 500.
+  def call(conn, {:error, {provider, _reason} = reason}) when provider in [:ollama, :voyage] do
+    Logger.error("embedding provider unavailable: #{inspect(reason)}")
+
+    conn
+    |> put_status(:service_unavailable)
+    |> json(%{errors: %{detail: "Embedding provider unavailable (#{provider})"}})
+  end
+
   def call(conn, {:error, reason}) do
     Logger.error("request failed: #{inspect(reason)}")
 

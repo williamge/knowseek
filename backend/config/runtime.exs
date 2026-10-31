@@ -26,11 +26,14 @@ config :knowseek, KnowseekWeb.Endpoint,
 # Embeddings. Each variable overrides config only when it is set, so an
 # adapter or model in config/*.exs stays in effect otherwise.
 # EMBEDDINGS_ADAPTER selects the provider:
-#   * hashing - local stand-in, no semantics (the default in config.exs)
-#   * ollama  - local model through Ollama (`make ollama`), free
+#   * ollama  - local model through Ollama, free (the default in config.exs;
+#               `scripts/ensure-ollama` checks it before `make dev`)
+#   * hashing - local stand-in, no semantics, needs no Ollama (explicit opt-out)
 #   * voyage  - Voyage AI API, needs VOYAGE_API_KEY
-# Tests always use Hashing or a Req.Test stub, so this block is skipped there.
-# Switching adapters makes stored vectors incomparable: re-embed after a switch.
+# There is no fallback: when Ollama is unreachable, ingest and search return
+# {:error, _}. Tests always use Hashing or a Req.Test stub, so this block is
+# skipped there. Switching adapters makes stored vectors incomparable: run
+# `make db-reset` after a switch (ADR 0016).
 if config_env() != :test do
   env = fn name ->
     case System.get_env(name) do

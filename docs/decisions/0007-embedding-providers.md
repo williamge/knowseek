@@ -1,5 +1,7 @@
 # 0007. Embedding providers: Ollama locally, Voyage AI hosted
 
+> Note: the default adapter changed from `hashing` to `ollama` in [ADR 0016](0016-ollama-default-embeddings.md).
+
 - Status: Accepted
 - Date: 2026-10-30
 
@@ -30,8 +32,8 @@ Options:
     texts and about 100K estimated tokens (bytes / 3). The API limits are
     1000 texts and 320K tokens.
 - `EMBEDDINGS_ADAPTER` (`hashing`, `ollama`, or `voyage`) selects the adapter
-  in `config/runtime.exs`. The default is `hashing`, so a fresh workspace needs
-  no extra service. Tests always use `Hashing` or `Req.Test` stubs.
+  in `config/runtime.exs`. The default was `hashing`, so a fresh workspace
+  needed no extra service (ADR 0016 changed the default to `ollama`). Tests always use `Hashing` or `Req.Test` stubs.
 - Ollama runs natively on the developer machine (`brew install ollama`,
   `brew services start ollama`), not in Docker. On macOS, Docker containers
   cannot use the GPU (Metal), so a container would run the model on the CPU.

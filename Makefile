@@ -14,12 +14,12 @@ BASE ?= origin/main
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-migrations guard-main check-quiet web-check fmt worktree worktree-rm
+.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations guard-main check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-setup: db-up ## Install deps and create + migrate the dev and test databases
+setup: db-up ollama ## Install deps and create + migrate the dev and test databases
 	@command -v mise >/dev/null && mise install || true
 	$(LOAD_ENV); cd backend && mix deps.get && mix ecto.setup
 	$(LOAD_ENV); cd backend && MIX_ENV=test mix do ecto.create --quiet + ecto.migrate --quiet
@@ -34,21 +34,26 @@ db-down: ## Stop Postgres and the app container (data is kept in a Docker volume
 db-reset: db-up ## Drop and recreate this workspace's dev database
 	$(LOAD_ENV); cd backend && mix ecto.reset
 
-# The defaults match Knowseek.Embeddings.Ollama.
-ollama: ## Check that a native Ollama runs, then pull $OLLAMA_MODEL (for EMBEDDINGS_ADAPTER=ollama)
-	@command -v ollama >/dev/null || { echo "Ollama is not installed. Run: brew install ollama"; exit 1; }
-	@$(LOAD_ENV); url="$${OLLAMA_URL:-http://localhost:11434}"; model="$${OLLAMA_MODEL:-bge-m3}"; \
-	curl -sf -m 2 "$$url/api/version" >/dev/null || { echo "Ollama does not answer on $$url. Run: brew services start ollama"; exit 1; }; \
-	echo "ollama pull $$model"; OLLAMA_HOST="$$url" ollama pull "$$model"
+# The defaults match Knowseek.Embeddings.Ollama. Does nothing for other adapters.
+# Runs after db-up in dev, iex, start, and setup. Not part of test or check.
+ollama: ## Check that Ollama runs and pull $OLLAMA_MODEL (skipped if EMBEDDINGS_ADAPTER is not ollama)
+	@$(LOAD_ENV); scripts/ensure-ollama
 
-dev: db-up ## Run the API server on $PORT (defaults to $CONDUCTOR_PORT, then 4000)
+start: db-up ollama ## Run the API and the web UI together in one terminal (Ctrl-C stops both)
+	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
+	@$(LOAD_ENV); PORT=$(PORT) exec scripts/start
+
+api-run: # internal: used by scripts/start
+	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
+
+dev: db-up ollama ## Run the API server on $PORT (defaults to $CONDUCTOR_PORT, then 4000)
 	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
 web: ## Run the web UI on $PORT+1 (proxies /api to the API on $PORT). Run `make dev` too.
 	cd frontend && API_PORT=$(PORT) WEB_PORT=$$(($(PORT) + 1)) npm run dev
 
-iex: db-up ## Run the API server inside an IEx shell
+iex: db-up ollama ## Run the API server inside an IEx shell
 	$(LOAD_ENV); cd backend && PORT=$(PORT) iex -S mix phx.server
 
 test: db-up ## Run the test suite. Single file: make test ARGS=test/knowseek/search_test.exs

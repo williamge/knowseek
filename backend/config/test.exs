@@ -33,8 +33,11 @@ config :knowseek, KnowseekWeb.Endpoint,
 # or perform them explicitly.
 config :knowseek, Oban, testing: :manual
 
-# Ollama and Voyage requests go to Req.Test stubs. Retries do not sleep. The
-# adapter stays Hashing unless a test switches it.
+# Tests never need Ollama or the network: the adapter is Hashing unless a test
+# switches it. Ollama and Voyage requests go to Req.Test stubs. Retries do not
+# sleep.
+config :knowseek, Knowseek.Embeddings, adapter: Knowseek.Embeddings.Hashing
+
 config :knowseek, Knowseek.Embeddings.Ollama,
   req_options: [
     plug: {Req.Test, Knowseek.Embeddings.Ollama},
