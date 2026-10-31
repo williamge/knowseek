@@ -1,6 +1,6 @@
 # 0012. Topics are unique by normalized query
 
-- Status: Accepted
+- Status: Superseded by [0015](0015-remove-topics.md)
 - Date: 2026-10-30
 
 ## Context

@@ -16,10 +16,6 @@ flowchart LR
     sources -->|candidates| ingest[Documents.ingest]
     ingest --> embed[Embeddings]
     ingest --> pg
-    cron[[Oban cron, every 15 min]] --> refresh[Topics.RefreshWorker]
-    refresh -->|one job per due topic| check[Topics.CheckWorker]
-    check -->|no max_age| enqueue
-    check -->|with max_age| lookup
 ```
 
 A search returns right away with whatever the index has. Discovery runs in the background, so its results are available to later searches, not to the search that triggered it. (Pushing late results to the caller is a backlog task.)
@@ -40,13 +36,12 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
 | `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each. Skips disambiguation pages. |
-| `Knowseek.Topics` | Topics a user follows, unique by normalized query: `follow_topic/1` returns the existing topic for a query that is already followed (ADR 0012). `RefreshWorker` (cron) enqueues one `CheckWorker` job per due topic. Without `max_age_seconds`, the check requests discovery. With it, the check runs a `Lookup` with that freshness need, so discovery runs only when fresh coverage is not sufficient. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
 ## Web UI
 
-`frontend/` holds a single-page app. In development, Vite serves it and proxies `/api` to the Phoenix API, so the browser sees one origin and the API needs no CORS. The app keeps its state in the URL (`/?q=...&doc=...`, `/topics`), so searches can be shared.
+`frontend/` holds a single-page app. In development, Vite serves it and proxies `/api` to the Phoenix API, so the browser sees one origin and the API needs no CORS. The app keeps its state in the URL (`/?q=...&doc=...`), so searches can be shared.
 
 Because the API does not yet tell callers when discovery finishes (task 006), the UI watches the index. After a search that enqueued discovery, it polls `GET /api/documents` for new document ids. When some arrive, it searches again and marks the new results. It stops when no new documents arrive for a while, or after 90 seconds. Task 006 replaces this polling. See `docs/decisions/0008-web-frontend.md`.
 
@@ -80,15 +75,6 @@ erDiagram
         vector embedding "vector(1024), HNSW cosine index"
         tsvector search_vector "generated from content, GIN index"
     }
-    topics {
-        uuid id
-        text query "as typed"
-        text normalized_query "unique, from Discovery.normalize/1"
-        bool active
-        int refresh_interval_seconds
-        int max_age_seconds "null: every refresh seeks new data"
-        timestamp last_refreshed_at
-    }
 ```
 
 Oban stores its jobs in `oban_jobs` in the same database.
@@ -98,8 +84,6 @@ Oban stores its jobs in `oban_jobs` in the same database.
 | Queue | Workers | Notes |
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
-| `default` | `Topics.RefreshWorker` | Cron, every 15 minutes. Enqueues one `CheckWorker` per due topic. |
-| `default` | `Topics.CheckWorker` | Checks one topic. Unique per topic while incomplete. 3 attempts. |
 
 ## Configuration
 
@@ -111,7 +95,7 @@ Oban stores its jobs in `oban_jobs` in the same database.
 - `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`. `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
 - `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
 - `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
-- `Oban`: queues and cron.
+- `Oban`: the `discovery` queue and the pruner.
 
 Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
@@ -124,7 +108,7 @@ The backend builds into a Mix release image (`backend/Dockerfile`). `docker comp
 - With the default `EMBEDDINGS_ADAPTER=hashing`, search matches words, not meaning.
 - Chunks are not re-embedded when the embedding adapter changes.
 - Wikipedia is the only discovery source, so discovery finds only encyclopedic data.
-- No authentication and no users. Topics are global.
+- No authentication and no users.
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 
 Each limitation has a task in `docs/tasks/`.

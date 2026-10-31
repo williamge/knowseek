@@ -1,22 +1,27 @@
-# 004. RSS/Atom feed source for topics
+# 004. RSS/Atom feed source
 
 - Status: open
-- Area: `Knowseek.Discovery`, `Knowseek.Topics`
+- Area: `Knowseek.Discovery`
 - Depends on: none
+
+> Note: this task was written when topics existed. Topics were removed
+> (task 026, ADR 0015), so "attach feeds to a topic" and "API: add and remove
+> feeds on a topic" no longer have anything to attach to. Task 027 decides what
+> following is, with this source as a prerequisite. Reconsider the scope of
+> this task before you start it.
 
 ## Goal
 
-Keep followed topics fresh from feeds (news sites, blogs, release notes,
-arXiv listings).
+Poll feeds (news sites, blogs, release notes,
+arXiv listings) and ingest new entries.
 
 ## Scope
 
-- A way to attach feed URLs to a topic (new table `topic_feeds` or a field on
-  `topics`; pick one and explain why in the Outcome).
-- A source or worker that polls a topic's feeds and ingests new entries
+- A way to configure feed URLs (decide where they live and explain why in the
+  Outcome).
+- A source or worker that polls the feeds and ingests new entries
   (title, link, summary or content, published date).
 - Use conditional GET (`ETag`, `Last-Modified`) to avoid refetching.
-- API: add and remove feeds on a topic.
 
 ## Acceptance criteria
 
@@ -25,5 +30,5 @@ arXiv listings).
 
 ## Notes
 
-Feeds are per-topic, not per-query, so this may fit better as a separate
+Feeds are per-feed, not per-query, so this may fit better as a separate
 worker than as a `Discovery.Source`. Decide and document it.

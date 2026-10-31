@@ -1,4 +1,4 @@
-import type { DocumentSummary, KnowseekDocument, NewTopic, SearchResult, Topic } from "./types";
+import type { DocumentSummary, KnowseekDocument, SearchResult } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -15,8 +15,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: { accept: "application/json", "content-type": "application/json", ...init.headers },
   });
-
-  if (response.status === 204) return undefined as T;
 
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(response.status, errorMessage(body) ?? response.statusText);
@@ -51,12 +49,4 @@ export const api = {
 
   getDocument: (id: string, signal?: AbortSignal) =>
     request<KnowseekDocument>(`/documents/${encodeURIComponent(id)}`, { signal }),
-
-  listTopics: () => request<Topic[]>("/topics"),
-
-  createTopic: (topic: NewTopic) =>
-    request<Topic>("/topics", { method: "POST", body: JSON.stringify({ topic }) }),
-
-  deleteTopic: (id: string) =>
-    request<void>(`/topics/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

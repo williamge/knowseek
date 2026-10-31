@@ -1,6 +1,6 @@
 # 0006. Freshness-aware coverage; per-topic refresh checks
 
-- Status: Accepted
+- Status: Accepted. The per-topic parts (`topics.max_age_seconds`, `CheckWorker`) were removed with topics by [0015](0015-remove-topics.md). Freshness-aware coverage and the `max_age_seconds` search option remain.
 - Date: 2026-10-30
 
 ## Context

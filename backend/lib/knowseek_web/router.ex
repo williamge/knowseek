@@ -12,7 +12,6 @@ defmodule KnowseekWeb.Router do
     post "/search", SearchController, :create
 
     resources "/documents", DocumentController, only: [:index, :show, :create]
-    resources "/topics", TopicController, only: [:index, :show, :create, :delete]
   end
 
   # Enable LiveDashboard in development

@@ -8,27 +8,24 @@ import { flushSync } from "react-dom";
  *   /                 home
  *   /?q=rust+async    search results
  *   /?q=...&doc=ID    search results with a document open
- *   /topics           followed topics
  */
 export interface Route {
-  page: "search" | "topics";
   query: string | null;
   doc: string | null;
 }
 
-export function parseRoute(location: { pathname: string; search: string }): Route {
+export function parseRoute(location: { search: string }): Route {
   const params = new URLSearchParams(location.search);
-  const page = location.pathname.replace(/\/+$/, "") === "/topics" ? "topics" : "search";
   const query = params.get("q")?.trim() || null;
-  return { page, query: page === "search" ? query : null, doc: params.get("doc") || null };
+  return { query, doc: params.get("doc") || null };
 }
 
 export function routeToUrl(route: Route): string {
   const params = new URLSearchParams();
-  if (route.page === "search" && route.query) params.set("q", route.query);
+  if (route.query) params.set("q", route.query);
   if (route.doc) params.set("doc", route.doc);
   const search = params.toString();
-  return (route.page === "topics" ? "/topics" : "/") + (search ? `?${search}` : "");
+  return "/" + (search ? `?${search}` : "");
 }
 
 export interface NavigateOptions {
@@ -58,8 +55,8 @@ export function useRoute(): [Route, Navigate] {
     // Animate page changes (for example the search box that moves from the
     // middle of the screen to the top) where the browser supports it.
     const update = () => flushSync(() => setRoute(parseRoute(window.location)));
-    const pageChanged = next.page !== current.page || next.query !== current.query;
-    if (document.startViewTransition && pageChanged) document.startViewTransition(update);
+    const queryChanged = next.query !== current.query;
+    if (document.startViewTransition && queryChanged) document.startViewTransition(update);
     else update();
   }, []);
 

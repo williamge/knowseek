@@ -3,25 +3,22 @@ import { DocumentReader } from "./components/DocumentReader";
 import { RecentDocuments } from "./components/RecentDocuments";
 import { ResultsView } from "./components/ResultsView";
 import { SearchBox } from "./components/SearchBox";
-import { TopicsPage } from "./components/TopicsPage";
 import { parseRoute, useRoute } from "./router";
 import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
-import { useTopics } from "./lib/useTopics";
 
 export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
   const [route, navigate] = useRoute();
-  const topics = useTopics();
   const [refreshKey, setRefreshKey] = useState(0);
-  const search = useSearch(route.page === "search" ? route.query : null, watch, refreshKey);
+  const search = useSearch(route.query, watch, refreshKey);
 
   // The URL does not change when the user searches for the same query again
   // (for example to see what discovery added), so run the search again here.
   const runSearch = useCallback(
     (query: string) => {
-      if (route.page === "search" && route.query === query && !route.doc) {
+      if (route.query === query && !route.doc) {
         setRefreshKey((key) => key + 1);
       } else {
-        navigate({ page: "search", query, doc: null });
+        navigate({ query, doc: null });
       }
     },
     [navigate, route],
@@ -33,7 +30,7 @@ export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
     if ((window.history.state as { reader?: boolean } | null)?.reader) window.history.back();
     else navigate({ ...parseRoute(window.location), doc: null }, { replace: true });
   }, [navigate]);
-  const home = route.page === "search" && !route.query;
+  const home = !route.query;
 
   return (
     <div className={`app${home ? " app--home" : ""}`}>
@@ -47,20 +44,6 @@ export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
           <p className="hint">
             <kbd>Enter</kbd> to search · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
           </p>
-          {topics.topics.length > 0 && (
-            <nav className="chips" aria-label="Topics you follow">
-              {topics.topics.slice(0, 8).map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  className="chip"
-                  onClick={() => runSearch(topic.query)}
-                >
-                  {topic.query}
-                </button>
-              ))}
-            </nav>
-          )}
           <RecentDocuments onOpen={openDocument} />
         </main>
       ) : (
@@ -71,7 +54,7 @@ export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
               href="/"
               onClick={(event) => {
                 event.preventDefault();
-                navigate({ page: "search", query: null, doc: null });
+                navigate({ query: null, doc: null });
               }}
             >
               knowseek
@@ -79,27 +62,10 @@ export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
             <SearchBox variant="compact" initialQuery={route.query ?? ""} onSearch={runSearch} />
           </header>
           <main className="page">
-            {route.page === "topics" ? (
-              <TopicsPage topics={topics} onSearch={runSearch} />
-            ) : (
-              <ResultsView state={search} topics={topics} onOpenDocument={openDocument} />
-            )}
+            <ResultsView state={search} onOpenDocument={openDocument} />
           </main>
         </>
       )}
-
-      <nav className="corner-nav" aria-label="Main">
-        <a
-          href="/topics"
-          aria-current={route.page === "topics" ? "page" : undefined}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate({ page: "topics", query: null, doc: null });
-          }}
-        >
-          Topics{topics.topics.length > 0 && <span className="count">{topics.topics.length}</span>}
-        </a>
-      </nav>
 
       {route.doc && <DocumentReader id={route.doc} query={route.query} onClose={closeDocument} />}
     </div>

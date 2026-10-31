@@ -1,22 +1,25 @@
 defmodule Knowseek.Repo.Migrations.AddNormalizedQueryToTopics do
   use Ecto.Migration
 
-  # Topics become unique by `Knowseek.Discovery.normalize/1` of their query.
-  # `Knowseek.Topics.Deduplicate` backfills the column and merges the rows
-  # that already share a normalized query; its moduledoc has the merge rule.
+  # Topics become unique by their normalized query (lowercase, collapsed
+  # whitespace). The topics feature was removed (ADR 0015) and a later
+  # migration drops the table, so the old data step that backfilled the column
+  # and merged duplicate rows is gone. Rows that exist when this migration
+  # runs are deleted: that only happens on a database that has not migrated
+  # past it yet, and the topics table is dropped later in the same run.
   #
   # The unique index is on `md5(normalized_query)`, not on the column: a btree
   # entry cannot exceed about 2.7 kB, and a 1000-character query in a
   # multibyte script is larger. An index on the hash has a fixed entry size, so
   # no existing or future row can fail it.
   def up do
+    execute "DELETE FROM topics"
+
     alter table(:topics) do
       add :normalized_query, :text
     end
 
     flush()
-
-    Knowseek.Topics.Deduplicate.run(repo())
 
     alter table(:topics) do
       modify :normalized_query, :text, null: false

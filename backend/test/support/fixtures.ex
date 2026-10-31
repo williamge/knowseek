@@ -26,13 +26,4 @@ defmodule Knowseek.Fixtures do
     "Article #{tag}. " <>
       String.duplicate("This sentence pads the body past the alias length floor. ", 8)
   end
-
-  def topic_fixture(attrs \\ %{}) do
-    {:ok, topic, :created} =
-      attrs
-      |> Enum.into(%{query: "elixir releases"})
-      |> Knowseek.Topics.follow_topic()
-
-    topic
-  end
 end
