@@ -5,9 +5,11 @@ One file per task. Each task is sized for one agent on one branch.
 ## Workflow
 
 1. Pick an `open` task whose dependencies are `done`. Read `AGENTS.md` first.
-2. Set `Status: in progress (<branch name>)` in your branch.
-3. When you finish, set `Status: done` and add an `## Outcome` section.
-4. Add new task files for follow-up work. Use the next free number.
+2. Create a worktree with `make worktree NAME=<short-task-name>`. Work only there.
+3. Set `Status: in progress (<branch name>)` in your branch.
+4. When you finish, set `Status: done` and add an `## Outcome` section.
+5. Add new task files for follow-up work. Use the next free number.
+6. Open a pull request, wait for green CI, and report the URL. Do not merge.
 
 ## Index
 

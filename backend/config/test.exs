@@ -6,9 +6,9 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 #
-# Each Conductor workspace gets its own test database (see config/dev.exs).
+# Each workspace gets its own test database (see config/dev.exs).
 db_suffix =
-  case System.get_env("CONDUCTOR_WORKSPACE_NAME") do
+  case System.get_env("KNOWSEEK_WORKSPACE") || System.get_env("CONDUCTOR_WORKSPACE_NAME") do
     nil -> ""
     name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
   end

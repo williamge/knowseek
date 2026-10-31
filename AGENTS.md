@@ -34,12 +34,14 @@ Run everything from the repository root.
 | `make setup` | Start Postgres, fetch deps, create and migrate dev + test databases |
 | `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000) |
 | `make web` | Run the web UI on `$CONDUCTOR_PORT` + 1. It proxies `/api` to the API. |
-| `make test` | Run the backend test suite |
+| `make test` | Run the backend test suite. Pass `ARGS=test/knowseek/search_test.exs` for one file. |
+| `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. See "How to work on a task". |
+| `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree. |
 | `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. Agents use this one. |
 
-Single test file: `cd backend && mix test test/knowseek/search_test.exs`.
+Run single test files with `make test ARGS=...`, not with a bare `mix test`. The Makefile loads `.env`, which holds `KNOWSEEK_WORKSPACE`. A bare `mix test` in a worktree would use the shared `knowseek_test` database.
 
 To save tokens:
 
@@ -51,7 +53,7 @@ New migration: `cd backend && mix ecto.gen.migration name_with_underscores`.
 
 ### Databases and parallel workspaces
 
-One Postgres container (`docker compose`, project name `knowseek`) serves every workspace. Each Conductor workspace gets its own databases, named from `CONDUCTOR_WORKSPACE_NAME` (for example `knowseek_dev_search_index_service`). You can run tests and servers in many workspaces at once. If a database is missing, run `make setup` again. Outside Conductor (for example in iTerm), `CONDUCTOR_WORKSPACE_NAME` is not set, so commands use the shared `knowseek_dev` and `knowseek_test` databases.
+One Postgres container (`docker compose`, project name `knowseek`) serves every workspace. A workspace is a git worktree (see below) or a Conductor workspace. Each one gets its own databases, named from `KNOWSEEK_WORKSPACE`, or `CONDUCTOR_WORKSPACE_NAME` if that is not set (for example `knowseek_dev_task_014_one_hit`). `make worktree` writes `KNOWSEEK_WORKSPACE` into the worktree's `.env`. You can run tests and servers in many workspaces at once. If a database is missing, run `make setup` again. In the main checkout, with neither variable set, commands use the shared `knowseek_dev` and `knowseek_test` databases. Do not work on a task there.
 
 The optional Ollama server (`brew install ollama`, `brew services start ollama`) is shared the same way: one server on `localhost:11434` for every local workspace. Tests never use it. Remote workspaces cannot reach it.
 
@@ -79,12 +81,22 @@ These keep the code base coherent while many agents work in parallel. If a task 
 
 ## How to work on a task
 
+Every task is one worktree, one branch, and one pull request. **Never commit to or push `main`.** Never merge a pull request. A human merges.
+
 1. Pick a task in `docs/tasks/` (or take the one you were given). Read the whole task file.
-2. Work on one task per branch or workspace. Keep the change small enough to review.
-3. If you make a decision that a later agent needs to know about (new dependency, new service, schema change, changed contract), add an ADR in `docs/decisions/` with the next free number.
-4. Update the docs that your change makes wrong: `README.md` (API table), `docs/ARCHITECTURE.md`, this file.
-5. In the task file, set `Status: done` and add a short "Outcome" section: what you built, what you left out, and follow-up tasks. Add new task files for follow-ups.
-6. Run `make check-quiet`. It must pass.
+2. Create a worktree from the main checkout: `make worktree NAME=task-014-one-hit` (lowercase letters, digits, and dashes; at most 31 characters). It branches from `origin/main`. Work only inside `../knowseek-worktrees/<name>`. Do not edit the main checkout.
+3. Keep the change small enough to review.
+4. If you make a decision that a later agent needs to know about (new dependency, new service, schema change, changed contract), add an ADR in `docs/decisions/` with the next free number.
+5. Update the docs that your change makes wrong: `README.md` (API table), `docs/ARCHITECTURE.md`, this file.
+6. In the task file, set `Status: done` and add a short "Outcome" section: what you built, what you left out, and follow-up tasks. Add new task files for follow-ups.
+7. Run `make check-quiet`. It must pass.
+8. Commit, push the branch (`git push -u origin <name>`), and open a pull request against `main` with `gh pr create`. Fill in the pull request template. Link the task file.
+9. Watch CI with `gh pr checks --watch`. If a check fails, fix it in the same branch and push again. Do not stop at a red PR.
+10. Report the PR URL. Leave the worktree in place until the PR is merged. After the merge, `make worktree-rm NAME=...` cleans up.
+
+### CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. The `backend` job compiles with warnings as errors, checks formatting, runs Credo, checks for unused dependencies, and runs the tests against Postgres + pgvector. The `frontend` job runs the type check, the format check, the tests, and the build. This is the same as `make check`, plus the build. A PR must be green before it is merged. The `backend` and `frontend` jobs are the required checks. GitHub does not enforce this on this private repository (branch protection needs a paid plan), so the rule is a team convention: see `docs/decisions/0010-worktrees-and-pull-requests.md`.
 
 ## Definition of done
 
@@ -92,3 +104,4 @@ These keep the code base coherent while many agents work in parallel. If a task 
 - New behaviour has tests. Tests do not use the network.
 - Docs and the task file are up to date.
 - No secrets in the repository. Read API keys from environment variables in `config/runtime.exs`, and list them in `.env.example`.
+- A pull request is open against `main`, and its CI run is green. Nothing is pushed to `main`.

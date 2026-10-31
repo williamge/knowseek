@@ -2,10 +2,12 @@ import Config
 
 # Configure your database
 #
-# Each Conductor workspace gets its own database so parallel agents do not
-# collide. Postgres itself runs from the repo-root docker-compose.yml.
+# Each workspace (a git worktree, or a Conductor workspace) gets its own
+# database so parallel agents do not collide. Name it with KNOWSEEK_WORKSPACE;
+# CONDUCTOR_WORKSPACE_NAME is the fallback. Postgres itself runs from the
+# repo-root docker-compose.yml.
 db_suffix =
-  case System.get_env("CONDUCTOR_WORKSPACE_NAME") do
+  case System.get_env("KNOWSEEK_WORKSPACE") || System.get_env("CONDUCTOR_WORKSPACE_NAME") do
     nil -> ""
     name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
   end
