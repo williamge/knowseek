@@ -13,6 +13,11 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   fails, the other pages are still returned. The source returns an error
   only when the search fails or every page fetch fails.
 
+  Each candidate carries `:monthly_views`, the page's views per 30 days, from
+  the same request as the text (`prop=pageviews`, the average of the last 60
+  days that have data). It is left out when the API has no figure. See ADR
+  0018.
+
   Configuration (all optional):
 
       config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
@@ -36,6 +41,9 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
 
   # CirrusSearch rejects longer queries with `cirrussearch-query-too-long`.
   @max_query_length 300
+
+  # The PageViewInfo extension returns at most 60 daily figures per page.
+  @pageview_days 60
 
   @impl true
   def name, do: "wikipedia"
@@ -98,11 +106,12 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
 
   defp fetch_page(pageid, config) do
     params = [
-      prop: "extracts|info|pageprops",
+      prop: "extracts|info|pageprops|pageviews",
       explaintext: 1,
       exsectionformat: "plain",
       inprop: "url",
       ppprop: "disambiguation",
+      pvipdays: @pageview_days,
       pageids: pageid
     ]
 
@@ -136,10 +145,35 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
           body: truncate(body, max_chars),
           metadata: %{"pageid" => pageid}
         }
+        |> put_monthly_views(page["pageviews"])
     end
   end
 
   defp to_candidate(_page, _max_chars), do: nil
+
+  # The candidate carries no `:monthly_views` when the API has no figure, so
+  # that re-ingesting it keeps an earlier one.
+  defp put_monthly_views(candidate, pageviews) do
+    case monthly_views(pageviews) do
+      nil -> candidate
+      views -> Map.put(candidate, :monthly_views, views)
+    end
+  end
+
+  @doc false
+  # `pageviews` is the `prop=pageviews` value: a map of date to the views of
+  # that day, for the last `@pageview_days` days. A day without data (today,
+  # or a page that did not exist yet) is `nil`. Returns the average over the
+  # days with data, scaled to 30 days, or `nil` when no day has data.
+  @spec monthly_views(map() | nil) :: non_neg_integer() | nil
+  def monthly_views(%{} = pageviews) do
+    case Enum.filter(Map.values(pageviews), &is_integer/1) do
+      [] -> nil
+      days -> round(Enum.sum(days) / length(days) * 30)
+    end
+  end
+
+  def monthly_views(_pageviews), do: nil
 
   @doc false
   # Cuts `body` to at most `max_chars`. Cuts at the last paragraph break if

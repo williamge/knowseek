@@ -17,6 +17,12 @@ defmodule Knowseek.Search do
   no hits, not the nearest unrelated chunks. When fewer than `limit`
   documents match, it returns fewer hits.
 
+  After grouping, a document's score is multiplied by a bounded prior from
+  its `monthly_views` (`prior_factor/3`, options `:prior_weight` and
+  `:prior_saturation_views`, ADR 0018), and the hits are ordered again. It
+  breaks near-ties in favour of the more widely read document. A document
+  without a signal keeps its score and, among such documents, its order.
+
   Each ranked list fetches `limit * :candidate_factor` chunks, so that
   grouping still fills `limit` documents. See ADR 0011.
 
@@ -55,6 +61,10 @@ defmodule Knowseek.Search do
         |> fuse(semantic)
         |> Enum.filter(&Hit.relevant?(&1, min_similarity))
         |> group_by_document(Keyword.get(opts, :max_passages, config(:max_passages)))
+        |> apply_prior(
+          Keyword.get(opts, :prior_weight, config(:prior_weight)),
+          Keyword.get(opts, :prior_saturation_views, config(:prior_saturation_views))
+        )
         |> Enum.take(limit)
         |> load_hits()
 
@@ -155,6 +165,47 @@ defmodule Knowseek.Search do
     |> Enum.filter(&Map.has_key?(document_ids, &1.chunk_id))
     |> Enum.map(&Map.put(&1, :document_id, document_ids[&1.chunk_id]))
     |> group(max_passages)
+  end
+
+  # Multiplies each document's score by its prior factor and re-sorts. The
+  # sort is stable, so documents with equal scores (for example all of them
+  # without a signal) keep the order that fusion gave them.
+  defp apply_prior([], _weight, _saturation), do: []
+  defp apply_prior(entries, weight, _saturation) when weight == 0, do: entries
+
+  defp apply_prior(entries, weight, saturation) do
+    ids = Enum.map(entries, & &1.document_id)
+
+    views =
+      Repo.all(
+        from d in Document,
+          where: d.id in ^ids and not is_nil(d.monthly_views),
+          select: {d.id, d.monthly_views}
+      )
+      |> Map.new()
+
+    entries
+    |> Enum.map(fn entry ->
+      factor = prior_factor(views[entry.document_id], weight, saturation)
+      %{entry | score: entry.score * factor}
+    end)
+    |> Enum.sort_by(& &1.score, :desc)
+  end
+
+  @doc """
+  The factor that the document prior multiplies a document's score by.
+
+  $$factor = 1 + weight \\cdot \\min(1, \\log_{10}(1 + views) / \\log_{10}(1 + saturation))$$
+
+  It is in `1.0..(1 + weight)`, so the prior can lift a document by at most
+  `weight` (relative to its score) and never lowers one. A document without a
+  signal (`nil`) gets exactly `1.0`. See ADR 0018.
+  """
+  @spec prior_factor(non_neg_integer() | nil, number(), pos_integer()) :: float()
+  def prior_factor(nil, _weight, _saturation), do: 1.0
+
+  def prior_factor(views, weight, saturation) when views >= 0 do
+    1.0 + weight * min(1.0, :math.log10(1 + views) / :math.log10(1 + saturation))
   end
 
   @doc false
