@@ -48,6 +48,10 @@ config :knowseek, Knowseek.Embeddings.Ollama,
 config :knowseek, Knowseek.Cards.Espn,
   req_options: [plug: {Req.Test, Knowseek.Cards.Espn}, retry: false]
 
+# A failed ESPN team list is refetched by the next request (no backoff), so a
+# test can show that a bad answer is not cached as a success.
+config :knowseek, Knowseek.Cards.Providers.EspnNba, teams_backoff: 0
+
 config :knowseek, Knowseek.Embeddings.Voyage,
   api_key: "test-key",
   req_options: [

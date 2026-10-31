@@ -205,6 +205,13 @@ defmodule Knowseek.EntitiesTest do
   end
 
   describe "resolve/2 failures" do
+    test "the backoff after a failure is a minute: the web UI's retries outlast it" do
+      # `ENTITY_BACKOFF_MS` in frontend/src/lib/useCard.ts mirrors this value,
+      # and a frontend test checks that the retry schedule goes past it. Change
+      # both when this changes.
+      assert Application.fetch_env!(:knowseek, Entities)[:backoff] == :timer.seconds(60)
+    end
+
     test "an HTTP 429 is {:error, {:rate_limited, ms}}, and is not retried during the backoff", %{
       cache: cache
     } do

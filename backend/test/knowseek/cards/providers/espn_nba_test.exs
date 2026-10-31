@@ -318,5 +318,28 @@ defmodule Knowseek.Cards.Providers.EspnNbaTest do
 
       assert EspnNba.fetch(team("New York Knicks")) == {:error, {:http_status, 503}}
     end
+
+    test "an empty, malformed or short team list is an error, and is not cached as a success" do
+      teams = espn_fixture("teams")
+      [%{"leagues" => [league]} = sport] = teams["sports"]
+      short_league = %{league | "teams" => Enum.take(league["teams"], 24)}
+      short = %{teams | "sports" => [%{sport | "leagues" => [short_league]}]}
+
+      for {body, expected} <- [
+            {%{}, {:too_few_teams, 0}},
+            {%{"sports" => "none"}, {:too_few_teams, 0}},
+            {%{"sports" => [%{"leagues" => [%{"teams" => [%{"team" => %{}}]}]}]},
+             {:too_few_teams, 0}},
+            {short, {:too_few_teams, 24}}
+          ] do
+        Req.Test.stub(Knowseek.Cards.Espn, &Req.Test.json(&1, body))
+        assert EspnNba.fetch(team("New York Knicks")) == {:error, expected}
+      end
+
+      # The list comes back: the next request fetches it again (the test
+      # config has no backoff) and the card works.
+      stub_espn()
+      assert {:ok, %{title: "New York Knicks"}, _ttl} = EspnNba.fetch(team("New York Knicks"))
+    end
   end
 end

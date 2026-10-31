@@ -14,7 +14,11 @@ interface Props {
 export function FactCard({ data, onSearch }: Props) {
   if (!data.card) return null;
   const stale = data.status === "stale";
-  const labels = data.alternatives.flatMap((entity) => (entity.label ? [entity.label] : []));
+  // Two entities can share a label; the id is the key (the API drops the
+  // ones that have the label of the top entity).
+  const alternatives = data.alternatives.flatMap((entity) =>
+    entity.label ? [{ id: entity.id, label: entity.label }] : [],
+  );
 
   return (
     <section className="fact-card" aria-label={`Live facts: ${data.card.title}`}>
@@ -37,11 +41,11 @@ export function FactCard({ data, onSearch }: Props) {
         )}
       </footer>
 
-      {labels.length > 0 && (
+      {alternatives.length > 0 && (
         <div className="fact-card__also">
           <span>also:</span>
-          {labels.map((label) => (
-            <button key={label} type="button" className="chip" onClick={() => onSearch(label)}>
+          {alternatives.map(({ id, label }) => (
+            <button key={id} type="button" className="chip" onClick={() => onSearch(label)}>
               {label}
             </button>
           ))}

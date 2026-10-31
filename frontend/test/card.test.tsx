@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { FactCard } from "../src/components/FactCard";
 import { clockTime } from "../src/lib/format";
-import { DEFAULT_CARD_POLLING, useCard } from "../src/lib/useCard";
+import { DEFAULT_CARD_POLLING, ENTITY_BACKOFF_MS, useCard } from "../src/lib/useCard";
 import type { CardResponse } from "../src/types";
 import {
   cardResponse,
@@ -28,7 +28,11 @@ const pending = () =>
     refresh_after_ms: 700,
   });
 
-const unavailable = () => ({ ...pending(), status: "unavailable" as const });
+const unavailable = () => ({
+  ...pending(),
+  status: "unavailable" as const,
+  refresh_after_ms: 30_000,
+});
 
 /** A route that answers the given responses in order, then the last one again. */
 function sequence(...responses: (CardResponse | Response)[]) {
@@ -81,7 +85,7 @@ describe("useCard", () => {
     expect(hook.result.current?.card?.title).toBe("New York Knicks");
   });
 
-  it("gives up on a card that stays pending for 30 s", async () => {
+  it("polls a card that stays pending slowly after 30 s, instead of giving up", async () => {
     const { calls } = setup(pending());
 
     await tick(31_000);
@@ -89,8 +93,10 @@ describe("useCard", () => {
     expect(after).toBeGreaterThan(30);
     expect(after).toBeLessThan(50);
 
-    await tick(120_000);
+    await tick(28_000);
     expect(cardCalls(calls)).toBe(after);
+    await tick(2_000);
+    expect(cardCalls(calls)).toBe(after + 1);
   });
 
   it("asks again after refresh_after_ms from the response: 15 s for a live game", async () => {
@@ -168,21 +174,37 @@ describe("useCard", () => {
     expect(cardCalls(calls)).toBe(1);
   });
 
-  it("retries unavailable after 5, 15 and 30 s, then stops", async () => {
+  it("retries unavailable at 5, 15, 30, 60 and 90 s, then every 30 s", async () => {
     const { calls, hook } = setup(unavailable());
 
     await tick(0);
     expect(cardCalls(calls)).toBe(1);
-    await tick(5_000);
-    expect(cardCalls(calls)).toBe(2);
-    await tick(15_000);
-    expect(cardCalls(calls)).toBe(3);
-    await tick(30_000);
-    expect(cardCalls(calls)).toBe(4);
+    for (const [delay, total] of [
+      [5_000, 2],
+      [15_000, 3],
+      [30_000, 4],
+      [60_000, 5],
+      [90_000, 6],
+      [30_000, 7],
+      [30_000, 8],
+    ]) {
+      await tick(delay - 1);
+      expect(cardCalls(calls)).toBe(total - 1);
+      await tick(1);
+      expect(cardCalls(calls)).toBe(total);
+    }
 
-    await tick(600_000);
-    expect(cardCalls(calls)).toBe(4);
     expect(hook.result.current).toBeNull();
+  });
+
+  it("retries outlast the server's backoff after a failed entity lookup", () => {
+    // `backoff` of `Knowseek.Entities` is 60 s (a test in entities_test.exs
+    // pins the config to ENTITY_BACKOFF_MS). A retry must land after it.
+    let elapsed = 0;
+    const times = DEFAULT_CARD_POLLING.retryDelaysMs.map((delay) => (elapsed += delay));
+
+    expect(ENTITY_BACKOFF_MS).toBe(60_000);
+    expect(times.filter((time) => time > ENTITY_BACKOFF_MS).length).toBeGreaterThanOrEqual(2);
   });
 
   it("recovers when unavailable turns into a card", async () => {
@@ -205,6 +227,107 @@ describe("useCard", () => {
 
     await tick(5_000);
     expect(hook.result.current?.as_of).toBe("2026-10-31T15:43:00Z");
+  });
+
+  describe("when the source stays down", () => {
+    // Answers with the card first, then with failures until `recover()`.
+    function flaky() {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+      let state: "first" | "down" | "up" = "first";
+      const { calls } = mockApi({
+        [KNICKS]: () => {
+          if (state === "first") {
+            state = "down";
+            return cardResponse({ refresh_after_ms: 15_000 });
+          }
+          if (state === "down") return new Response("{}", { status: 500 });
+          return cardResponse({ refresh_after_ms: 15_000, as_of: "2026-10-31T16:00:00Z" });
+        },
+      });
+      const hook = renderHook(() => useCard("knicks", DEFAULT_CARD_POLLING));
+      return { calls, hook, recover: () => (state = "up") };
+    }
+
+    it("marks the card stale when the retries are used up, and keeps polling", async () => {
+      const { calls, hook, recover } = flaky();
+      await tick(0);
+      expect(hook.result.current?.status).toBe("fresh");
+
+      // The card expires at 15 s; the retries then take 5+15+30+60+90 s.
+      await tick(15_000 + 5_000 + 15_000 + 30_000 + 60_000 + 90_000 - 1);
+      expect(hook.result.current?.status).toBe("fresh");
+      await tick(1);
+      expect(hook.result.current?.status).toBe("stale");
+      expect(hook.result.current?.card?.title).toBe("New York Knicks");
+
+      // It goes on asking every 30 s, and recovers with the source.
+      const before = cardCalls(calls);
+      await tick(30_000);
+      expect(cardCalls(calls)).toBe(before + 1);
+      recover();
+      await tick(30_000);
+      expect(hook.result.current?.status).toBe("fresh");
+      expect(hook.result.current?.as_of).toBe("2026-10-31T16:00:00Z");
+    });
+
+    it("asks at once when the browser comes back online", async () => {
+      const { calls, hook, recover } = flaky();
+      await tick(15_000);
+      expect(cardCalls(calls)).toBe(2);
+
+      // Down; the next retry is 5 s away. The network returns.
+      recover();
+      await tick(1_000);
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+      await tick(0);
+
+      expect(cardCalls(calls)).toBe(3);
+      expect(hook.result.current?.as_of).toBe("2026-10-31T16:00:00Z");
+    });
+
+    it("ignores online while the tab is hidden", async () => {
+      const { calls } = flaky();
+      await tick(15_000);
+      act(() => setHidden(true));
+
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+      await tick(60_000);
+      expect(cardCalls(calls)).toBe(2);
+    });
+  });
+
+  it("never has two requests in flight: hiding and showing the tab during one", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    // `Promise.withResolvers` is not in the TypeScript lib of this project.
+    let answer: (response: Response) => void = () => {};
+    const answered = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(() => answered);
+    const hook = renderHook(() => useCard("knicks", DEFAULT_CARD_POLLING));
+    await tick(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    act(() => setHidden(true));
+    act(() => setHidden(false));
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await tick(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // The answer arrives: the card shows, and polling goes on as usual.
+    await act(async () => {
+      answer(new Response(JSON.stringify({ data: cardResponse({ refresh_after_ms: 15_000 }) })));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(hook.result.current?.status).toBe("fresh");
+    await tick(15_000);
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it("sends no request while the tab is hidden, and asks at once when it is visible", async () => {
@@ -386,6 +509,20 @@ describe("FactCard", () => {
   it("shows no chips without alternatives", () => {
     render(<FactCard data={cardResponse({ alternatives: [] })} onSearch={noop} />);
     expect(screen.queryByText("also:")).not.toBeInTheDocument();
+  });
+
+  it("keys the chips by entity id: two entities with one label are two chips, no warning", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const other = { ...westchesterEntity, id: "Q999" };
+    render(
+      <FactCard
+        data={cardResponse({ alternatives: [westchesterEntity, other] })}
+        onSearch={noop}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Westchester Knicks" })).toHaveLength(2);
+    expect(error).not.toHaveBeenCalled();
   });
 
   it("renders nothing without a card", () => {

@@ -33,27 +33,30 @@ defmodule Knowseek.CardsTest do
     %Entity{id: "Q-" <> label, label: label, types: ["Q13393265"], leagues: ["Q155223"]}
   end
 
-  # The requests the stub has seen so far.
+  # The requests the stub has seen so far. The stub sends its message before
+  # it answers, and the callers wait for the answers, so by the time a fetch
+  # is awaited the messages are in the mailbox: no waiting here.
   defp requests(acc \\ []) do
     receive do
       {:espn_request, path, _user_agent} -> requests([path | acc])
     after
-      20 -> Enum.reverse(acc)
+      0 -> Enum.reverse(acc)
     end
   end
 
   defp card_requests(paths), do: Enum.reject(paths, &(&1 == "/basketball/nba/teams"))
 
-  # Answers every request the gated stub holds, and those it receives within
-  # the next 100 ms (a fetch makes its requests one after another).
-  defp open_gate do
-    receive do
-      {:espn_gated, upstream} ->
-        send(upstream, :go)
-        open_gate()
-    after
-      100 -> :ok
+  # Answers the next `count` requests that the gated stub holds, however
+  # long they take to arrive (a fetch asks the team list first, then the
+  # schedule and the roster together). A request that never comes fails
+  # the test after 5 s, it does not hang it.
+  defp open_gate(count) do
+    for _request <- 1..count do
+      assert_receive {:espn_gated, upstream}, 5_000
+      send(upstream, :go)
     end
+
+    :ok
   end
 
   # A stub that records its requests and answers the team list, and every
@@ -108,7 +111,7 @@ defmodule Knowseek.CardsTest do
       assert %{status: :pending} = Cards.get(knicks(), opts)
 
       # The request returned while the upstream has not answered a thing.
-      assert_receive {:espn_gated, upstream}
+      assert_receive {:espn_gated, upstream}, 5_000
       assert upstream != self()
       refute_received {:espn_request, "/basketball/nba/teams/18/schedule", _}
 
@@ -116,7 +119,7 @@ defmodule Knowseek.CardsTest do
       assert %{status: :pending} = Cards.get(knicks(), opts)
 
       send(upstream, :go)
-      open_gate()
+      open_gate(2)
       :ok = Cards.await(knicks(), opts)
       assert %{status: :fresh} = Cards.get(knicks(), opts)
     end
@@ -155,9 +158,9 @@ defmodule Knowseek.CardsTest do
 
       assert Enum.all?(results, &(&1.status == :pending))
 
-      assert_receive {:espn_gated, upstream}
+      assert_receive {:espn_gated, upstream}, 5_000
       send(upstream, :go)
-      open_gate()
+      open_gate(2)
       :ok = Cards.await(entity, opts)
 
       assert %{status: :fresh} = Cards.get(entity, opts)
@@ -275,21 +278,19 @@ defmodule Knowseek.CardsTest do
       stub_espn(gate: true)
 
       assert %{status: :pending} = Cards.get(knicks(), opts)
-      assert_receive {:espn_gated, upstream}
+      assert_receive {:espn_gated, upstream}, 5_000
       assert %{status: :pending} = Cards.get(lakers(), opts)
       _ = :sys.get_state(cache)
 
       # Only the Knicks' fetch runs: the Lakers' request was dropped.
       send(upstream, :go)
-      open_gate()
+      open_gate(2)
       :ok = Cards.await(knicks(), opts)
       refute Enum.any?(requests(), &String.contains?(&1, "/teams/13/"))
 
       # With the slot free, the Lakers are fetched on the next request.
       assert %{status: :pending} = Cards.get(lakers(), opts)
-      assert_receive {:espn_gated, upstream}
-      send(upstream, :go)
-      open_gate()
+      open_gate(2)
       :ok = Cards.await(lakers(), opts)
       assert %{status: :fresh} = Cards.get(lakers(), opts)
     end

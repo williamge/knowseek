@@ -106,23 +106,20 @@ describe("highlight", () => {
 });
 
 describe("card times", () => {
-  // Local time: the expected text is built with the same time zone.
-  const iso = "2026-11-03T00:30:00Z";
-  const local = new Date(iso);
+  // The time zone is pinned to America/New_York in test/global-setup.ts.
+  // Newer ICU versions put a narrow no-break space before AM/PM.
+  const plain = (text: string) => text.replace(/\s/g, " ");
 
-  it("clockTime is the local clock time, with seconds on request", () => {
-    expect(clockTime(iso)).toBe(
-      local.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }),
-    );
-    expect(clockTime("2026-10-31T15:42:15Z", true)).toMatch(
-      /^\d{1,2}:42:15\s?[AP]M$|^\d{2}:42:15$/,
-    );
+  it("clockTime is the clock time in the user's time zone, with seconds on request", () => {
+    expect(plain(clockTime("2026-11-03T00:30:00Z"))).toBe("7:30 PM");
+    expect(plain(clockTime("2026-10-31T15:42:15Z", true))).toBe("11:42:15 AM");
   });
 
   it("gameTime has the weekday, the date and the time", () => {
-    const text = gameTime(iso);
-    expect(text).toMatch(/^(Sun|Mon|Tue), (Nov 2|Nov 3), \d{1,2}:\d{2}\s?[AP]M$/);
-    expect(text).toContain(String(local.getDate()));
+    // The clocks went back on Nov 1: EST, UTC-5.
+    expect(plain(gameTime("2026-11-03T00:30:00Z"))).toBe("Mon, Nov 2, 7:30 PM");
+    // Before that: EDT, UTC-4.
+    expect(plain(gameTime("2026-10-30T23:30:00Z"))).toBe("Fri, Oct 30, 7:30 PM");
   });
 });
 

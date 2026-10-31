@@ -385,6 +385,35 @@ defmodule Knowseek.CacheTest do
       assert {:fresh, 3, _as_of} = Cache.get(name, 3, fetcher({:ok, :x}))
     end
 
+    test "drops are counted in stats/1 and logged as a warning, at most every 10 s", %{
+      clock: clock
+    } do
+      name = start_capped_cache(clock, 1)
+      Cache.get(name, :busy, blocked_fetcher({:ok, :v}))
+      assert_receive {:fetching, _}
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          for key <- 1..30, do: Cache.get(name, key, blocked_fetcher({:ok, key}))
+          assert %{dropped: 30, in_flight: 1} = Cache.stats(name)
+
+          # Ten seconds later the next drop is logged again.
+          advance(clock, 10_000)
+          Cache.get(name, :another, blocked_fetcher({:ok, 1}))
+          assert %{dropped: 31} = Cache.stats(name)
+        end)
+
+      warnings = log |> String.split("\n") |> Enum.filter(&String.contains?(&1, inspect(name)))
+      assert length(warnings) == 2
+      assert log =~ ": 1 refreshes dropped so far"
+      assert log =~ ": 31 refreshes dropped so far"
+      assert log =~ "1 fetches already in flight"
+    end
+
+    test "stats/1 of a fresh cache", %{cache: cache} do
+      assert Cache.stats(cache) == %{entries: 0, in_flight: 0, dropped: 0, blocked_until: 0}
+    end
+
     test "the default is no cap", %{cache: cache} do
       for key <- 1..20, do: Cache.get(cache, key, blocked_fetcher({:ok, key}))
       _ = :sys.get_state(cache)

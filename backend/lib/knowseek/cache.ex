@@ -22,6 +22,10 @@ defmodule Knowseek.Cache do
       once. A refresh that would be the next one is dropped, not queued: the
       key stays `:pending` and the next `get/4` asks again. N distinct
       (user-chosen) keys cost at most `:max_in_flight` upstream calls at a time.
+      Every drop is counted (`stats/1`) and logged as a warning, at most once
+      every ten seconds, so that a flood of distinct keys shows up. A flood
+      can keep every slot busy and leave a real key `:pending`: the cap bounds
+      the upstream load, it does not decide who gets the slots.
     * **Cache-wide rate-limit backoff.** A fetch that fails with
       `{:error, {:rate_limited, retry_after_ms}}` (the upstream said 429, or
       `maxlag`, with a `Retry-After`) stops *every* fetch of this cache until
@@ -74,11 +78,14 @@ defmodule Knowseek.Cache do
   """
   use GenServer
 
+  require Logger
+
   @default_ttl 60_000
   @default_backoff 5_000
   @default_timeout 10_000
   @default_max_entries 10_000
   @max_rate_limit_backoff :timer.minutes(10)
+  @drop_log_interval :timer.seconds(10)
 
   @type key :: term()
   @type cache :: atom()
@@ -151,6 +158,20 @@ defmodule Knowseek.Cache do
   def await(cache, key, timeout \\ :infinity) when is_atom(cache) do
     GenServer.call(cache, {:await, key}, timeout)
   end
+
+  @doc """
+  Counters of the cache, for logs and tests: `entries` (keys stored),
+  `in_flight` (fetches running), `dropped` (refreshes dropped over
+  `:max_in_flight` since the start) and `blocked_until` (the end of a
+  rate-limit stop, in the clock's milliseconds, or 0).
+  """
+  @spec stats(cache()) :: %{
+          entries: non_neg_integer(),
+          in_flight: non_neg_integer(),
+          dropped: non_neg_integer(),
+          blocked_until: non_neg_integer()
+        }
+  def stats(cache) when is_atom(cache), do: GenServer.call(cache, :stats)
 
   @default_retry_after 60_000
 
@@ -239,6 +260,8 @@ defmodule Knowseek.Cache do
        max_entries: Keyword.get(opts, :max_entries, @default_max_entries),
        max_in_flight: Keyword.get(opts, :max_in_flight, :infinity),
        blocked_until: 0,
+       dropped: 0,
+       last_drop_log: nil,
        in_flight: %{},
        waiters: %{}
      }}
@@ -254,13 +277,28 @@ defmodule Knowseek.Cache do
       Map.has_key?(state.in_flight, key) -> {:noreply, state}
       state.blocked_until > now -> {:noreply, state}
       not refresh_due?(lookup(state.cache, key), now) -> {:noreply, state}
-      at_capacity?(state) -> {:noreply, state}
+      at_capacity?(state) -> {:noreply, drop(state, now)}
       true -> {:noreply, start_fetch(state, key, fetch_fun, opts)}
     end
   end
 
   defp at_capacity?(%{max_in_flight: :infinity}), do: false
   defp at_capacity?(state), do: map_size(state.in_flight) >= state.max_in_flight
+
+  defp drop(state, now) do
+    state = %{state | dropped: state.dropped + 1}
+
+    if state.last_drop_log == nil or now - state.last_drop_log >= @drop_log_interval do
+      Logger.warning(
+        "#{inspect(state.cache)}: #{state.dropped} refreshes dropped so far, " <>
+          "#{state.max_in_flight} fetches already in flight"
+      )
+
+      %{state | last_drop_log: now}
+    else
+      state
+    end
+  end
 
   @impl true
   def handle_call({:await, key}, from, state) do
@@ -269,6 +307,17 @@ defmodule Knowseek.Cache do
     else
       {:reply, :ok, state}
     end
+  end
+
+  def handle_call(:stats, _from, state) do
+    stats = %{
+      entries: entry_count(state.cache),
+      in_flight: map_size(state.in_flight),
+      dropped: state.dropped,
+      blocked_until: state.blocked_until
+    }
+
+    {:reply, stats, state}
   end
 
   @impl true

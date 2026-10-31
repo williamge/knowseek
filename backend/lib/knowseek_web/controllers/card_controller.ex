@@ -65,12 +65,19 @@ defmodule KnowseekWeb.CardController do
         %{
           base(card.status, card.refresh_after_ms)
           | entity: entity,
-            alternatives: alternatives,
+            alternatives: Enum.reject(alternatives, &same_label?(&1, entity)),
             card: card.type && Map.take(card, [:type, :title, :facts]),
             as_of: card.as_of
         }
     end
   end
+
+  # Wikidata can have two items with one label (the Denver Nuggets of the NBA
+  # and of the old NBL): "also: Denver Nuggets" under "Denver Nuggets" helps no one.
+  defp same_label?(%{label: label}, %{label: top}) when is_binary(label) and is_binary(top),
+    do: String.downcase(String.trim(label)) == String.downcase(String.trim(top))
+
+  defp same_label?(_alternative, _entity), do: false
 
   defp none, do: base(:none, @none_poll_ms)
 

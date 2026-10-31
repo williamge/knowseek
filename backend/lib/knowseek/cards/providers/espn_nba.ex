@@ -37,8 +37,9 @@ defmodule Knowseek.Cards.Providers.EspnNba do
   ## TTL by state
 
   `ttl/2`: a game in progress is `15 s` (ESPN's own cache is a few seconds). A
-  game that finished in the last 12 hours is final: nothing changes until the
-  next game, so up to 6 hours. Otherwise a game is scheduled: up to an hour,
+  game that tipped off in the last 12 hours (about 9.5 hours after it
+  ended) is final: nothing changes until the next game, so up to 6 hours.
+  Otherwise a game is scheduled: up to an hour,
   to catch a postponement or an injury report. In both of the last two
   cases the card is never cached past two minutes before the next game's
   start, and never for less than a minute.
@@ -58,11 +59,16 @@ defmodule Knowseek.Cards.Providers.EspnNba do
 
   @teams_cache Knowseek.Cards.EspnTeams
   @teams_key :nba
+  # The NBA has 30 teams. A teams answer with fewer than this (an empty or
+  # malformed 200) is an error: it must not be cached as a success for a day.
+  @min_teams 25
+  @default_teams_backoff :timer.seconds(30)
 
   @live_ttl :timer.seconds(15)
   @min_ttl :timer.seconds(60)
   @scheduled_cap :timer.hours(1)
   @final_cap :timer.hours(6)
+  # How long after tip-off (not after the final) a card counts as final.
   @final_window_seconds 12 * 3600
   @lead_ms :timer.minutes(2)
 
@@ -101,15 +107,22 @@ defmodule Knowseek.Cards.Providers.EspnNba do
   defp teams(retry? \\ true) do
     case Cache.get(@teams_cache, @teams_key, &fetch_teams/0,
            ttl: :timer.hours(24),
-           backoff: :timer.seconds(30),
+           backoff: teams_backoff(),
            timeout: :timer.seconds(10)
          ) do
       {status, teams, _as_of} when status in [:fresh, :stale] ->
         {:ok, teams}
 
+      {:unavailable, :cache_not_running} ->
+        {:error, :cache_not_running}
+
+      # Nothing cached, or a failure: past its backoff the `get` above started a
+      # fetch, so wait for it. Inside the backoff the wait returns at once.
       :pending when retry? ->
-        :ok = Cache.await(@teams_cache, @teams_key, :timer.seconds(15))
-        teams(false)
+        await_teams()
+
+      {:unavailable, _reason} when retry? ->
+        await_teams()
 
       :pending ->
         {:error, :teams_unavailable}
@@ -119,9 +132,25 @@ defmodule Knowseek.Cards.Providers.EspnNba do
     end
   end
 
+  defp await_teams do
+    :ok = Cache.await(@teams_cache, @teams_key, :timer.seconds(15))
+    teams(false)
+  end
+
+  # Config `teams_backoff` (milliseconds) is for tests: with 0 the next
+  # request refetches a failed team list at once.
+  defp teams_backoff do
+    :knowseek
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:teams_backoff, @default_teams_backoff)
+  end
+
   defp fetch_teams do
     with {:ok, body} <- Espn.get("#{@path}/teams") do
-      {:ok, parse_teams(body)}
+      case parse_teams(body) do
+        teams when map_size(teams) >= @min_teams -> {:ok, teams}
+        teams -> {:error, {:too_few_teams, map_size(teams)}}
+      end
     end
   end
 
@@ -207,10 +236,10 @@ defmodule Knowseek.Cards.Providers.EspnNba do
   @doc false
   @spec parse_teams(map()) :: %{String.t() => String.t()}
   def parse_teams(body) do
-    for %{"sports" => sports} <- [body],
-        %{"leagues" => leagues} <- sports,
-        %{"teams" => teams} <- leagues,
-        %{"team" => %{"id" => id, "displayName" => name}} <- teams,
+    for %{"sports" => sports} when is_list(sports) <- [body],
+        %{"leagues" => leagues} when is_list(leagues) <- sports,
+        %{"teams" => teams} when is_list(teams) <- leagues,
+        %{"team" => %{"id" => id, "displayName" => name}} when is_binary(name) <- teams,
         into: %{} do
       {team_key(name), id}
     end

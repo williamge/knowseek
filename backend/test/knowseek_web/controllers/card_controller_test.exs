@@ -306,6 +306,30 @@ defmodule KnowseekWeb.CardControllerTest do
     end
   end
 
+  describe "GET /api/cards: alternatives" do
+    test "one with the label of the top entity is dropped (two items, one label)", %{
+      conn: conn,
+      entities: entities,
+      cards: cards
+    } do
+      entities = [resolver: Knowseek.Entities.FakeResolver] ++ entities
+      cards = [providers: [Knowseek.Cards.StaticProvider]] ++ cards
+      Application.put_env(:knowseek, KnowseekWeb.CardController, entities: entities, cards: cards)
+      context = %{entities: entities, cards: cards}
+
+      card(conn, "dup")
+      settle("dup", context)
+      card(conn, "dup")
+      settle("dup", context)
+
+      assert %{"status" => "fresh", "entity" => %{"id" => "Q-1"}, "alternatives" => alternatives} =
+               card(conn, "dup")
+
+      # "Same name " has the label of the top entity ("Same Name"); "Other Name" does not.
+      assert Enum.map(alternatives, & &1["id"]) == ["Q-3"]
+    end
+  end
+
   describe "GET /api/cards: bad requests" do
     test "q is required", %{conn: conn} do
       assert %{"errors" => %{"detail" => "q is required"}} =
