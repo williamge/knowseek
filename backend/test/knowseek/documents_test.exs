@@ -125,10 +125,20 @@ defmodule Knowseek.DocumentsTest do
       body = long_body("views")
 
       {:ok, original} =
-        Documents.ingest(%{url: "https://example.com/o", body: body, source: "t", monthly_views: 500})
+        Documents.ingest(%{
+          url: "https://example.com/o",
+          body: body,
+          source: "t",
+          monthly_views: 500
+        })
 
       {:ok, _} =
-        Documents.ingest(%{url: "https://example.com/c", body: body, source: "t", monthly_views: 9})
+        Documents.ingest(%{
+          url: "https://example.com/c",
+          body: body,
+          source: "t",
+          monthly_views: 9
+        })
 
       assert Documents.get_document(original.id).monthly_views == 500
     end

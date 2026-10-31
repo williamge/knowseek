@@ -202,7 +202,9 @@ defmodule Knowseek.SearchTest do
     end
 
     test "multiplies only the score of a document that has a signal" do
-      with_views = document_fixture(body: "Knicks basketball team, edition A.", monthly_views: 10_000)
+      with_views =
+        document_fixture(body: "Knicks basketball team, edition A.", monthly_views: 10_000)
+
       without = document_fixture(body: "Knicks basketball team, edition B.")
 
       assert {:ok, %{hits: raw}} = Search.search("knicks basketball", prior_weight: 0)
@@ -224,7 +226,8 @@ defmodule Knowseek.SearchTest do
       popular =
         document_fixture(
           title: "Popular",
-          body: String.pad_trailing("A page about knicks basketball. ", 1_000, "Unrelated filler. "),
+          body:
+            String.pad_trailing("A page about knicks basketball. ", 1_000, "Unrelated filler. "),
           monthly_views: 1_000_000_000
         )
 
