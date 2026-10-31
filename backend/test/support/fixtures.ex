@@ -22,9 +22,12 @@ defmodule Knowseek.Fixtures do
   @doc """
   A recorded Wikidata API answer, decoded. `name` is a file in
   `test/support/fixtures/wikidata` without `.json`: `search_<query>` (a
-  `wbsearchentities` answer for `knicks`, `nvidia`, `nvda` or `tokyo`) or
-  `entities_<query>` (the `wbgetentities` answer for the ids of that search).
-  Recorded from wikidata.org, trimmed to the fields the resolver reads.
+  `wbsearchentities` answer for `knicks`, `nvidia`, `nvda`, `tokyo`, `texas`,
+  `japan` or `apple`) or `entities_<query>` (the `wbgetentities` answer for the
+  ids of that search). Recorded from wikidata.org, trimmed to the fields the
+  resolver reads. Sitelinks are trimmed too: the `enwiki` entry is real, the
+  others are empty placeholders (`x12`) that keep the count the resolver reads.
+  The `texas`, `japan` and `apple` searches keep their first 8 hits.
   """
   def wikidata_fixture(name) do
     @wikidata_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
@@ -35,14 +38,14 @@ defmodule Knowseek.Fixtures do
   `"Q182477"` (Nvidia). Tests change it to build a variant.
   """
   def wikidata_item(id) do
-    ~w(knicks nvidia nvda tokyo)
+    ~w(knicks nvidia nvda tokyo texas japan apple)
     |> Enum.map(&wikidata_fixture("entities_#{&1}"))
     |> Enum.find_value(&get_in(&1, ["entities", id]))
   end
 
   @doc """
   Stubs `Knowseek.Entities.Wikidata` HTTP calls (`Req.Test`) with the recorded
-  answers. Searches for `knicks`, `nvidia`, `nvda` and `tokyo` find their
+  answers. Searches for the queries of `wikidata_fixture/1` find their
   fixture; any other search (`weather in tokyo`, `zzzz`) finds nothing, as
   Wikidata does. `wbgetentities` answers for the requested ids.
 
@@ -54,7 +57,7 @@ defmodule Knowseek.Fixtures do
     test_pid = self()
 
     items =
-      ~w(knicks nvidia nvda tokyo)
+      ~w(knicks nvidia nvda tokyo texas japan apple)
       |> Enum.map(&wikidata_fixture("entities_#{&1}")["entities"])
       |> Enum.reduce(%{}, &Map.merge/2)
 

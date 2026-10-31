@@ -1,1252 +1,661 @@
 {
-  "success": 1,
-  "entities": {
-    "Q131364": {
-      "id": "Q131364",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 13393265,
-                  "id": "Q13393265"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+ "success": 1,
+ "entities": {
+  "Q131364": {
+   "id": "Q131364",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 13393265,
+         "id": "Q13393265"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "anwiki": {
-          "site": "anwiki",
-          "title": "New York Knicks"
-        },
-        "arwiki": {
-          "site": "arwiki",
-          "title": "نيويورك نيكس"
-        },
-        "arzwiki": {
-          "site": "arzwiki",
-          "title": "نيو يورك نيكس"
-        },
-        "astwiki": {
-          "site": "astwiki",
-          "title": "New York Knicks"
-        },
-        "azwiki": {
-          "site": "azwiki",
-          "title": "Nyu-York Niks"
-        },
-        "be_x_oldwiki": {
-          "site": "be_x_oldwiki",
-          "title": "Нью-Ёрк Нікс"
-        },
-        "bewiki": {
-          "site": "bewiki",
-          "title": "Нью-Ёрк Нікс"
-        },
-        "bgwiki": {
-          "site": "bgwiki",
-          "title": "Ню Йорк Никс"
-        },
-        "bswiki": {
-          "site": "bswiki",
-          "title": "New York Knicks"
-        },
-        "cawiki": {
-          "site": "cawiki",
-          "title": "New York Knicks"
-        },
-        "cswiki": {
-          "site": "cswiki",
-          "title": "New York Knicks"
-        },
-        "dawiki": {
-          "site": "dawiki",
-          "title": "New York Knicks"
-        },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "New York Knicks"
-        },
-        "diqwiki": {
-          "site": "diqwiki",
-          "title": "New York Knicks"
-        },
-        "elwiki": {
-          "site": "elwiki",
-          "title": "Νιου Γιορκ Νικς"
-        },
-        "enwiki": {
-          "site": "enwiki",
-          "title": "New York Knicks"
-        },
-        "eowiki": {
-          "site": "eowiki",
-          "title": "New York Knicks"
-        },
-        "eswiki": {
-          "site": "eswiki",
-          "title": "New York Knicks"
-        },
-        "etwiki": {
-          "site": "etwiki",
-          "title": "New York Knicks"
-        },
-        "euwiki": {
-          "site": "euwiki",
-          "title": "New York Knicks"
-        },
-        "fawiki": {
-          "site": "fawiki",
-          "title": "نیویورک نیکس"
-        },
-        "fiwiki": {
-          "site": "fiwiki",
-          "title": "New York Knicks"
-        },
-        "frwiki": {
-          "site": "frwiki",
-          "title": "Knicks de New York"
-        },
-        "glwiki": {
-          "site": "glwiki",
-          "title": "New York Knicks"
-        },
-        "hakwiki": {
-          "site": "hakwiki",
-          "title": "New York Knicks"
-        },
-        "hewiki": {
-          "site": "hewiki",
-          "title": "ניו יורק ניקס"
-        },
-        "hiwiki": {
-          "site": "hiwiki",
-          "title": "न्यूयॉर्क निक्स"
-        },
-        "hrwiki": {
-          "site": "hrwiki",
-          "title": "New York Knicks"
-        },
-        "huwiki": {
-          "site": "huwiki",
-          "title": "New York Knicks"
-        },
-        "hywiki": {
-          "site": "hywiki",
-          "title": "Նյու Յորք Նիքս"
-        },
-        "idwiki": {
-          "site": "idwiki",
-          "title": "New York Knicks"
-        },
-        "iswiki": {
-          "site": "iswiki",
-          "title": "New York Knicks"
-        },
-        "itwiki": {
-          "site": "itwiki",
-          "title": "New York Knicks"
-        },
-        "jawiki": {
-          "site": "jawiki",
-          "title": "ニューヨーク・ニックス"
-        },
-        "kawiki": {
-          "site": "kawiki",
-          "title": "ნიუ-იორკ ნიქსი"
-        },
-        "kowiki": {
-          "site": "kowiki",
-          "title": "뉴욕 닉스"
-        },
-        "ltwiki": {
-          "site": "ltwiki",
-          "title": "Niujorko Knicks"
-        },
-        "lvwiki": {
-          "site": "lvwiki",
-          "title": "Ņujorkas \"Knicks\""
-        },
-        "mkwiki": {
-          "site": "mkwiki",
-          "title": "Њујорк Никс"
-        },
-        "mlwiki": {
-          "site": "mlwiki",
-          "title": "ന്യൂയോർക്ക് നിക്ക്സ്"
-        },
-        "mnwiki": {
-          "site": "mnwiki",
-          "title": "Нью Йорк Никс"
-        },
-        "mrwiki": {
-          "site": "mrwiki",
-          "title": "न्यू यॉर्क निक्स"
-        },
-        "mznwiki": {
-          "site": "mznwiki",
-          "title": "نیویورک نیکز"
-        },
-        "nlwiki": {
-          "site": "nlwiki",
-          "title": "New York Knicks"
-        },
-        "nowiki": {
-          "site": "nowiki",
-          "title": "New York Knicks"
-        },
-        "ocwiki": {
-          "site": "ocwiki",
-          "title": "New York Knicks"
-        },
-        "plwiki": {
-          "site": "plwiki",
-          "title": "New York Knicks"
-        },
-        "ptwiki": {
-          "site": "ptwiki",
-          "title": "New York Knicks"
-        },
-        "rowiki": {
-          "site": "rowiki",
-          "title": "New York Knicks"
-        },
-        "ruwiki": {
-          "site": "ruwiki",
-          "title": "Нью-Йорк Никс"
-        },
-        "ruwikinews": {
-          "site": "ruwikinews",
-          "title": "Категория:Нью-Йорк Никс"
-        },
-        "scowiki": {
-          "site": "scowiki",
-          "title": "New York Knicks"
-        },
-        "shwiki": {
-          "site": "shwiki",
-          "title": "New York Knicks"
-        },
-        "simplewiki": {
-          "site": "simplewiki",
-          "title": "New York Knicks"
-        },
-        "skwiki": {
-          "site": "skwiki",
-          "title": "New York Knicks"
-        },
-        "slwiki": {
-          "site": "slwiki",
-          "title": "New York Knicks"
-        },
-        "sqwiki": {
-          "site": "sqwiki",
-          "title": "New York Knicks"
-        },
-        "srwiki": {
-          "site": "srwiki",
-          "title": "Њујорк никси"
-        },
-        "srwikinews": {
-          "site": "srwikinews",
-          "title": "Категорија:Њујорк Никси"
-        },
-        "svwiki": {
-          "site": "svwiki",
-          "title": "New York Knicks"
-        },
-        "swwiki": {
-          "site": "swwiki",
-          "title": "New York Knicks"
-        },
-        "tawiki": {
-          "site": "tawiki",
-          "title": "நியூ யோர்க் நிக்ஸ்"
-        },
-        "thwiki": {
-          "site": "thwiki",
-          "title": "นิวยอร์ก นิกส์"
-        },
-        "tlwiki": {
-          "site": "tlwiki",
-          "title": "New York Knicks"
-        },
-        "trwiki": {
-          "site": "trwiki",
-          "title": "New York Knicks"
-        },
-        "ukwiki": {
-          "site": "ukwiki",
-          "title": "Нью-Йорк Нікс"
-        },
-        "vecwiki": {
-          "site": "vecwiki",
-          "title": "New York Knicks"
-        },
-        "viwiki": {
-          "site": "viwiki",
-          "title": "New York Knicks"
-        },
-        "vowiki": {
-          "site": "vowiki",
-          "title": "New York Knicks"
-        },
-        "wuuwiki": {
-          "site": "wuuwiki",
-          "title": "纽约尼克斯"
-        },
-        "yowiki": {
-          "site": "yowiki",
-          "title": "New York Knicks"
-        },
-        "zh_min_nanwiki": {
-          "site": "zh_min_nanwiki",
-          "title": "New York Knicks"
-        },
-        "zh_yuewiki": {
-          "site": "zh_yuewiki",
-          "title": "紐約人"
-        },
-        "zhwiki": {
-          "site": "zhwiki",
-          "title": "纽约尼克斯"
-        }
-      }
-    },
-    "Q18343489": {
-      "id": "Q18343489",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 482994,
-                  "id": "Q482994"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{},"x2":{},"x3":{},"x4":{},"x5":{},"x6":{},"x7":{},"x8":{},"x9":{},"x10":{},"x11":{},"x12":{},"x13":{},"x14":{},"enwiki":{"site":"enwiki","title":"New York Knicks"},"x16":{},"x17":{},"x18":{},"x19":{},"x20":{},"x21":{},"x22":{},"x23":{},"x24":{},"x25":{},"x26":{},"x27":{},"x28":{},"x29":{},"x30":{},"x31":{},"x32":{},"x33":{},"x34":{},"x35":{},"x36":{},"x37":{},"x38":{},"x39":{},"x40":{},"x41":{},"x42":{},"x43":{},"x44":{},"x45":{},"x46":{},"x47":{},"x48":{},"x49":{},"x50":{},"x51":{},"x52":{},"x53":{},"x54":{},"x55":{},"x56":{},"x57":{},"x58":{},"x59":{},"x60":{},"x61":{},"x62":{},"x63":{},"x64":{},"x65":{},"x66":{},"x67":{},"x68":{},"x69":{},"x70":{},"x71":{},"x72":{},"x73":{}}
+  },
+  "Q18343489": {
+   "id": "Q18343489",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 482994,
+         "id": "Q482994"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Knicks (Remix)"
-        }
-      }
-    },
-    "Q1777073": {
-      "id": "Q1777073",
-      "type": "item",
-      "claims": {
-        "P625": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P625",
-              "datavalue": {
-                "value": {
-                  "latitude": 52.2644,
-                  "longitude": 8.77348,
-                  "altitude": null,
-                  "precision": 0.0001,
-                  "globe": "http://www.wikidata.org/entity/Q2"
-                },
-                "type": "globecoordinate"
-              },
-              "datatype": "globe-coordinate"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ],
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 759421,
-                  "id": "Q759421"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          },
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 473972,
-                  "id": "Q473972"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Knicks (Remix)"}}
+  },
+  "Q1777073": {
+   "id": "Q1777073",
+   "type": "item",
+   "claims": {
+    "P625": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P625",
+       "datavalue": {
+        "value": {
+         "latitude": 52.2644,
+         "longitude": 8.77348,
+         "altitude": null,
+         "precision": 0.0001,
+         "globe": "http://www.wikidata.org/entity/Q2"
+        },
+        "type": "globecoordinate"
+       },
+       "datatype": "globe-coordinate"
       },
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Naturschutzgebiet Knicksiek"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 759421,
+         "id": "Q759421"
         },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "Knicksiek"
-        }
-      }
-    },
-    "Q105069450": {
-      "id": "Q105069450",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 726,
-                  "id": "Q726"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          },
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 26401003,
-                  "id": "Q26401003"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Knicks Go"
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 473972,
+         "id": "Q473972"
         },
-        "frwiki": {
-          "site": "frwiki",
-          "title": "Knicks Go"
-        },
-        "jawiki": {
-          "site": "jawiki",
-          "title": "ニックスゴー"
-        },
-        "svwiki": {
-          "site": "svwiki",
-          "title": "Knicks Go"
-        }
-      }
-    },
-    "Q16998586": {
-      "id": "Q16998586",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 40434727,
-                  "id": "Q40434727"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Knicks–Nets rivalry"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{}}
+  },
+  "Q105069450": {
+   "id": "Q105069450",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 726,
+         "id": "Q726"
         },
-        "hewiki": {
-          "site": "hewiki",
-          "title": "הדרבי של ניו יורק (כדורסל)"
-        },
-        "ruwiki": {
-          "site": "ruwiki",
-          "title": "Противостояние «Никс» — «Нетс»"
-        }
-      }
-    },
-    "Q4997063": {
-      "id": "Q4997063",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 40434727,
-                  "id": "Q40434727"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Bulls–Knicks rivalry"
-        }
-      }
-    },
-    "Q972027": {
-      "id": "Q972027",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 371174,
-                  "id": "Q371174"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 26401003,
+         "id": "Q26401003"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "arwiki": {
-          "site": "arwiki",
-          "title": "انحناءة احترام"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Knicks Go"},"x1":{},"x2":{},"x3":{}}
+  },
+  "Q16998586": {
+   "id": "Q16998586",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 40434727,
+         "id": "Q40434727"
         },
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Curtseys"
-        },
-        "cswiki": {
-          "site": "cswiki",
-          "title": "Pukrle"
-        },
-        "dawiki": {
-          "site": "dawiki",
-          "title": "Neje"
-        },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "Knicks (Geste)"
-        },
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Curtsy"
-        },
-        "eowiki": {
-          "site": "eowiki",
-          "title": "Riverenco"
-        },
-        "eowikiquote": {
-          "site": "eowikiquote",
-          "title": "Riverenco"
-        },
-        "etwikiquote": {
-          "site": "etwikiquote",
-          "title": "Kniks"
-        },
-        "fiwiki": {
-          "site": "fiwiki",
-          "title": "Niiaus"
-        },
-        "frwiki": {
-          "site": "frwiki",
-          "title": "Révérence (geste)"
-        },
-        "gdwiki": {
-          "site": "gdwiki",
-          "title": "Beic"
-        },
-        "hywiki": {
-          "site": "hywiki",
-          "title": "Ծնկածալ ողջույն"
-        },
-        "jawiki": {
-          "site": "jawiki",
-          "title": "カーテシー"
-        },
-        "kowiki": {
-          "site": "kowiki",
-          "title": "커트시"
-        },
-        "nlwiki": {
-          "site": "nlwiki",
-          "title": "Reverence"
-        },
-        "nnwiki": {
-          "site": "nnwiki",
-          "title": "Neiing"
-        },
-        "nowiki": {
-          "site": "nowiki",
-          "title": "Neiing"
-        },
-        "plwiki": {
-          "site": "plwiki",
-          "title": "Dygnięcie"
-        },
-        "ptwiki": {
-          "site": "ptwiki",
-          "title": "Cortesia (saudação)"
-        },
-        "ruwiki": {
-          "site": "ruwiki",
-          "title": "Реверанс"
-        },
-        "simplewiki": {
-          "site": "simplewiki",
-          "title": "Curtsey"
-        },
-        "slwiki": {
-          "site": "slwiki",
-          "title": "Priklon (gib)"
-        },
-        "svwiki": {
-          "site": "svwiki",
-          "title": "Nigning"
-        },
-        "trwiki": {
-          "site": "trwiki",
-          "title": "Reverans"
-        },
-        "ukwiki": {
-          "site": "ukwiki",
-          "title": "Реверанс"
-        },
-        "zh_yuewiki": {
-          "site": "zh_yuewiki",
-          "title": "屈膝禮"
-        },
-        "zhwiki": {
-          "site": "zhwiki",
-          "title": "屈膝礼"
-        }
-      }
-    },
-    "Q6422073": {
-      "id": "Q6422073",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 1709241,
-                  "id": "Q1709241"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          },
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 70152878,
-                  "id": "Q70152878"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Knicks–Nuggets brawl"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Knicks–Nets rivalry"},"x1":{},"x2":{}}
+  },
+  "Q4997063": {
+   "id": "Q4997063",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 40434727,
+         "id": "Q40434727"
         },
-        "ruwiki": {
-          "site": "ruwiki",
-          "title": "Драка во время игры «Нью-Йорк Никс» — «Денвер Наггетс»"
-        },
-        "srwiki": {
-          "site": "srwiki",
-          "title": "Туча на мечу Никси-Нагетси 2006."
-        }
-      }
-    },
-    "Q130520249": {
-      "id": "Q130520249",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 494311,
-                  "id": "Q494311"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ],
-        "P625": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P625",
-              "datavalue": {
-                "value": {
-                  "latitude": 52.44518,
-                  "longitude": 10.00971,
-                  "altitude": null,
-                  "precision": 1.0e-6,
-                  "globe": "http://www.wikidata.org/entity/Q2"
-                },
-                "type": "globecoordinate"
-              },
-              "datatype": "globe-coordinate"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Knickstraße 2 (Burgdorf)"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Bulls–Knicks rivalry"}}
+  },
+  "Q972027": {
+   "id": "Q972027",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 371174,
+         "id": "Q371174"
         },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "Ackerbürgerhaus Knickstraße 2"
-        }
-      }
-    },
-    "Q133864761": {
-      "id": "Q133864761",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 1546788,
-                  "id": "Q1546788"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ],
-        "P625": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P625",
-              "datavalue": {
-                "value": {
-                  "latitude": 58.917789,
-                  "longitude": 18.165038,
-                  "altitude": null,
-                  "precision": 1.0e-6,
-                  "globe": "http://www.wikidata.org/entity/Q2"
-                },
-                "type": "globecoordinate"
-              },
-              "datatype": "globe-coordinate"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Knicksand grillplats"
-        }
-      }
-    },
-    "Q133864801": {
-      "id": "Q133864801",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 1546788,
-                  "id": "Q1546788"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ],
-        "P625": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P625",
-              "datavalue": {
-                "value": {
-                  "latitude": 58.917563,
-                  "longitude": 18.165444,
-                  "altitude": null,
-                  "precision": 1.0e-6,
-                  "globe": "http://www.wikidata.org/entity/Q2"
-                },
-                "type": "globecoordinate"
-              },
-              "datatype": "globe-coordinate"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{},"x2":{},"x3":{},"x4":{},"enwiki":{"site":"enwiki","title":"Curtsy"},"x6":{},"x7":{},"x8":{},"x9":{},"x10":{},"x11":{},"x12":{},"x13":{},"x14":{},"x15":{},"x16":{},"x17":{},"x18":{},"x19":{},"x20":{},"x21":{},"x22":{},"x23":{},"x24":{},"x25":{},"x26":{},"x27":{}}
+  },
+  "Q6422073": {
+   "id": "Q6422073",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1709241,
+         "id": "Q1709241"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Knicksand grillplats 2"
-        }
-      }
-    },
-    "Q6422074": {
-      "id": "Q6422074",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 40434727,
-                  "id": "Q40434727"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 70152878,
+         "id": "Q70152878"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Knicks–Pacers rivalry"
-        }
-      }
-    },
-    "Q133864622": {
-      "id": "Q133864622",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 1546788,
-                  "id": "Q1546788"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ],
-        "P625": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P625",
-              "datavalue": {
-                "value": {
-                  "latitude": 58.917568,
-                  "longitude": 18.165775,
-                  "altitude": null,
-                  "precision": 1.0e-6,
-                  "globe": "http://www.wikidata.org/entity/Q2"
-                },
-                "type": "globecoordinate"
-              },
-              "datatype": "globe-coordinate"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Knicks–Nuggets brawl"},"x1":{},"x2":{}}
+  },
+  "Q130520249": {
+   "id": "Q130520249",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 494311,
+         "id": "Q494311"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Knicksand enkel grillplats"
-        }
-      }
-    },
-    "Q141808360": {
-      "id": "Q141808360",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 202444,
-                  "id": "Q202444"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P625": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P625",
+       "datavalue": {
+        "value": {
+         "latitude": 52.44518,
+         "longitude": 10.00971,
+         "altitude": null,
+         "precision": 1e-06,
+         "globe": "http://www.wikidata.org/entity/Q2"
+        },
+        "type": "globecoordinate"
+       },
+       "datatype": "globe-coordinate"
       },
-      "sitelinks": {}
-    },
-    "Q104146473": {
-      "id": "Q104146473",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 79007,
-                  "id": "Q79007"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{}}
+  },
+  "Q133864761": {
+   "id": "Q133864761",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1546788,
+         "id": "Q1546788"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {}
-    },
-    "Q104030746": {
-      "id": "Q104030746",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 79007,
-                  "id": "Q79007"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P625": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P625",
+       "datavalue": {
+        "value": {
+         "latitude": 58.917789,
+         "longitude": 18.165038,
+         "altitude": null,
+         "precision": 1e-06,
+         "globe": "http://www.wikidata.org/entity/Q2"
+        },
+        "type": "globecoordinate"
+       },
+       "datatype": "globe-coordinate"
       },
-      "sitelinks": {}
-    },
-    "Q101967597": {
-      "id": "Q101967597",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 79007,
-                  "id": "Q79007"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{}}
+  },
+  "Q133864801": {
+   "id": "Q133864801",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1546788,
+         "id": "Q1546788"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {}
-    },
-    "Q141808346": {
-      "id": "Q141808346",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 5,
-                  "id": "Q5"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P625": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P625",
+       "datavalue": {
+        "value": {
+         "latitude": 58.917563,
+         "longitude": 18.165444,
+         "altitude": null,
+         "precision": 1e-06,
+         "globe": "http://www.wikidata.org/entity/Q2"
+        },
+        "type": "globecoordinate"
+       },
+       "datatype": "globe-coordinate"
       },
-      "sitelinks": {}
-    },
-    "Q153706": {
-      "id": "Q153706",
-      "type": "item",
-      "claims": {},
-      "sitelinks": {
-        "commonswiki": {
-          "site": "commonswiki",
-          "title": "Category:Hedgerows"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{}}
+  },
+  "Q6422074": {
+   "id": "Q6422074",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 40434727,
+         "id": "Q40434727"
         },
-        "dawiki": {
-          "site": "dawiki",
-          "title": "Læhegn"
-        },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "Wallhecke"
-        },
-        "frwiki": {
-          "site": "frwiki",
-          "title": "Talus (clôture)"
-        },
-        "kshwiki": {
-          "site": "kshwiki",
-          "title": "Wallhegge"
-        },
-        "ndswiki": {
-          "site": "ndswiki",
-          "title": "Knick"
-        }
-      }
-    },
-    "Q15927936": {
-      "id": "Q15927936",
-      "type": "item",
-      "claims": {
-        "P31": [
-          {
-            "mainsnak": {
-              "snaktype": "value",
-              "property": "P31",
-              "datavalue": {
-                "value": {
-                  "entity-type": "item",
-                  "numeric-id": 13393265,
-                  "id": "Q13393265"
-                },
-                "type": "wikibase-entityid"
-              },
-              "datatype": "wikibase-item"
-            },
-            "type": "statement",
-            "rank": "normal"
-          }
-        ]
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
       },
-      "sitelinks": {
-        "arwiki": {
-          "site": "arwiki",
-          "title": "ويستتشستر نيكس"
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"enwiki":{"site":"enwiki","title":"Knicks–Pacers rivalry"}}
+  },
+  "Q133864622": {
+   "id": "Q133864622",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1546788,
+         "id": "Q1546788"
         },
-        "dewiki": {
-          "site": "dewiki",
-          "title": "Westchester Knicks"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ],
+    "P625": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P625",
+       "datavalue": {
+        "value": {
+         "latitude": 58.917568,
+         "longitude": 18.165775,
+         "altitude": null,
+         "precision": 1e-06,
+         "globe": "http://www.wikidata.org/entity/Q2"
         },
-        "enwiki": {
-          "site": "enwiki",
-          "title": "Westchester Knicks"
+        "type": "globecoordinate"
+       },
+       "datatype": "globe-coordinate"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{}}
+  },
+  "Q141808360": {
+   "id": "Q141808360",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 202444,
+         "id": "Q202444"
         },
-        "eswiki": {
-          "site": "eswiki",
-          "title": "Westchester Knicks"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q104146473": {
+   "id": "Q104146473",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 79007,
+         "id": "Q79007"
         },
-        "fiwiki": {
-          "site": "fiwiki",
-          "title": "Westchester Knicks"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q104030746": {
+   "id": "Q104030746",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 79007,
+         "id": "Q79007"
         },
-        "frwiki": {
-          "site": "frwiki",
-          "title": "Knicks de Westchester"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q101967597": {
+   "id": "Q101967597",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 79007,
+         "id": "Q79007"
         },
-        "hewiki": {
-          "site": "hewiki",
-          "title": "וסטצ'סטר ניקס"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q141808346": {
+   "id": "Q141808346",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 5,
+         "id": "Q5"
         },
-        "itwiki": {
-          "site": "itwiki",
-          "title": "Westchester Knicks"
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {}
+  },
+  "Q153706": {
+   "id": "Q153706",
+   "type": "item",
+   "claims": {},
+   "sitelinks": {"x0":{},"x1":{},"x2":{},"x3":{},"x4":{},"x5":{}}
+  },
+  "Q15927936": {
+   "id": "Q15927936",
+   "type": "item",
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 13393265,
+         "id": "Q13393265"
         },
-        "jawiki": {
-          "site": "jawiki",
-          "title": "ウェストチェスター・ニックス"
-        },
-        "kowiki": {
-          "site": "kowiki",
-          "title": "웨스트체스터 닉스"
-        },
-        "nlwiki": {
-          "site": "nlwiki",
-          "title": "Westchester Knicks"
-        },
-        "plwiki": {
-          "site": "plwiki",
-          "title": "Westchester Knicks"
-        },
-        "ptwiki": {
-          "site": "ptwiki",
-          "title": "Westchester Knicks"
-        },
-        "ruwiki": {
-          "site": "ruwiki",
-          "title": "Уэстчестер Никс"
-        },
-        "srwiki": {
-          "site": "srwiki",
-          "title": "Вестчестер никси"
-        },
-        "zhwiki": {
-          "site": "zhwiki",
-          "title": "威斯特徹斯特尼克"
-        }
-      }
-    }
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "rank": "normal"
+     }
+    ]
+   },
+   "sitelinks": {"x0":{},"x1":{},"enwiki":{"site":"enwiki","title":"Westchester Knicks"},"x3":{},"x4":{},"x5":{},"x6":{},"x7":{},"x8":{},"x9":{},"x10":{},"x11":{},"x12":{},"x13":{},"x14":{},"x15":{}}
   }
+ }
 }

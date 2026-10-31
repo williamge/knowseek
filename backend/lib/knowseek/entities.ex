@@ -49,6 +49,17 @@ defmodule Knowseek.Entities do
   the list is not supported until it is added to the config. Unsupported
   entities are not an error; they are skipped.
 
+  ## Limitations of the intent split
+
+  The split is two fixed shapes, not language understanding:
+
+    * The intent says what the words asked for, not what the entity is.
+      `knicks weather` returns `intent: :weather` with a sports team. A
+      consumer must check `kind/1` (a weather card needs `:place`).
+    * The place is whatever follows `weather in`: `weather in tokyo and
+      osaka` looks up the text `tokyo and osaka`, which finds nothing or
+      something unrelated. `tokyo, japan` is looked up whole.
+
   ## Configuration
 
   See `config/config.exs`: `resolver`, `ttl`, `backoff`, `timeout`,
@@ -100,7 +111,7 @@ defmodule Knowseek.Entities do
   @doc """
   Blocks until the fetch running for `query` (if any) has finished. For tests
   and scripts that need the result of a `{:pending, _}`; same options as
-  `resolve/2`, plus `:timeout` (default 5000).
+  `resolve/2`, plus `:timeout` (default `:infinity`: the fetch has its own timeout, `:timeout` in config).
   """
   @spec await(String.t(), keyword()) :: :ok
   def await(query, opts \\ []) when is_binary(query) do
@@ -109,7 +120,7 @@ defmodule Knowseek.Entities do
 
     case cache_key(text, config) do
       nil -> :ok
-      key -> Cache.await(config.cache, key, Keyword.get(opts, :timeout, 5_000))
+      key -> Cache.await(config.cache, key, Keyword.get(opts, :timeout, :infinity))
     end
   end
 

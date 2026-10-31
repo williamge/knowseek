@@ -232,6 +232,50 @@ defmodule Knowseek.CacheTest do
 
       refute_receive {:fetching, _}, 20
     end
+
+    test "returns :unavailable while the cache is starting (table without its clock)" do
+      name = :"cache_starting_#{System.unique_integer([:positive])}"
+      :ets.new(name, [:named_table, :public])
+
+      assert Cache.get(name, :k, fetcher({:ok, 1})) == {:unavailable, :cache_not_running}
+    end
+
+    test "a TTL that is not a number of at least 0 fails the fetch and keeps the cache", %{
+      cache: cache,
+      clock: clock
+    } do
+      fill(cache, :keep, {:ok, :kept}, ttl: 1_000_000)
+      pid = Process.whereis(cache)
+
+      for ttl <- [fn _ -> nil end, fn _ -> -1 end, fn _ -> "soon" end, -5, nil, :forever] do
+        key = {:bad, inspect(ttl)}
+        assert Cache.get(cache, key, fetcher({:ok, 1}), ttl: ttl) == :pending
+        assert_receive {:fetching, _}
+        :ok = Cache.await(cache, key)
+
+        assert {:unavailable, {:bad_ttl, _ttl}} = Cache.get(cache, key, fetcher({:ok, 1}))
+        assert Process.whereis(cache) == pid
+        assert {:fresh, :kept, _as_of} = Cache.get(cache, :keep, fetcher({:ok, 2}))
+      end
+
+      # A TTL function that raises is a failed fetch too.
+      Cache.get(cache, :raising, fetcher({:ok, 1}), ttl: fn _ -> raise "bad ttl" end)
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :raising)
+      assert {:unavailable, {:exit, _reason}} = Cache.get(cache, :raising, fetcher({:ok, 1}))
+      assert Process.whereis(cache) == pid
+
+      # On a refresh, the old value stays and the backoff applies.
+      fill(cache, :old, {:ok, :old}, ttl: 10)
+      advance(clock, 100)
+      Cache.get(cache, :old, fetcher({:ok, :new}), ttl: fn _ -> nil end, backoff: 500)
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :old)
+
+      assert {:stale, :old, _as_of} = Cache.get(cache, :old, fetcher({:ok, :newer}))
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, _}, 20
+    end
   end
 
   describe "await/3" do
@@ -241,12 +285,18 @@ defmodule Knowseek.CacheTest do
   end
 
   describe "max_entries" do
-    test "drops the least recently written keys", %{clock: clock} do
+    defp start_small_cache(clock, max_entries) do
       name = :"cache_small_#{System.unique_integer([:positive])}"
 
       start_supervised!(
-        {Cache, name: name, max_entries: 3, clock: fn -> Agent.get(clock, & &1) end}
+        {Cache, name: name, max_entries: max_entries, clock: fn -> Agent.get(clock, & &1) end}
       )
+
+      name
+    end
+
+    test "drops the least recently written keys", %{clock: clock} do
+      name = start_small_cache(clock, 3)
 
       for key <- 1..4 do
         advance(clock, 1)
@@ -261,6 +311,38 @@ defmodule Knowseek.CacheTest do
       refute_receive {:fetching, _}, 20
       assert Cache.get(name, 1, fetcher({:ok, :x})) == :pending
       assert_receive {:fetching, _}
+    end
+
+    test "with a clock that never moves, the key just written stays", %{clock: clock} do
+      name = start_small_cache(clock, 2)
+
+      for key <- 1..6, do: fill(name, key, {:ok, key})
+
+      assert :ets.info(name, :size) - 1 <= 2
+      assert {:fresh, 6, _as_of} = Cache.get(name, 6, fetcher({:ok, :x}))
+      assert {:fresh, 5, _as_of} = Cache.get(name, 5, fetcher({:ok, :x}))
+      refute_receive {:fetching, _}, 20
+    end
+
+    test "a key that is being refreshed is not evicted", %{clock: clock} do
+      name = start_small_cache(clock, 2)
+
+      fill(name, :a, {:ok, :old}, ttl: 10)
+      fill(name, :b, {:ok, :b})
+      advance(clock, 100)
+
+      # `:a` is the oldest entry and is being refreshed.
+      assert {:stale, :old, _as_of} = Cache.get(name, :a, blocked_fetcher({:ok, :new}))
+      assert_receive {:fetching, fetch_pid}
+
+      # A third key goes over the limit: `:b` goes, not `:a`.
+      fill(name, :c, {:ok, :c})
+      assert {:stale, :old, _as_of} = Cache.get(name, :a, fetcher({:ok, :other}))
+      assert Cache.get(name, :b, fetcher({:ok, :other})) == :pending
+
+      send(fetch_pid, :release)
+      :ok = Cache.await(name, :a)
+      assert {:fresh, :new, _as_of} = Cache.get(name, :a, fetcher({:ok, :other}))
     end
   end
 end

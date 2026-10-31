@@ -124,11 +124,15 @@ defmodule Knowseek.Cache do
   Blocks until the fetch running for `key` (if any) has finished and its
   result is stored. Returns `:ok` at once when nothing is running.
 
+  The default timeout is `:infinity`: the wait is bounded by the fetch's own
+  `:timeout` (see `get/4`), after which the cache stores a failure and
+  replies. A finite `timeout` exits the caller if it runs out first.
+
   For tests and scripts that need the result of a `get/4` that returned
   `:pending`. The request path never calls it.
   """
   @spec await(cache(), key(), timeout()) :: :ok
-  def await(cache, key, timeout \\ 5_000) when is_atom(cache) do
+  def await(cache, key, timeout \\ :infinity) when is_atom(cache) do
     GenServer.call(cache, {:await, key}, timeout)
   end
 
@@ -142,8 +146,11 @@ defmodule Knowseek.Cache do
   end
 
   defp now(cache) do
-    [{:meta, %{clock: clock}}] = :ets.lookup(cache, :meta)
-    clock.()
+    case :ets.lookup(cache, :meta) do
+      [{:meta, %{clock: clock}}] -> clock.()
+      # The table exists but `init/1` has not stored the clock yet.
+      [] -> raise ArgumentError, "cache #{inspect(cache)} is starting"
+    end
   end
 
   defp classify(nil, _now), do: :pending
@@ -259,17 +266,21 @@ defmodule Knowseek.Cache do
   end
 
   # Runs in the task, so that a crashing fetch function or TTL function
-  # cannot take the cache process down.
+  # cannot take the cache process down. A TTL that is not a number of at
+  # least 0 fails the fetch.
   defp run_fetch(fetch_fun, ttl) do
     case fetch_fun.() do
-      {:ok, value} -> {:ok, value, ttl_ms(ttl, value)}
+      {:ok, value} -> with_ttl(value, ttl)
       {:error, reason} -> {:error, reason}
       other -> {:error, {:bad_return, other}}
     end
   end
 
-  defp ttl_ms(ttl, _value) when is_integer(ttl), do: ttl
-  defp ttl_ms(ttl, value) when is_function(ttl, 1), do: ttl.(value)
+  defp with_ttl(value, ttl) do
+    ms = if is_function(ttl, 1), do: ttl.(value), else: ttl
+
+    if is_number(ms) and ms >= 0, do: {:ok, value, ms}, else: {:error, {:bad_ttl, ms}}
+  end
 
   defp pop_in_flight(state, ref) do
     case Enum.find(state.in_flight, fn {_key, flight} -> flight.task.ref == ref end) do
@@ -295,7 +306,7 @@ defmodule Knowseek.Cache do
             expires_at: now + ttl,
             retry_at: nil,
             error: nil,
-            touched: now
+            seq: next_seq()
           }
 
         {:error, reason} ->
@@ -318,27 +329,31 @@ defmodule Knowseek.Cache do
       expires_at: nil,
       retry_at: now + backoff,
       error: reason,
-      touched: now
+      seq: next_seq()
     }
   end
 
   defp failed(previous, reason, now, backoff) do
-    %{previous | error: reason, retry_at: now + backoff, touched: now}
+    %{previous | error: reason, retry_at: now + backoff, seq: next_seq()}
   end
 
-  # `:meta` is one of the rows.
+  defp next_seq, do: System.unique_integer([:monotonic])
+
+  # `:meta` is one of the rows. Entries go in order of `seq`, a counter that
+  # never repeats, so equal clock readings cannot make the key that was just
+  # written the oldest. Keys that are being fetched stay.
   defp evict(%{cache: cache, max_entries: max_entries} = state) do
     if :ets.info(cache, :size) - 1 > max_entries do
       busy = Map.keys(state.in_flight)
 
       oldest =
         cache
-        |> :ets.select([{{{:entry, :"$1"}, %{touched: :"$2"}}, [], [{{:"$2", :"$1"}}]}])
-        |> Enum.reject(fn {_touched, key} -> key in busy end)
+        |> :ets.select([{{{:entry, :"$1"}, %{seq: :"$2"}}, [], [{{:"$2", :"$1"}}]}])
+        |> Enum.reject(fn {_seq, key} -> key in busy end)
         |> Enum.sort()
         |> Enum.take(max(div(max_entries, 10), 1))
 
-      Enum.each(oldest, fn {_touched, key} -> :ets.delete(cache, {:entry, key}) end)
+      Enum.each(oldest, fn {_seq, key} -> :ets.delete(cache, {:entry, key}) end)
     end
 
     :ok

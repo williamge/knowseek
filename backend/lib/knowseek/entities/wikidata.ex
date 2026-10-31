@@ -18,7 +18,7 @@ defmodule Knowseek.Entities.Wikidata do
       `exchange_tickers`. The ticker is a qualifier on the exchange claim,
       not a claim of its own. An item can list several exchanges (Sony:
       Tokyo and New York); all of them are kept. Deprecated claims, claims
-      with an end time (`P576`), and claims without a ticker are skipped.
+      with an end time (`P582`), and claims without a ticker are skipped.
     * `sitelinks` into the sitelink count and the English Wikipedia title.
 
   Requests send `maxlag` and a descriptive User-Agent (Wikimedia policy), and
@@ -148,7 +148,7 @@ defmodule Knowseek.Entities.Wikidata do
   defp exchange_tickers(claims) do
     for claim <- claims,
         claim["rank"] != "deprecated",
-        not Map.has_key?(claim["qualifiers"] || %{}, "P576"),
+        not Map.has_key?(claim["qualifiers"] || %{}, "P582"),
         [exchange] <- [item_ids(claim)],
         ticker <- tickers(claim["qualifiers"] || %{}) do
       %{exchange: exchange, ticker: ticker}

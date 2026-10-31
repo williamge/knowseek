@@ -88,7 +88,7 @@ Decisions:
 - `Entity` has no `kind` field; `Entities.kind/1` computes it.
 - A P414 item with several exchanges (Sony: Tokyo and New York) lists every
   claim that has a P249 qualifier, as `%{exchange: "Q217475", ticker: "6758"}`.
-  Deprecated claims and claims with an end time (P576) are skipped.
+  Deprecated claims and claims with an end time (P582) are skipped.
 - The label and description come from the search hit. `wbgetentities` with
   `languages=en` returns no `en` label for some items (the screen reader
   Q1116614 has none), so they are not read from the details.
@@ -124,3 +124,32 @@ Follow-ups (no files written):
 - Expand types through `subclass of` (SPARQL or a cached class tree) if the
   flat list needs too much upkeep.
 - ESPN/Yahoo mapping from `exchange` ids to suffixes (task 032).
+
+Review fixes and limits:
+
+- Ended exchange listings are detected by P582 (end time), not P576 (which is
+  "dissolved, abolished or demolished"). Apple (Q312) keeps a Tokyo Stock
+  Exchange claim (6689) with P580 and P582 (2004) at normal rank; it is a
+  fixture (`search_apple`, `entities_apple`) and a test. The deprecated-rank
+  case is only synthetic; no real deprecated claim was found.
+- `Knowseek.Cache`: a TTL that is not a number of at least 0 (or a TTL
+  function that returns one, or raises) fails that fetch with
+  `{:bad_ttl, value}` and keeps the old value; eviction orders by a write
+  counter, not the clock, and never drops a key being fetched; `await/3`
+  waits `:infinity` by default, because the fetch has its own timeout; a
+  table that exists before `init/1` stores the clock reads as not running.
+- Probe (live): Texas Q1439 is instance of Q35657 (U.S. state); Japan Q17 of
+  Q3624078 (sovereign state), Q112099 (island country), Q6256 (country);
+  Paris Q90 of big city, metropolis, global city and others already listed.
+  All have P625, so the state and country ids are in `supported_types` and
+  `weather in texas` and `weather in japan` resolve (fixtures, tests). The
+  coordinates are one point for the whole area.
+- Limits: `knicks weather` returns `intent: :weather` with a sports team, so a
+  consumer checks `Entities.kind/1` (a weather card needs `:place`).
+  `weather in tokyo and osaka` looks up `tokyo and osaka`.
+- Fixtures: sitelinks are trimmed to the real `enwiki` entry plus empty
+  placeholders that keep the real count; the new searches keep their first 8
+  hits.
+- Before any endpoint exposes entity resolution, a cap on in-flight fetches
+  and a cache-wide 429/maxlag backoff are needed; it is a scope bullet of task
+  031.

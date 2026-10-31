@@ -73,8 +73,11 @@ config :knowseek, Knowseek.Entities,
     company: ["Q891723", "Q4830453", "Q783794"],
     # Needs coordinates (P625). Seen on Tokyo: Q1549591 big city, Q174844
     # megacity, Q208511 global city, Q200250 metropolis. Seen on its special
-    # wards: Q515 city. Also Q486972 human settlement, Q3957 town, Q532
-    # village, Q5119 capital city, Q1637706 million city.
+    # wards: Q515 city. Seen on Texas: Q35657 U.S. state. Seen on Japan:
+    # Q6256 country, Q3624078 sovereign state, Q112099 island country (so
+    # `weather in texas` and `weather in japan` resolve; the coordinates are
+    # one point for the whole area). Also Q486972 human settlement, Q3957
+    # town, Q532 village, Q5119 capital city, Q1637706 million city.
     place: [
       "Q515",
       "Q1549591",
@@ -85,9 +88,22 @@ config :knowseek, Knowseek.Entities,
       "Q3957",
       "Q532",
       "Q5119",
-      "Q1637706"
+      "Q1637706",
+      "Q35657",
+      "Q6256",
+      "Q3624078",
+      "Q112099"
     ]
   ]
+
+# Wikidata resolver. Wikimedia policy: identify the client in `user_agent`.
+# `search_limit` candidates per query (the API allows 50). Tests put the
+# Req.Test plug in `req_options` (config/test.exs).
+config :knowseek, Knowseek.Entities.Wikidata,
+  base_url: "https://www.wikidata.org/w/api.php",
+  search_limit: 20,
+  user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  req_options: []
 
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,

@@ -74,6 +74,37 @@ defmodule Knowseek.EntitiesTest do
                resolve_when_ready("tokyo weather", cache: cache)
     end
 
+    test "weather in texas and weather in japan resolve a state and a country", %{cache: cache} do
+      assert {:ok, %{intent: :weather, entity: texas}} =
+               resolve_when_ready("weather in texas", cache: cache)
+
+      assert texas.id == "Q1439"
+      assert Entities.kind(texas) == :place
+
+      assert {:ok, %{intent: :weather, entity: japan}} =
+               resolve_when_ready("weather in japan", cache: cache)
+
+      assert japan.id == "Q17"
+      assert Entities.kind(japan) == :place
+    end
+
+    test "apple resolves to the company, not the fruit or the record label", %{cache: cache} do
+      assert {:ok, %{entity: apple, alternatives: []}} = resolve_when_ready("apple", cache: cache)
+
+      assert apple.id == "Q312"
+      assert apple.exchange_tickers == [%{exchange: "Q82059", ticker: "AAPL"}]
+    end
+
+    test "a weather query about a team has the intent, so consumers check the kind", %{
+      cache: cache
+    } do
+      assert {:ok, %{intent: :weather, entity: knicks}} =
+               resolve_when_ready("knicks weather", cache: cache)
+
+      assert knicks.id == "Q131364"
+      assert Entities.kind(knicks) == :sports_team
+    end
+
     test "nvidia resolves with the NVDA ticker from the P414 and P249 qualifier", %{cache: cache} do
       assert {:ok, %{intent: nil, entity: nvidia, alternatives: []}} =
                resolve_when_ready("nvidia", cache: cache)
@@ -219,9 +250,62 @@ defmodule Knowseek.EntitiesTest do
       assert resolve_when_ready("boom", opts) == {:error, :boom}
       assert drain_requests() == []
     end
+  end
 
-    test "the configured resolver is Wikidata" do
-      assert Application.fetch_env!(:knowseek, Entities)[:resolver] == Wikidata
+  describe "resolve/2 stale answers" do
+    setup do
+      clock = start_supervised!({Agent, fn -> 1_800_000_000_000 end})
+      cache = :"entities_stale_cache_#{System.unique_integer([:positive])}"
+      start_supervised!({Cache, name: cache, clock: fn -> Agent.get(clock, & &1) end})
+
+      # Past the one-day TTL.
+      expire = fn -> Agent.update(clock, &(&1 + :timer.hours(25))) end
+      {:ok, stale_cache: cache, expire: expire}
+    end
+
+    test "an expired answer is returned while it refreshes", %{stale_cache: cache, expire: expire} do
+      assert {:ok, %{entity: %{id: "Q131364"}}} = resolve_when_ready("knicks", cache: cache)
+      drain_requests()
+      expire.()
+
+      test = self()
+
+      Req.Test.stub(Wikidata, fn conn ->
+        send(test, {:in_stub, self()})
+
+        receive do
+          :release -> Req.Test.json(conn, %{"search" => []})
+        end
+      end)
+
+      # The old answer comes back at once, and a refresh starts in the background.
+      assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve("knicks", cache: cache)
+      assert_receive {:in_stub, stub_pid}
+      assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve("knicks", cache: cache)
+
+      send(stub_pid, :release)
+      :ok = Entities.await("knicks", cache: cache)
+
+      # The refreshed answer is "nothing matches", and is fresh.
+      assert Entities.resolve("knicks", cache: cache) == :none
+    end
+
+    test "a failed refresh keeps the old answer", %{stale_cache: cache, expire: expire} do
+      assert {:ok, %{entity: %{id: "Q131364"}}} = resolve_when_ready("knicks", cache: cache)
+      drain_requests()
+      expire.()
+
+      Req.Test.stub(Wikidata, &Plug.Conn.send_resp(&1, 429, "Too Many Requests"))
+
+      assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve("knicks", cache: cache)
+      :ok = Entities.await("knicks", cache: cache)
+
+      assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve("knicks", cache: cache)
+
+      # The backoff stops a new request.
+      stub_wikidata()
+      assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve("knicks", cache: cache)
+      assert drain_requests() == []
     end
   end
 

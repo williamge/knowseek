@@ -12,6 +12,11 @@ defmodule Knowseek.Entities.Intent do
 
   Anything else, including a bare `weather`, has no intent and is returned
   whole.
+
+  Limits: the text before or after `weather` is not checked. `knicks weather`
+  is `{:weather, "knicks"}` although a team has no weather, so a consumer
+  checks the kind of the entity (`Knowseek.Entities.kind/1`), and `weather in
+  tokyo and osaka` is the text `tokyo and osaka`.
   """
 
   @type intent :: :weather | nil

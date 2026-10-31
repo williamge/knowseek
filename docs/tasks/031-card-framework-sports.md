@@ -35,6 +35,10 @@ Design: [ADR 0017](../decisions/0017-live-fact-cards.md), decision 4.
   `post` hours. Do not go below the 3 s upstream `max-age`.
 - JSON endpoint, for example `GET /api/entities/:id/card`, with the response
   shape above; `types.ts` mirrors it in the same branch (rule 9).
+- Before any endpoint exposes entity resolution: a cap on in-flight fetches in
+  `Knowseek.Cache` and a cache-wide backoff on 429/maxlag (honoring
+  Retry-After), because N distinct queries mean N Wikidata calls and junk
+  queries evict real entries.
 - Frontend card component above the results: facts, an "as of <time>" stamp, a
   stale notice. Polls about every 0.5-1 s while `pending`, then at a cadence
   derived from the response (live game 10-30 s), and stops while the page is

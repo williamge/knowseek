@@ -82,6 +82,27 @@ defmodule Knowseek.Entities.WikidataTest do
       assert nvidia.exchange_tickers == [%{exchange: "Q82059", ticker: "NVDA"}]
     end
 
+    test "apple: the ended Tokyo listing (P582 end time) is not listed" do
+      assert {:ok, [apple | _rest]} = search("apple")
+
+      assert apple.id == "Q312"
+      # Q217475 (Tokyo Stock Exchange, ticker 6689) has a P582 end time of 2004
+      # and rank normal. Wikidata still lists it on the item.
+      assert apple.exchange_tickers == [%{exchange: "Q82059", ticker: "AAPL"}]
+    end
+
+    test "texas and japan: a state and a country have types and coordinates" do
+      assert {:ok, [texas | _rest]} = search("texas")
+      assert texas.id == "Q1439"
+      assert texas.types == ["Q35657"]
+      assert %{latitude: _, longitude: _} = texas.coordinates
+
+      assert {:ok, [japan | _rest]} = search("japan")
+      assert japan.id == "Q17"
+      assert japan.types == ["Q3624078", "Q112099", "Q6256"]
+      assert %{latitude: _, longitude: _} = japan.coordinates
+    end
+
     test "nvda: the screen reader comes first and has no ticker or label" do
       assert {:ok, [screen_reader, nvidia | _rest]} = search("nvda")
 
@@ -158,7 +179,7 @@ defmodule Knowseek.Entities.WikidataTest do
                   "qualifiers" => ticker_qualifier("BAD1")
                 }),
                 claim("P414", item_value("Q12"), %{
-                  "qualifiers" => Map.put(ticker_qualifier("BAD2"), "P576", [%{}])
+                  "qualifiers" => Map.put(ticker_qualifier("BAD2"), "P582", [%{}])
                 }),
                 claim("P414", item_value("Q13")),
                 claim("P414", item_value("Q14"), %{"qualifiers" => ticker_qualifier("")})
