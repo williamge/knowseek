@@ -32,12 +32,13 @@ Run everything from the repository root.
 | Command | What it does |
 | --- | --- |
 | `make setup` | Start Postgres, fetch deps, create and migrate dev + test databases |
-| `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000) |
+| `make start` | Run the API and the web UI together in one terminal (Ctrl-C stops both). For the owner; agents use `make dev` and `make web`. |
+| `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000). Checks Ollama first (`make ollama`). |
 | `make web` | Run the web UI on `$CONDUCTOR_PORT` + 1. It proxies `/api` to the API. |
 | `make test` | Run the backend test suite. Pass `ARGS=test/knowseek/search_test.exs` for one file. |
-| `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. See "How to work on a task". |
+| `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. If `.env` does not set `EMBEDDINGS_ADAPTER`, the worktree gets `EMBEDDINGS_ADAPTER=hashing`, so setup and tests do not need Ollama; edit its `.env` to use Ollama. If setup fails, fix the cause and run `make setup` inside the worktree. See "How to work on a task". |
 | `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree. |
-| `make ollama` | Optional: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB) for `EMBEDDINGS_ADAPTER=ollama` |
+| `make ollama` | Run `scripts/ensure-ollama`: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB). Does nothing when `EMBEDDINGS_ADAPTER` is not `ollama`. `setup`, `dev`, `iex`, and `start` run it. `make test` and `make check` do not. |
 | `make guard-main` | Fail if the main checkout has uncommitted changes (you edited it by mistake). Set `ALLOW_DIRTY_MAIN=1` to skip when the owner has local edits there. |
 | `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
@@ -57,7 +58,7 @@ New migration: `cd backend && mix ecto.gen.migration name_with_underscores`. Nev
 
 One Postgres container (`docker compose`, project name `knowseek`) serves every workspace. A workspace is a git worktree (see below) or a Conductor workspace. Each one gets its own databases, named from `KNOWSEEK_WORKSPACE`, or `CONDUCTOR_WORKSPACE_NAME` if that is not set (for example `knowseek_dev_task_014_one_hit`). `make worktree` writes `KNOWSEEK_WORKSPACE` into the worktree's `.env`. You can run tests and servers in many workspaces at once. If a database is missing, run `make setup` again. In the main checkout, with neither variable set, commands use the shared `knowseek_dev` and `knowseek_test` databases. Do not work on a task there.
 
-The optional Ollama server (`brew install ollama`, `brew services start ollama`) is shared the same way: one server on `localhost:11434` for every local workspace. Tests never use it. Remote workspaces cannot reach it.
+The default embedding adapter is Ollama (`brew install ollama`, `brew services start ollama`), shared the same way: one server on `localhost:11434` for every local workspace (ADR 0016). Tests never use it (they pin the hashing adapter). Remote workspaces cannot reach it; set `EMBEDDINGS_ADAPTER=hashing` there. After you switch adapters on a database, run `make db-reset`.
 
 ## Architecture rules
 

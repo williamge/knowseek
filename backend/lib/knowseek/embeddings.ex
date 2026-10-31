@@ -5,14 +5,15 @@ defmodule Knowseek.Embeddings do
   The adapter is configured in `config/config.exs`:
 
       config :knowseek, Knowseek.Embeddings,
-        adapter: Knowseek.Embeddings.Hashing,
+        adapter: Knowseek.Embeddings.Ollama,
         dimensions: 1024
 
   Every adapter must return vectors with exactly `dimensions/0` elements,
   because the `chunks.embedding` column has a fixed size.
 
   `config/runtime.exs` sets the adapter from `EMBEDDINGS_ADAPTER`:
-  `hashing` (default), `ollama` (`Knowseek.Embeddings.Ollama`), or `voyage`
+  `ollama` (`Knowseek.Embeddings.Ollama`, the default, ADR 0016), `hashing`
+  (`Knowseek.Embeddings.Hashing`, the opt-out), or `voyage`
   (`Knowseek.Embeddings.Voyage`). Tests always use `Hashing` or stubs.
   """
 

@@ -56,7 +56,7 @@ Task 012 asks for `docker compose up` to serve `/api/health`.
   `SECRET_KEY_BASE` has an insecure local default because compose resolves
   `${VAR:?}` even for services outside the active profile, so a required
   variable would break `docker compose up db`. Embedding variables pass
-  through; `EMBEDDINGS_ADAPTER` defaults to `hashing`. Ollama on the host is
+  through; `EMBEDDINGS_ADAPTER` defaults to `ollama` (ADR 0016 changed it from `hashing`). Ollama on the host is
   reached at `host.docker.internal` through `APP_OLLAMA_URL`, a separate
   variable so that `OLLAMA_URL=http://localhost:11434` in `.env` (right for
   `make dev`) does not leak into the container.

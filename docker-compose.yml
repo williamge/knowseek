@@ -50,7 +50,7 @@ services:
       PHX_SERVER: "true"
       PHX_HOST: ${PHX_HOST:-localhost}
       PORT: "4000"
-      EMBEDDINGS_ADAPTER: ${EMBEDDINGS_ADAPTER:-hashing}
+      EMBEDDINGS_ADAPTER: ${EMBEDDINGS_ADAPTER:-ollama}
       # APP_OLLAMA_URL, not OLLAMA_URL: a localhost URL in .env is right for
       # `make dev` but means the container itself here.
       OLLAMA_URL: ${APP_OLLAMA_URL:-http://host.docker.internal:11434}

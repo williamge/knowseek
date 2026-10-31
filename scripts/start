@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Runs the API and the web UI together in one terminal (`make start`).
+#
+# Each child gets its own process group (job control), so Ctrl-C or SIGTERM
+# stops mix, the BEAM, npm, and node, and leaves no orphans.
+#
+# Usage: scripts/start     (run from the repository root, normally via make)
+
+set -uo pipefail
+set -m
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+pids=()
+stop() {
+  trap '' INT TERM
+  for pid in "${pids[@]}"; do kill -TERM -- "-$pid" 2>/dev/null || true; done
+  wait 2>/dev/null
+}
+trap 'stop; exit 0' INT TERM HUP
+
+make --no-print-directory api-run &
+pids+=($!)
+make --no-print-directory web &
+pids+=($!)
+
+# If either child exits, stop the other one too.
+# (A poll loop, because `wait -n` needs bash 4.3 and macOS ships 3.2.)
+# The sleep runs in the background: under `set -m` a foreground sleep owns the
+# terminal, and Ctrl-C would never reach this script.
+while kill -0 "${pids[0]}" 2>/dev/null && kill -0 "${pids[1]}" 2>/dev/null; do
+  sleep 1 &
+  wait $!
+done
+stop
+exit 1

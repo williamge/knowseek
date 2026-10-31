@@ -23,10 +23,11 @@ config :knowseek, Oban,
   plugins: [{Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60}]
 
 # Embedding provider. `dimensions` must match the `vector(N)` column size
-# in the chunks table migration. config/runtime.exs reads EMBEDDINGS_ADAPTER
-# to switch to Ollama or Voyage (see docs/decisions/0007-embedding-providers.md).
+# in the chunks table migration. The default is a local Ollama (ADR 0016);
+# config/test.exs pins Hashing. config/runtime.exs reads EMBEDDINGS_ADAPTER to
+# switch to Hashing or Voyage (see docs/decisions/0007-embedding-providers.md).
 config :knowseek, Knowseek.Embeddings,
-  adapter: Knowseek.Embeddings.Hashing,
+  adapter: Knowseek.Embeddings.Ollama,
   dimensions: 1024
 
 # Search tuning and the coverage heuristic that decides when to seek new data.

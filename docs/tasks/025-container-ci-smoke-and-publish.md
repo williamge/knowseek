@@ -27,6 +27,8 @@ would pass CI. The runtime image has no `curl`, so the container has no
 - Publish the image from CI on pushes to `main`, never from a pull request.
   Choose a registry (GitHub Container Registry is the default choice), tag with
   the commit SHA and `main`, and write the choice and the permissions in an ADR.
+- The smoke test must set `EMBEDDINGS_ADAPTER=hashing` (or run an Ollama
+  service): the default is Ollama on the host (ADR 0016).
 - The `image` job stays required for pull requests (see `AGENTS.md`).
 
 ## Acceptance criteria

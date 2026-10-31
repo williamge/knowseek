@@ -45,6 +45,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [026](026-remove-topics.md) | Remove the follow-topic feature | none |
 | [027](027-rethink-topics.md) | Rethink following, in a session with the owner (folded into 028) | none |
 | [028](028-live-facts-for-entities.md) | Live facts for entities (design session) | none |
+| [029](029-ollama-by-default.md) | Ollama by default, one command to start | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

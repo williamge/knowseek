@@ -7,7 +7,14 @@ defmodule Knowseek.Discovery.SeekWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"query" => query}}) do
-    {:ok, _summary} = Knowseek.Discovery.run(query)
-    :ok
+    case Knowseek.Discovery.run(query) do
+      # Every candidate failed to ingest (for example the embedding provider is
+      # down): fail the job so Oban retries it. Nothing found is not a failure.
+      {:ok, %{ingested: 0, failed: failed}} when failed > 0 ->
+        {:error, {:all_ingests_failed, failed}}
+
+      {:ok, _summary} ->
+        :ok
+    end
   end
 end

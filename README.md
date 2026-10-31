@@ -11,21 +11,26 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Ingest documents into a Postgres + pgvector index (chunked and embedded).
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles.
-- Embeddings come from a local hashing stand-in by default. For real semantic search, install Ollama (`brew install ollama`, then `brew services start ollama`), run `make ollama`, and set `EMBEDDINGS_ADAPTER=ollama` in `.env`. Voyage AI is the hosted option. See `.env.example`.
+- Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
 - A web UI (`frontend/`) searches and shows results as discovery adds them.
 
 See [`docs/tasks/`](docs/tasks/) for the backlog.
 
 ## Quick start
 
-Requirements: Docker, Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works), and Node.js 22 or later for the web UI.
+Requirements: Docker, Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works), Node.js 22 or later for the web UI, and [Ollama](https://ollama.com) running on the host (`brew install ollama`, `brew services start ollama`).
 
 ```sh
-make setup   # start Postgres, fetch deps, create + migrate databases
-make dev     # API on http://localhost:4000 (or $CONDUCTOR_PORT)
-make web     # web UI on http://localhost:4001 (API port + 1); run it next to `make dev`
+make setup   # start Postgres, check Ollama, fetch deps, create + migrate databases
+make start   # API on http://localhost:4000 and web UI on http://localhost:4001, in one terminal; Ctrl-C stops both
 make check   # what CI runs
 ```
+
+The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`, `make iex`, and `make start` run `scripts/ensure-ollama` first. It prints a short status line when all is well, and the fix when Ollama is missing or stopped. There is no silent fallback: if Ollama is down while the server runs, search and ingest return an error (HTTP 503 from the API), and a discovery job whose documents all fail to ingest is retried by Oban. `make worktree` gives task worktrees `EMBEDDINGS_ADAPTER=hashing` in `.env` unless it is already set.
+
+To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents (task 017).
+
+`make dev` (API) and `make web` (web UI) also run separately, on `$CONDUCTOR_PORT` and `$CONDUCTOR_PORT + 1`.
 
 Open the web UI, type a query, and press Enter. If the index covers the query weakly, the page keeps watching and adds new results when discovery finishes.
 
@@ -78,7 +83,7 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 | `POOL_SIZE` | no | `10` | `20` |
 | `ECTO_IPV6` | no | off | `true` |
 | `DNS_CLUSTER_QUERY` | no | off | `knowseek.internal` |
-| `EMBEDDINGS_ADAPTER` | no | `hashing` | `ollama`, `voyage` |
+| `EMBEDDINGS_ADAPTER` | no | `ollama` | `hashing`, `voyage` |
 | `OLLAMA_URL` | no | `http://localhost:11434`; compose reads `APP_OLLAMA_URL`, default `http://host.docker.internal:11434` | `http://host.docker.internal:11434` |
 | `OLLAMA_MODEL` | no | `bge-m3` | `bge-m3` |
 | `VOYAGE_API_KEY` | with `voyage` | none | `pa-...` |
