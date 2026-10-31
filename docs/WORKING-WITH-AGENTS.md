@@ -52,6 +52,18 @@ again.
   worktree's database; stop only your own container. Only one `app` container
   runs per compose project (ADR 0014).
 - **Agents never merge and never push to `main`.** A human merges (ADR 0010).
+- **Never kill processes by name or pattern.** No `pkill`, `killall`, or
+  `pgrep`-then-kill by name: a pattern like `phx.server` kills the owner's dev
+  server (an agent's `pkill -f phx.server` killed the owner's API on
+  2026-10-31). Kill only PIDs you started and recorded, after checking their
+  cwd is under your worktree (`lsof -p <pid> | grep cwd`). Use only your
+  assigned `CONDUCTOR_PORT` pair; never ports 4000/4001.
+- **`make check` / `check-quiet` can recreate the shared database container.**
+  They run `db-up`, which applies compose changes. If a task changes
+  `docker-compose.yml`, running them recreates the SHARED Postgres container
+  `knowseek-db-1` (same volume, brief downtime for the owner's API; PR #21 did
+  this). Verify compose changes with `docker compose config`, tell the parent
+  in your report, and never run `docker compose down`.
 - **Single test files run through `make test ARGS=...`**, so the worktree's own databases are used.
 
 ## What the agents got right and wrong

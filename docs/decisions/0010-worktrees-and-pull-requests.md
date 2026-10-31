@@ -31,11 +31,10 @@ break another agent's test run.
 ## Consequences
 
 - Parallel tasks cannot overwrite each other or `main`.
-- The repository is private on GitHub's free plan, which does not allow
-  branch protection or rulesets. "CI must pass" and "nothing goes to `main`
-  directly" are conventions in `AGENTS.md`, not server-side rules. If the repo
-  becomes public or moves to a paid plan, require the `backend` and `frontend`
-  checks and a pull request on `main`, and this ADR can be superseded.
+- At the time of writing the repository was private on GitHub's free plan,
+  which does not allow branch protection or rulesets, so "CI must pass" and
+  "nothing goes to `main` directly" were conventions in `AGENTS.md`. See the
+  second Update below: GitHub now enforces them.
 - Each worktree costs its own `_build`, `deps`, and `node_modules`, and two
   Postgres databases. `make worktree-rm` reclaims the databases and files.
 - Servers in several worktrees need different ports: `make dev PORT=4010`.
@@ -49,3 +48,12 @@ bash. `scripts/assert-main-clean` (run by `make check`, `make check-quiet`, and
 has uncommitted changes. It does not prevent the edit. When the owner has
 deliberate local edits in main, set `ALLOW_DIRTY_MAIN=1` to skip it. Run from
 the main checkout itself, it does nothing.
+
+## Update (2026-10-31): repository is public, ruleset enforces the rules
+
+The repository is public (AGPL-3.0-only) and the ruleset "main protection" is
+active on `main`: a pull request is required (0 approvals), the `backend`,
+`frontend`, and `image` checks are required, `main` cannot be deleted or
+force-pushed, there are no bypass actors, and merged branches are deleted. The
+rule that a human merges is unchanged: agents never merge and never push to
+`main`; GitHub now rejects direct pushes as well.
