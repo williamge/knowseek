@@ -105,3 +105,5 @@ Left out: the worst case is not guaranteed. Several documents that all have
 more than `candidate_factor` matching chunks can still underfill `limit`.
 Exact grouping in SQL (window function over chunks per document) is a
 possible follow-up. Using `passages` in answer synthesis is task 008.
+
+Latency: 1,403 chunks, median about 17 ms for factor 4 and 40 at `limit` 10; larger indexes and the maximum limit are unmeasured.

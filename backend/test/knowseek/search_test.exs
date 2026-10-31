@@ -1,6 +1,7 @@
 defmodule Knowseek.SearchTest do
-  use Knowseek.DataCase, async: true
+  use Knowseek.DataCase, async: false
 
+  alias Knowseek.Repo
   alias Knowseek.Search
   alias Knowseek.Search.{Coverage, Hit}
 
@@ -136,6 +137,22 @@ defmodule Knowseek.SearchTest do
       assert Enum.sort(ids) == Enum.sort([hog.id | Enum.map(others, & &1.id)])
     end
 
+    test "the default :candidate_factor fills :limit where a small one underfills" do
+      # Five equally relevant 35-chunk documents: 3 hits need more than 4 * 3 chunks.
+      for _ <- 1..5, do: document_fixture(body: long_body("octopus", 35))
+
+      config = Application.get_env(:knowseek, Search)
+      on_exit(fn -> Application.put_env(:knowseek, Search, config) end)
+
+      Application.put_env(:knowseek, Search, Keyword.put(config, :candidate_factor, 4))
+      assert {:ok, %{hits: small}} = Search.search("octopus", limit: 3)
+      assert length(small) < 3
+
+      Application.put_env(:knowseek, Search, config)
+      assert {:ok, %{hits: hits}} = Search.search("octopus", limit: 3)
+      assert length(hits) == 3
+    end
+
     test "returns fewer hits than :limit when fewer documents match" do
       document_fixture(body: long_body("octopus", 4))
       assert {:ok, %{hits: [_]}} = Search.search("octopus", limit: 5)
@@ -144,6 +161,40 @@ defmodule Knowseek.SearchTest do
     test "one document with several strong chunks gives :partial coverage" do
       document_fixture(body: long_body("octopus", 5))
       assert {:ok, %{hits: [_], coverage: :partial}} = Search.search("octopus")
+    end
+  end
+
+  describe "group/2" do
+    test "keeps the fused order for documents with equal scores" do
+      ranked = [
+        %{chunk_id: "a1", document_id: "a", score: 0.5},
+        %{chunk_id: "b1", document_id: "b", score: 0.5},
+        %{chunk_id: "c1", document_id: "c", score: 0.5},
+        %{chunk_id: "a2", document_id: "a", score: 0.5},
+        %{chunk_id: "b2", document_id: "b", score: 0.4}
+      ]
+
+      grouped = Search.group(ranked, 3)
+
+      assert Enum.map(grouped, & &1.document_id) == ["a", "b", "c"]
+      assert Enum.map(grouped, & &1.chunk_id) == ["a1", "b1", "c1"]
+      assert [%{chunk_id: "a2"}] = hd(grouped).passages
+    end
+  end
+
+  describe "ef_search/1 and with_ef_search/2" do
+    test "has a floor of 40, scales with the candidates, and caps at 1000" do
+      assert Search.ef_search(1) == 40
+      assert Search.ef_search(40) == 40
+      assert Search.ef_search(400) == 400
+      assert Search.ef_search(1000) == 1000
+      assert Search.ef_search(50_000) == 1000
+    end
+
+    test "applies the setting inside the transaction" do
+      read = fn -> Repo.query!("SELECT current_setting('hnsw.ef_search', true)").rows end
+
+      assert [["400"]] = Search.with_ef_search(400, read)
     end
   end
 

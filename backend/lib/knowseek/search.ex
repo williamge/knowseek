@@ -82,23 +82,38 @@ defmodule Knowseek.Search do
   # An HNSW index scan returns at most `hnsw.ef_search` rows (default 40), so
   # a larger `limit` would silently return 40. Raise it for this query only.
   defp semantic_matches(embedding, limit) do
-    {:ok, rows} =
+    with_ef_search(limit, fn ->
+      Repo.all(
+        from c in Chunk,
+          where: not is_nil(c.embedding),
+          order_by: cosine_distance(c.embedding, ^embedding),
+          limit: ^limit,
+          select: {c.id, 1 - cosine_distance(c.embedding, ^embedding)}
+      )
+    end)
+  end
+
+  @doc false
+  # Runs `fun` in a transaction where `hnsw.ef_search` fits `candidates` rows.
+  # `set_config(..., true)` is local to the transaction.
+  @spec with_ef_search(pos_integer(), (-> result)) :: result when result: term()
+  def with_ef_search(candidates, fun) do
+    {:ok, result} =
       Repo.transaction(fn ->
         Repo.query!("SELECT set_config('hnsw.ef_search', $1, true)", [
-          Integer.to_string(min(max(limit, 40), @max_ef_search))
+          Integer.to_string(ef_search(candidates))
         ])
 
-        Repo.all(
-          from c in Chunk,
-            where: not is_nil(c.embedding),
-            order_by: cosine_distance(c.embedding, ^embedding),
-            limit: ^limit,
-            select: {c.id, 1 - cosine_distance(c.embedding, ^embedding)}
-        )
+        fun.()
       end)
 
-    rows
+    result
   end
+
+  @doc false
+  # pgvector's default is 40 and it rejects values above 1000.
+  @spec ef_search(pos_integer()) :: 40..1000
+  def ef_search(candidates), do: candidates |> max(40) |> min(@max_ef_search)
 
   defp fuse(keyword_ids, semantic) do
     keyword_ranks = keyword_ids |> Enum.with_index(1) |> Map.new()
@@ -126,10 +141,7 @@ defmodule Knowseek.Search do
   defp rrf(nil), do: 0.0
   defp rrf(rank), do: 1.0 / (@rrf_k + rank)
 
-  # Turns ranked chunks into one entry per document, best document first.
-  # Each entry is the best chunk's fused entry plus `:document_id` and
-  # `:passages` (the other chunks, best first, capped). Only the best chunk
-  # of a document gives the document's score: scores are not summed.
+  # Adds each chunk's `:document_id`, then groups (see `group/2`).
   defp group_by_document([], _max_passages), do: []
 
   defp group_by_document(ranked, max_passages) do
@@ -141,13 +153,26 @@ defmodule Knowseek.Search do
 
     ranked
     |> Enum.filter(&Map.has_key?(document_ids, &1.chunk_id))
-    |> Enum.group_by(&document_ids[&1.chunk_id])
-    |> Enum.map(fn {document_id, [best | rest]} ->
-      best
-      |> Map.put(:document_id, document_id)
-      |> Map.put(:passages, Enum.take(rest, max_passages))
+    |> Enum.map(&Map.put(&1, :document_id, document_ids[&1.chunk_id]))
+    |> group(max_passages)
+  end
+
+  @doc false
+  # Turns ranked chunk entries (best first, each with `:document_id`) into one
+  # entry per document: the best chunk's entry plus `:passages`, the other
+  # chunks best first, at most `max_passages`. Only the best chunk gives the
+  # document's score: scores are not summed. Documents are ordered by the
+  # position of their best chunk, so equal scores keep the fused order.
+  @spec group([map()], non_neg_integer()) :: [map()]
+  def group(ranked, max_passages) do
+    by_document = Enum.group_by(ranked, & &1.document_id)
+
+    ranked
+    |> Enum.uniq_by(& &1.document_id)
+    |> Enum.map(fn %{document_id: document_id} ->
+      [best | rest] = Map.fetch!(by_document, document_id)
+      Map.put(best, :passages, Enum.take(rest, max_passages))
     end)
-    |> Enum.sort_by(& &1.score, :desc)
   end
 
   defp load_hits([]), do: []

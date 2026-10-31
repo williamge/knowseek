@@ -26,8 +26,11 @@ three matching chunks made coverage `:sufficient`.
   (hashing adapter; 5 equally relevant 35-chunk documents plus 15 short
   ones) gave, at `limit` 10: factor 4 -> 2 hits, 10 -> 3, 20 -> 10. At
   `limit` 3 and 5, factor 20 gave 2 and 3 hits; factor 40 gave 3 and 5. The
-  default is 40, the chunk count of the largest article we index. Only ids
-  and ranks are fetched, so the cost is small.
+  default is 40: roughly the chunk count of a long Wikipedia article (the
+  Wikipedia source caps a document at 40,000 characters, 34 or more chunks).
+  Manual documents have no size cap, so this is a heuristic. Each list
+  fetches only chunk ids and ranks, but the cost of larger candidate lists
+  is only lightly measured (see Consequences).
 - pgvector's HNSW scan returns at most `hnsw.ef_search` rows (40 by
   default). The vector query raises it for its own transaction to the
   candidate count (at most 1000), otherwise the factor would not apply to it.
@@ -41,5 +44,10 @@ three matching chunks made coverage `:sufficient`.
 - The worst case is still not guaranteed: more matching-heavy documents than
   the candidate budget covers can underfill `limit`. Grouping in SQL would
   remove the limit and is a possible follow-up.
+- Latency is lightly measured: on a dev database with 1,403 chunks (40
+  documents of 35 chunks, hashing embedder), the median of 15 searches was
+  about 17 ms at `limit` 10 with factor 4 and with factor 40 (`ef_search`
+  400), and about 19 ms at `limit` 25. At larger indexes and at the maximum
+  limit, search latency is unmeasured.
 - The vector query runs in a short transaction to set `hnsw.ef_search`.
 - Answer synthesis (task 008) can use `passages` as extra context.
