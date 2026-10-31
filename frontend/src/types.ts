@@ -51,19 +51,3 @@ export interface KnowseekDocument {
 
 /** What `GET /api/documents` returns: a document without its body. */
 export type DocumentSummary = Omit<KnowseekDocument, "body">;
-
-export interface Topic {
-  id: string;
-  query: string;
-  active: boolean;
-  refresh_interval_seconds: number;
-  max_age_seconds: number | null;
-  last_refreshed_at: string | null;
-  inserted_at: string;
-}
-
-export interface NewTopic {
-  query: string;
-  refresh_interval_seconds?: number;
-  max_age_seconds?: number | null;
-}

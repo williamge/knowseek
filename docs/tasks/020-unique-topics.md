@@ -1,6 +1,6 @@
 # 020. Topics unique by query
 
-- Status: done
+- Status: done (the feature was removed later: see task 026 and ADR 0015)
 - Area: `Knowseek.Topics`, migration, web
 - Depends on: none
 

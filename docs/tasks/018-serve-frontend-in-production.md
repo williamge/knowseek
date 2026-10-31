@@ -12,10 +12,10 @@
 
 - Build with `npm run build` into `frontend/dist`.
 - Serve `dist` from the Phoenix endpoint (`Plug.Static`) with a fallback to
-  `index.html` for `/topics`. Or serve it from a CDN with `/api` proxied.
+  `index.html`. Or serve it from a CDN with `/api` proxied.
 - Add the build step to the release and container (task 012).
 
 ## Acceptance criteria
 
 - The production container serves the UI at `/` and the API at `/api`.
-- A deep link such as `/topics` loads.
+- A deep link such as `/?q=octopus` loads.

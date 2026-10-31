@@ -20,7 +20,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [001](001-real-embedding-adapter.md) | Real embedding adapter | none |
 | [002](002-wikipedia-source.md) | Wikipedia discovery source | none |
 | [003](003-web-search-source.md) | Web search discovery source | none |
-| [004](004-feed-source.md) | RSS/Atom feed source for topics | none |
+| [004](004-feed-source.md) | RSS/Atom feed source | none |
 | [005](005-freshness-aware-coverage.md) | Freshness-aware coverage | none |
 | [006](006-discovery-status-for-callers.md) | Tell callers when discovery finishes | none |
 | [007](007-query-planning.md) | LLM query planning for sources | 002 or 003 |
@@ -35,13 +35,15 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [016](016-limit-discovery-abuse.md) | Limit discovery abuse | 009 |
 | [017](017-re-embed-job.md) | Re-embed chunks after a model change | 001 |
 | [018](018-serve-frontend-in-production.md) | Serve the web UI in production | 012 |
-| [019](019-web-ui-follow-ups.md) | Web UI follow-ups | 006, 008, 013, 024 |
-| [020](020-unique-topics.md) | Topics unique by query | none |
+| [019](019-web-ui-follow-ups.md) | Web UI follow-ups | 006, 008, 013 |
+| [020](020-unique-topics.md) | Topics unique by query (feature removed by 026) | none |
 | [021](021-reliable-discovery-completion-in-ui.md) | Reliable discovery completion in the web UI | 006 |
 | [022](022-backfill-urls-and-near-duplicates.md) | Merge stored duplicate URLs; near-duplicate detection | 011 |
 | [023](023-group-search-hits-in-sql.md) | Group search hits by document in SQL | 014 |
-| [024](024-edit-topics.md) | Edit and pause topics | 020 |
+| [024](024-edit-topics.md) | Edit and pause topics (won't do, see 026) | 020 |
 | [025](025-container-ci-smoke-and-publish.md) | Boot the container in CI and publish the image | 012 |
+| [026](026-remove-topics.md) | Remove the follow-topic feature | none |
+| [027](027-rethink-topics.md) | Rethink following, in a session with the owner | 003, 004 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

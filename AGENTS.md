@@ -5,7 +5,7 @@ For Elixir and Phoenix coding rules, read `backend/AGENTS.md`.
 
 ## What this project is
 
-Knowseek takes a query, searches its own index, and returns relevant data. When the index does not cover the query, it seeks new data from external sources and indexes it. Users can also follow topics, which are refreshed on a schedule. See `README.md`.
+Knowseek takes a query, searches its own index, and returns relevant data. When the index does not cover the query, it seeks new data from external sources and indexes it. See `README.md`.
 
 ## Repository layout
 
@@ -62,7 +62,7 @@ The optional Ollama server (`brew install ollama`, `brew services start ollama`)
 
 These keep the code base coherent while many agents work in parallel. If a task needs you to break one, write an ADR first.
 
-1. **Context boundaries.** Code outside a context calls only the context's public module (`Knowseek.Documents`, `Knowseek.Search`, `Knowseek.Discovery`, `Knowseek.Topics`, `Knowseek.Lookup`). Do not query another context's schemas directly, except for read joins inside `Knowseek.Search`.
+1. **Context boundaries.** Code outside a context calls only the context's public module (`Knowseek.Documents`, `Knowseek.Search`, `Knowseek.Discovery`, `Knowseek.Lookup`). Do not query another context's schemas directly, except for read joins inside `Knowseek.Search`.
 2. **One write path into the index.** Only `Knowseek.Documents.ingest/1` writes documents and chunks.
 3. **Sources only find data.** A `Knowseek.Discovery.Source` returns candidates. It never writes to the database.
 4. **Pluggable parts are behaviours plus config.** Embedding providers and discovery sources implement a behaviour and are selected in `config/*.exs`. Add new providers the same way.

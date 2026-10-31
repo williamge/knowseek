@@ -1,8 +1,8 @@
 # Knowseek
 
-Knowseek is a service that answers "what is known about X?" and keeps you informed about X over time.
+Knowseek is a service that answers "what is known about X?".
 
-You send a query: a question, a topic, or a description of what you want to follow. Knowseek searches its index and returns what it already has. If the index does not cover the query well, Knowseek seeks new data from external sources, indexes it, and makes it available to later queries. Topics that you subscribe to are refreshed on a schedule.
+You send a query: a question, a subject, or a description of what you want to know about. Knowseek searches its index and returns what it already has. If the index does not cover the query well, Knowseek seeks new data from external sources, indexes it, and makes it available to later queries.
 
 ## Status
 
@@ -12,7 +12,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles.
 - Embeddings come from a local hashing stand-in by default. For real semantic search, install Ollama (`brew install ollama`, then `brew services start ollama`), run `make ollama`, and set `EMBEDDINGS_ADAPTER=ollama` in `.env`. Voyage AI is the hosted option. See `.env.example`.
-- A web UI (`frontend/`) searches, shows results as discovery adds them, and manages topics.
+- A web UI (`frontend/`) searches and shows results as discovery adds them.
 
 See [`docs/tasks/`](docs/tasks/) for the backlog.
 
@@ -102,9 +102,6 @@ Notes:
 | `GET` | `/api/documents` | Recently fetched documents, without their `body`. Use `GET /api/documents/:id` for the full text. |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. |
-| `GET` | `/api/topics` | Topics you follow |
-| `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?, max_age_seconds?}}`. With `max_age_seconds`, a refresh seeks new data only when too few documents were fetched within that time. Without it, every refresh seeks new data. Topics are unique by normalized query (lowercase, collapsed whitespace). A new topic returns `201`. A query that is already followed returns the existing topic with `200`, unchanged: the settings of the request are ignored. |
-| `DELETE` | `/api/topics/:id` | Stop following a topic |
 
 ## Documentation
 

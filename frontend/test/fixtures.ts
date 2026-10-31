@@ -1,4 +1,4 @@
-import type { Hit, KnowseekDocument, SearchResult, Topic } from "../src/types";
+import type { Hit, KnowseekDocument, SearchResult } from "../src/types";
 
 export function hit(overrides: Partial<Hit> = {}): Hit {
   return {
@@ -38,19 +38,6 @@ export function document(overrides: Partial<KnowseekDocument> = {}): KnowseekDoc
     published_at: null,
     fetched_at: new Date().toISOString(),
     metadata: {},
-    ...overrides,
-  };
-}
-
-export function topic(overrides: Partial<Topic> = {}): Topic {
-  return {
-    id: "topic-1",
-    query: "octopus",
-    active: true,
-    refresh_interval_seconds: 86_400,
-    max_age_seconds: null,
-    last_refreshed_at: null,
-    inserted_at: new Date().toISOString(),
     ...overrides,
   };
 }

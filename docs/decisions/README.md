@@ -18,6 +18,7 @@ write a new ADR that supersedes it and set the old one's status to
 | [0009](0009-search-returns-only-relevant-hits.md) | Search returns only relevant hits |
 | [0010](0010-worktrees-and-pull-requests.md) | One worktree and one pull request per task; CI on every PR |
 | [0011](0011-one-hit-per-document.md) | One search hit per document, with `passages` |
-| [0012](0012-unique-topics.md) | Topics are unique by normalized query; a repeated follow returns the existing topic |
+| [0012](0012-unique-topics.md) | Topics are unique by normalized query; a repeated follow returns the existing topic (superseded by 0015) |
 | [0013](0013-url-canonicalization-and-aliases.md) | Canonical URLs and aliases for exact duplicate content |
 | [0014](0014-release-and-container.md) | Release build and app container |
+| [0015](0015-remove-topics.md) | Remove the follow-topic feature; redesign it after news sources exist |

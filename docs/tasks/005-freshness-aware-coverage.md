@@ -56,3 +56,6 @@ Left out:
   when it creates a topic.
 
 Follow-ups: none new.
+
+Note (task 026): topics, and with them `topics.max_age_seconds`, `RefreshWorker`,
+and `CheckWorker`, were removed. The search part stays.

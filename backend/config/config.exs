@@ -16,15 +16,11 @@ config :knowseek, Knowseek.Repo, types: Knowseek.PostgrexTypes
 
 # Background jobs. Queues:
 #   * discovery - seek new data from external sources for a query
-#   * default   - everything else (topic refresh scheduling, etc.)
 config :knowseek, Oban,
   engine: Oban.Engines.Basic,
   repo: Knowseek.Repo,
-  queues: [default: 10, discovery: 5],
-  plugins: [
-    {Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60},
-    {Oban.Plugins.Cron, crontab: [{"*/15 * * * *", Knowseek.Topics.RefreshWorker}]}
-  ]
+  queues: [discovery: 5],
+  plugins: [{Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60}]
 
 # Embedding provider. `dimensions` must match the `vector(N)` column size
 # in the chunks table migration. config/runtime.exs reads EMBEDDINGS_ADAPTER

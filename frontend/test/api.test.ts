@@ -43,9 +43,4 @@ describe("api", () => {
       message: "The API returned an unexpected response.",
     });
   });
-
-  it("handles 204 on delete", async () => {
-    mockApi({ "DELETE /topics/t1": () => new Response(null, { status: 204 }) });
-    await expect(api.deleteTopic("t1")).resolves.toBeUndefined();
-  });
 });

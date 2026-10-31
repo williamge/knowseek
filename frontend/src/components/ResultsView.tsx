@@ -1,17 +1,14 @@
 import { groupHits } from "../lib/format";
 import type { SearchState } from "../lib/useSearch";
-import type { TopicsApi } from "../lib/useTopics";
-import { FollowButton } from "./FollowButton";
 import { ResultCard } from "./ResultCard";
 import { StatusBar } from "./StatusBar";
 
 interface Props {
   state: SearchState;
-  topics: TopicsApi;
   onOpenDocument: (id: string) => void;
 }
 
-export function ResultsView({ state, topics, onOpenDocument }: Props) {
+export function ResultsView({ state, onOpenDocument }: Props) {
   if (state.status === "idle") return null;
 
   if (state.status === "loading") {
@@ -45,7 +42,6 @@ export function ResultsView({ state, topics, onOpenDocument }: Props) {
     <section className="results">
       <div className="results__header">
         <StatusBar state={state} />
-        <FollowButton query={state.query} topics={topics} />
       </div>
 
       {groups.length === 0 ? (
@@ -56,7 +52,7 @@ export function ResultsView({ state, topics, onOpenDocument }: Props) {
           <p>
             {state.watching
               ? "Knowseek is looking for sources now. Results appear here when they arrive."
-              : "Follow the topic to have Knowseek check for new data every day."}
+              : "Try different words."}
           </p>
         </div>
       ) : (
