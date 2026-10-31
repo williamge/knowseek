@@ -53,6 +53,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [034](034-weather-location-context.md) | Location context for bare "weather" | 033 |
 | [035](035-ranking-prior.md) | Ranking prior from document importance (done, [ADR 0018](../decisions/0018-ranking-prior.md)) | none |
 | [036](036-public-repo-readiness.md) | Prepare the repository for going public | none |
+| [038](038-source-last-edited.md) | Show when the source says a page was last edited (done) | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

@@ -116,6 +116,40 @@ defmodule Knowseek.DocumentsTest do
       assert Documents.get_document(id).monthly_views == 90_000
     end
 
+    test "stores source_updated_at, keeps it when left out, and updates it for an unchanged body" do
+      url = "https://example.com/edited"
+      first = ~U[2026-10-01 10:00:00Z]
+      second = ~U[2026-10-29 03:01:48Z]
+      attrs = %{url: url, body: "same body", source: "test"}
+
+      assert {:ok, %Document{id: id, source_updated_at: nil}} = Documents.ingest(attrs)
+
+      assert {:ok, _} = Documents.ingest(Map.put(attrs, :source_updated_at, first))
+      assert Documents.get_document(id).source_updated_at == first
+
+      # A candidate without the value leaves it alone, whether the body changed or not.
+      assert {:ok, _} = Documents.ingest(attrs)
+      assert Documents.get_document(id).source_updated_at == first
+      assert {:ok, _} = Documents.ingest(%{attrs | body: "other body"})
+      assert Documents.get_document(id).source_updated_at == first
+
+      # The source says the page was edited again while our text is identical
+      # (for example only a template changed): the field follows the source.
+      assert {:ok, _} =
+               Documents.ingest(
+                 %{attrs | body: "other body"}
+                 |> Map.put(:source_updated_at, first)
+               )
+
+      assert {:ok, _} =
+               Documents.ingest(
+                 %{attrs | body: "other body"}
+                 |> Map.put(:source_updated_at, second)
+               )
+
+      assert Documents.get_document(id).source_updated_at == second
+    end
+
     test "rejects a negative monthly_views" do
       assert {:error, changeset} = Documents.ingest(doc("https://example.com/neg", -1))
       assert %{monthly_views: [_]} = errors_on(changeset)

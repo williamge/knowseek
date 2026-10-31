@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { displayHost, isWebUrl, timeAgo, type CardPassage, type HitGroup } from "../lib/format";
+import {
+  displayHost,
+  isWebUrl,
+  shortDate,
+  timeAgo,
+  type CardPassage,
+  type HitGroup,
+} from "../lib/format";
 import { Highlighted } from "./Highlighted";
 
 interface Props {
@@ -24,6 +31,17 @@ export function ResultCard({ group, query, fresh, onOpen }: Props) {
         <time dateTime={group.fetchedAt} title={new Date(group.fetchedAt).toLocaleString()}>
           fetched {timeAgo(group.fetchedAt)}
         </time>
+        {group.sourceUpdatedAt && (
+          <>
+            <span aria-hidden="true">·</span>
+            <time
+              dateTime={group.sourceUpdatedAt}
+              title={`Last edited at the source: ${new Date(group.sourceUpdatedAt).toLocaleString()}`}
+            >
+              edited {shortDate(group.sourceUpdatedAt)}
+            </time>
+          </>
+        )}
         {fresh && <span className="result__new">new</span>}
       </div>
 

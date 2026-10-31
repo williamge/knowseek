@@ -10,6 +10,11 @@ defmodule Knowseek.Documents.Document do
   `monthly_views` is an optional importance signal: how often the page that
   the document came from is read, per 30 days. It is `nil` when the source has
   no such figure. `Knowseek.Search` turns it into a ranking prior (ADR 0018).
+
+  `source_updated_at` is when the source says the page was last edited (for
+  Wikipedia, the latest revision timestamp). It is `nil` when the source does
+  not say. It is not `published_at` (first published) and not `fetched_at`
+  (when Knowseek last saw the content).
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -30,6 +35,7 @@ defmodule Knowseek.Documents.Document do
     field :fetched_at, :utc_datetime
     field :metadata, :map, default: %{}
     field :monthly_views, :integer
+    field :source_updated_at, :utc_datetime
 
     has_many :chunks, Knowseek.Documents.Chunk
 
@@ -51,7 +57,8 @@ defmodule Knowseek.Documents.Document do
       :published_at,
       :fetched_at,
       :metadata,
-      :monthly_views
+      :monthly_views,
+      :source_updated_at
     ])
     |> validate_number(:monthly_views, greater_than_or_equal_to: 0)
     |> validate_required([:body, :source])

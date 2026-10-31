@@ -6,6 +6,7 @@ import {
   highlight,
   isWebUrl,
   normalizeQuery,
+  shortDate,
   timeAgo,
 } from "../src/lib/format";
 import { hit } from "./fixtures";
@@ -13,6 +14,16 @@ import { hit } from "./fixtures";
 describe("normalizeQuery", () => {
   it("lowercases and collapses whitespace like the backend", () => {
     expect(normalizeQuery("  Rust   ASYNC\nRuntimes ")).toBe("rust async runtimes");
+  });
+});
+
+describe("shortDate", () => {
+  const now = new Date(2026, 9, 30);
+  it("omits the year for this year", () => {
+    expect(shortDate(new Date(2026, 9, 29, 12).toISOString(), now)).toBe("Oct 29");
+  });
+  it("adds the year for another year", () => {
+    expect(shortDate(new Date(2025, 9, 29, 12).toISOString(), now)).toBe("Oct 29, 2025");
   });
 });
 

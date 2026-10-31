@@ -44,6 +44,18 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert hit["published_at"] == "2020-01-01T00:00:00Z"
     end
 
+    test "returns source_updated_at on hits", %{conn: conn} do
+      document_fixture(
+        body: "Glaciers retreat in warm summers.",
+        source_updated_at: ~U[2026-10-29 03:01:48Z]
+      )
+
+      data =
+        conn |> post(~p"/api/search", query: "glaciers retreat") |> json_response(200)
+
+      assert %{"data" => %{"hits" => [%{"source_updated_at" => "2026-10-29T03:01:48Z"}]}} = data
+    end
+
     test "accepts a null max_age_seconds", %{conn: conn} do
       assert %{"data" => _} =
                conn
@@ -101,6 +113,19 @@ defmodule KnowseekWeb.ApiControllerTest do
 
       assert %{"data" => %{"body" => "A long body that a list does not need."}} =
                conn |> get(~p"/api/documents/#{listed["id"]}") |> json_response(200)
+    end
+
+    test "documents carry source_updated_at, null when unknown", %{conn: conn} do
+      with_date =
+        document_fixture(body: "Edited.", source_updated_at: ~U[2026-10-29 03:01:48Z])
+
+      without = document_fixture(body: "Not dated.")
+
+      assert %{"data" => %{"source_updated_at" => "2026-10-29T03:01:48Z"}} =
+               conn |> get(~p"/api/documents/#{with_date.id}") |> json_response(200)
+
+      assert %{"data" => %{"source_updated_at" => nil}} =
+               conn |> get(~p"/api/documents/#{without.id}") |> json_response(200)
     end
 
     test "POST returns 422 for an invalid document", %{conn: conn} do

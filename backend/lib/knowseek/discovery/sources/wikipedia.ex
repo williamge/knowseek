@@ -9,6 +9,10 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   refuses work when its database replicas lag. Several discovery jobs can
   still run at the same time (see the `discovery` Oban queue).
 
+  Each candidate also carries `:source_updated_at`, the timestamp of the
+  page's latest revision (`prop=revisions`, same request). It is the revision
+  timestamp, not `touched`: `touched` also moves when a template changes.
+
   Disambiguation pages and pages without text are skipped. If one page fetch
   fails, the other pages are still returned. The source returns an error
   only when the search fails or every page fetch fails.
@@ -106,7 +110,8 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
 
   defp fetch_page(pageid, config) do
     params = [
-      prop: "extracts|info|pageprops|pageviews",
+      prop: "extracts|info|pageprops|pageviews|revisions",
+      rvprop: "timestamp",
       explaintext: 1,
       exsectionformat: "plain",
       inprop: "url",
@@ -146,6 +151,7 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
           metadata: %{"pageid" => pageid}
         }
         |> put_monthly_views(page["pageviews"])
+        |> put_source_updated_at(page["revisions"])
     end
   end
 
@@ -159,6 +165,29 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
       views -> Map.put(candidate, :monthly_views, views)
     end
   end
+
+  # The candidate carries no `:source_updated_at` when the API has no revision,
+  # so that re-ingesting it keeps an earlier one.
+  defp put_source_updated_at(candidate, revisions) do
+    case revision_time(revisions) do
+      nil -> candidate
+      time -> Map.put(candidate, :source_updated_at, time)
+    end
+  end
+
+  @doc false
+  # `revisions` is the `prop=revisions` value: a list with the latest
+  # revision, `[%{"timestamp" => "2026-10-29T03:01:48Z"}]`. Returns its time,
+  # or `nil` when there is none or it does not parse.
+  @spec revision_time(term()) :: DateTime.t() | nil
+  def revision_time([%{"timestamp" => timestamp} | _rest]) when is_binary(timestamp) do
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, time, _offset} -> time
+      {:error, _reason} -> nil
+    end
+  end
+
+  def revision_time(_revisions), do: nil
 
   @doc false
   # `pageviews` is the `prop=pageviews` value: a map of date to the views of

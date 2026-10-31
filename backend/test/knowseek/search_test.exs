@@ -32,6 +32,16 @@ defmodule Knowseek.SearchTest do
       assert {:ok, %{hits: [%Hit{published_at: ^published}]}} = Search.search("aurora borealis")
     end
 
+    test "returns source_updated_at on hits, nil when the source gave none" do
+      edited = ~U[2026-10-29 03:01:48Z]
+      document_fixture(body: "Aurora borealis season.", source_updated_at: edited)
+      document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+
+      assert {:ok, %{hits: [%Hit{source_updated_at: ^edited}]}} = Search.search("aurora borealis")
+
+      assert {:ok, %{hits: [%Hit{source_updated_at: nil}]}} = Search.search("sourdough bread")
+    end
+
     test "applies :max_age_seconds to coverage" do
       for i <- 1..3, do: document_fixture(body: "Comet tails, part #{i}.", fetched_at: @old)
 

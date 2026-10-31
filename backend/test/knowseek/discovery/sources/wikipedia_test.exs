@@ -48,6 +48,14 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       refute Map.has_key?(hnsw, :monthly_views)
     end
 
+    test "carries the latest revision time as source_updated_at, and none without one" do
+      stub_api()
+
+      assert {:ok, [vector_db, hnsw]} = Wikipedia.discover("pgvector", [])
+      assert vector_db.source_updated_at == ~U[2026-09-10 19:31:06Z]
+      assert hnsw.source_updated_at == ~U[2026-08-13 02:48:09Z]
+    end
+
     test "searches articles, then fetches each page's plain text, with a User-Agent" do
       stub_api()
 
@@ -67,7 +75,8 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       assert_received {:request,
                        %{
-                         "prop" => "extracts|info|pageprops|pageviews",
+                         "prop" => "extracts|info|pageprops|pageviews|revisions",
+                         "rvprop" => "timestamp",
                          "pvipdays" => "60",
                          "explaintext" => "1",
                          "pageids" => "74020014"
@@ -205,6 +214,19 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       text = "e\u0301" |> String.duplicate(200) |> Wikipedia.search_text()
 
       assert length(String.codepoints(text)) == 300
+    end
+  end
+
+  describe "revision_time/1" do
+    test "parses the latest revision's timestamp" do
+      assert Wikipedia.revision_time([%{"timestamp" => "2026-10-29T03:01:48Z"}]) ==
+               ~U[2026-10-29 03:01:48Z]
+    end
+
+    test "is nil without a revision or with an unparseable timestamp" do
+      assert Wikipedia.revision_time(nil) == nil
+      assert Wikipedia.revision_time([]) == nil
+      assert Wikipedia.revision_time([%{"timestamp" => "yesterday"}]) == nil
     end
   end
 
