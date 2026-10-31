@@ -101,7 +101,7 @@ Notes:
 | `POST` | `/api/search` | `{query, limit?, max_age_seconds?}` → hits, coverage, discovery status. One hit per document: the best matching chunk's fields (`chunk_id`, `content`, `score`, ranks, `similarity`) plus `passages`, up to 3 other matching chunks (`chunk_id`, `content`, `score`). Hits are only relevant, so a query that the index does not cover returns no hits. With `max_age_seconds`, only documents fetched within that many seconds count toward coverage. `null` ignores age. |
 | `GET` | `/api/documents` | Recently fetched documents, without their `body`. Use `GET /api/documents/:id` for the full text. |
 | `GET` | `/api/documents/:id` | One document |
-| `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest |
+| `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document, and the URL becomes its alias. |
 | `GET` | `/api/topics` | Topics you follow |
 | `POST` | `/api/topics` | `{topic: {query, refresh_interval_seconds?, max_age_seconds?}}`. With `max_age_seconds`, a refresh seeks new data only when too few documents were fetched within that time. Without it, every refresh seeks new data. Topics are unique by normalized query (lowercase, collapsed whitespace). A new topic returns `201`. A query that is already followed returns the existing topic with `200`, unchanged: the settings of the request are ignored. |
 | `DELETE` | `/api/topics/:id` | Stop following a topic |
