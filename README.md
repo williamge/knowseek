@@ -4,6 +4,10 @@ Knowseek is a service that answers "what is known about X?".
 
 You send a query: a question, a subject, or a description of what you want to know about. Knowseek searches its index and returns what it already has. If the index does not cover the query well, Knowseek seeks new data from external sources, indexes it, and makes it available to later queries.
 
+## Status and security
+
+There is no authentication yet (task 009, parked). Do not expose the API to the public internet. `/dev/dashboard` exists only in the dev environment. Postgres is published on `127.0.0.1` only. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+
 ## Status
 
 Early skeleton. The end-to-end path works with local stand-ins:
@@ -107,6 +111,14 @@ Notes:
 | `GET` | `/api/documents` | Recently fetched documents, without their `body`. Use `GET /api/documents/:id` for the full text. |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. |
+
+## License
+
+Copyright (C) 2026 William Gelhar. Knowseek is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, you must offer its source code to the users of that service (AGPL section 13). Contributions are accepted under the same license. See [ADR 0019](docs/decisions/0019-license-agpl-3.md).
+
+### Third-party content
+
+Test fixtures contain excerpts of Wikipedia (CC BY-SA 4.0) and Wikidata (CC0). See [`NOTICE`](NOTICE).
 
 ## Documentation
 
