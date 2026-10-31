@@ -109,6 +109,7 @@ Notes:
 ## Documentation
 
 - [`AGENTS.md`](AGENTS.md): how to work in this repo (for humans and coding agents)
+- [`docs/WORKING-WITH-AGENTS.md`](docs/WORKING-WITH-AGENTS.md): how to run several agents in parallel, with prompt templates in [`docs/agent-brief.md`](docs/agent-brief.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, data model
 - [`docs/decisions/`](docs/decisions/): architecture decision records
 - [`docs/tasks/`](docs/tasks/): the task backlog
