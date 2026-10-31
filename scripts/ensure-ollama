@@ -17,6 +17,9 @@
 
 set -euo pipefail
 
+body="$(mktemp)"
+trap 'rm -f "$body"' EXIT
+
 adapter="${EMBEDDINGS_ADAPTER:-ollama}"
 url="${OLLAMA_URL:-http://localhost:11434}"
 model="${OLLAMA_MODEL:-bge-m3}"
@@ -49,8 +52,11 @@ if ! grep -Eq "\"name\":\"$model(:latest)?\"" <<<"$tags"; then
 fi
 
 # One tiny embed call also loads the model, which keeps it warm for the app.
-reply="$(curl -sf -m 120 "$url/api/embed" -d "{\"model\":\"$model\",\"input\":\"x\"}")" ||
-  fail "$model did not answer /api/embed on $url." "Run: OLLAMA_HOST=$url ollama pull $model"
+echo "ensure-ollama: loading model $model (can take a minute the first time)..."
+status="$(curl -s -m 120 -o "$body" -w '%{http_code}' "$url/api/embed" -d "{\"model\":\"$model\",\"input\":\"x\"}")" || status="no answer"
+[ "$status" = "200" ] ||
+  fail "$model did not answer /api/embed on $url (HTTP status: $status)." "Check the model name in OLLAMA_MODEL, and the Ollama log (brew services info ollama)."
+reply="$(cat "$body")"
 count="$(sed -E 's/.*"embeddings":\[\[([^]]*)\].*/\1/' <<<"$reply" | tr ',' '\n' | wc -l | tr -d ' ')"
 [ "$count" = "$dimensions" ] ||
   fail "$model outputs $count dimensions, the index needs $dimensions." "Use a $dimensions-dimension model (default bge-m3) or add a migration (docs/decisions/0004-embeddings.md)."

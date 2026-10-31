@@ -11,7 +11,8 @@ size, and tests must not call external APIs.
 ## Decision
 
 - `Knowseek.Embeddings` is a behaviour. The adapter is chosen in config.
-- The default adapter, `Knowseek.Embeddings.Hashing`, is local and
+- The default adapter, `Knowseek.Embeddings.Hashing` (ADR 0016 changed the
+  default to Ollama; Hashing is now the opt-out and the test adapter), is local and
   deterministic (feature hashing of word tokens). It is a stand-in for dev and
   test, not a semantic model.
 - `chunks.embedding` is `vector(1024)`. 1024 is a common output size for

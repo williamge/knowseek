@@ -36,7 +36,7 @@ Run everything from the repository root.
 | `make dev` | Run the API on `$CONDUCTOR_PORT` (or 4000). Checks Ollama first (`make ollama`). |
 | `make web` | Run the web UI on `$CONDUCTOR_PORT` + 1. It proxies `/api` to the API. |
 | `make test` | Run the backend test suite. Pass `ARGS=test/knowseek/search_test.exs` for one file. |
-| `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. See "How to work on a task". |
+| `make worktree NAME=...` | Create a worktree + branch for a task, copy `.env`, and set up its own databases. If `.env` does not set `EMBEDDINGS_ADAPTER`, the worktree gets `EMBEDDINGS_ADAPTER=hashing`, so setup and tests do not need Ollama; edit its `.env` to use Ollama. If setup fails, fix the cause and run `make setup` inside the worktree. See "How to work on a task". |
 | `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree. |
 | `make ollama` | Run `scripts/ensure-ollama`: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB). Does nothing when `EMBEDDINGS_ADAPTER` is not `ollama`. `setup`, `dev`, `iex`, and `start` run it. `make test` and `make check` do not. |
 | `make guard-main` | Fail if the main checkout has uncommitted changes (you edited it by mistake). Set `ALLOW_DIRTY_MAIN=1` to skip when the owner has local edits there. |

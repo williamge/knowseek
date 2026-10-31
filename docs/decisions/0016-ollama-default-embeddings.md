@@ -20,14 +20,23 @@ compared with new ones.
   `EMBEDDINGS_ADAPTER=hashing` stays a valid, explicit opt-out; `voyage` is
   unchanged.
 - No fallback to `Hashing` when Ollama is unreachable. Ingest and search return
-  their existing `{:error, _}` results (task 001). The API turns a provider
-  error into HTTP 503 with a JSON body (it was a generic 500).
+  their existing `{:error, _}` results (task 001). The API turns every provider
+  error shape (`{:ollama | :voyage, exception}`, `{provider, atom}`,
+  `{provider, http_status, detail}`) into HTTP 503 with a JSON body (it was a
+  generic 500). A discovery job that finds candidates but ingests none of them
+  returns `{:error, _}`, so Oban retries it (3 attempts) instead of completing
+  silently. No candidates at all is still `:ok`.
+- `make worktree` writes `EMBEDDINGS_ADAPTER=hashing` into a new worktree's
+  `.env` unless the copied `.env` already sets it, so creating a worktree does
+  not need Ollama (tests pin Hashing anyway). Edit the `.env` to opt in.
+- `make db-reset` runs the preflight too, because `mix ecto.reset` runs
+  `seeds.exs`, which ingests documents.
 - `scripts/ensure-ollama` is the preflight. With the ollama adapter it checks
   that the CLI exists and the server answers on `$OLLAMA_URL`, pulls
   `$OLLAMA_MODEL` if missing (about 1.2 GB, first run only), and makes one tiny
   `/api/embed` call to check that the output has 1024 dimensions (the call is
   cheap and also warms the model). With another adapter it exits silently.
-  On success it prints one line. On failure it exits 1 with the fix and the
+  On success it prints a `loading model` line, then `ensure-ollama: OK (model)`. On failure it exits 1 with the fix and the
   opt-out. `make setup`, `make dev`, `make iex`, and `make start` run it after
   `db-up`; `make ollama` is a thin wrapper. `make test` and `make check` do not.
 - `make start` runs db-up, the preflight, migrations, then the API and the web

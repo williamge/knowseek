@@ -105,7 +105,7 @@ The backend builds into a Mix release image (`backend/Dockerfile`). `docker comp
 
 ## Known limitations
 
-- With `EMBEDDINGS_ADAPTER=hashing` (the opt-out), search matches words, not meaning. The default needs a running Ollama; when it is down, ingest and search return an error instead of falling back (ADR 0016).
+- With `EMBEDDINGS_ADAPTER=hashing` (the opt-out), search matches words, not meaning. The default needs a running Ollama; when it is down, ingest and search return an error (HTTP 503 from the API) and discovery jobs are retried, instead of falling back (ADR 0016).
 - Chunks are not re-embedded when the embedding adapter changes.
 - Wikipedia is the only discovery source, so discovery finds only encyclopedic data.
 - No authentication and no users.

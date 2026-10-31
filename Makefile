@@ -31,7 +31,7 @@ db-up: ## Start Postgres (pgvector) in Docker
 db-down: ## Stop Postgres and the app container (data is kept in a Docker volume)
 	docker compose --profile app down
 
-db-reset: db-up ## Drop and recreate this workspace's dev database
+db-reset: db-up ollama ## Drop and recreate this workspace's dev database
 	$(LOAD_ENV); cd backend && mix ecto.reset
 
 # The defaults match Knowseek.Embeddings.Ollama. Does nothing for other adapters.
@@ -99,7 +99,9 @@ worktree: ## Create a task worktree + branch + databases: make worktree NAME=tas
 	git worktree add -b "$(NAME)" "$(WORKTREES)/$(NAME)" "$(BASE)"
 	@if [ -f "$(MAIN_REPO)/.env" ]; then cp "$(MAIN_REPO)/.env" "$(WORKTREES)/$(NAME)/.env"; fi
 	@echo "KNOWSEEK_WORKSPACE=$(NAME)" >> "$(WORKTREES)/$(NAME)/.env"
-	$(MAKE) -C "$(WORKTREES)/$(NAME)" setup
+	@# Task worktrees do not need Ollama (tests pin hashing). Opt in by editing .env. ADR 0016.
+	@grep -qE '^[[:space:]]*(export[[:space:]]+)?EMBEDDINGS_ADAPTER=' "$(WORKTREES)/$(NAME)/.env" || echo "EMBEDDINGS_ADAPTER=hashing" >> "$(WORKTREES)/$(NAME)/.env"
+	@$(MAKE) -C "$(WORKTREES)/$(NAME)" setup || { echo "Setup failed. The worktree exists: fix the problem, then run 'make setup' inside $(WORKTREES)/$(NAME)"; exit 1; }
 	@echo "Worktree ready: $(WORKTREES)/$(NAME)"
 
 worktree-rm: ## Drop a worktree's databases and remove it (keeps the branch): make worktree-rm NAME=...
