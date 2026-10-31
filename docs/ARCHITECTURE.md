@@ -85,6 +85,15 @@ Oban stores its jobs in `oban_jobs` in the same database.
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
 
+## Live fact cards (decided design, not built yet)
+
+[ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Tasks 030-034 build it; none of it is shipped. The design:
+
+- Entities are resolved through Wikidata (task 030). Cards come from swappable provider behaviours: ESPN, a Yahoo-style chart endpoint, and Open-Meteo.
+- A separate endpoint is cache-only. It reads an in-memory cache and never calls a provider in the request path. Its response has `status` (`fresh`, `stale`, `pending`, `unavailable`), `as_of`, and the card data.
+- A supervised in-process refresher fills the cache, single-flight per entity, with a short timeout and a backoff. The UI polls. Nothing runs when nobody is looking. The cache is disposable: no Oban job, no table.
+- Rule 6 in `AGENTS.md` is amended accordingly. The request path never calls an external provider, except query embedding in `Search`. Index writes still go through Oban.
+
 ## Configuration
 
 `backend/config/config.exs` holds the knobs:

@@ -12,6 +12,8 @@
 > following is, with this source as a prerequisite. Reconsider the scope of
 > this task before you start it.
 
+Note: the deferred question of newspaper, wire and social context sources is in [ADR 0017](../decisions/0017-live-fact-cards.md) and [028](028-live-facts-for-entities.md).
+
 ## Goal
 
 Poll feeds (news sites, blogs, release notes,

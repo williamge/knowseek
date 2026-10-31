@@ -23,3 +23,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0014](0014-release-and-container.md) | Release build and app container |
 | [0015](0015-remove-topics.md) | Remove the follow-topic feature; redesign it after news sources exist |
 | [0016](0016-ollama-default-embeddings.md) | Ollama is the default embedding adapter, checked by a preflight |
+| [0017](0017-live-fact-cards.md) | Live fact cards for entity queries: Wikidata identity, cache-only endpoint, background refresher |

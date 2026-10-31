@@ -69,7 +69,7 @@ These keep the code base coherent while many agents work in parallel. If a task 
 3. **Sources only find data.** A `Knowseek.Discovery.Source` returns candidates. It never writes to the database.
 4. **Pluggable parts are behaviours plus config.** Embedding providers and discovery sources implement a behaviour and are selected in `config/*.exs`. Add new providers the same way.
 5. **No external calls inside a transaction.** Call APIs first, then write.
-6. **Slow or external work runs in Oban jobs**, not in the request path. The request path may only enqueue.
+6. **Slow or external work runs in Oban jobs**, not in the request path, and the request path may only enqueue. One existing exception: `Search` embeds the query through the embeddings adapter in the request path (503 on provider failure, ADR 0016). Live-fact card and entity-cache refreshes (decided design, tasks 030-034, not built yet) run in supervised in-process tasks instead of Oban: the card endpoint reads only a cache and never calls a provider, and refreshes are disposable (their retry is the next poll). Everything that writes to the index still goes through Oban. See `docs/decisions/0017-live-fact-cards.md`.
 7. **The embedding size is fixed by the schema.** `chunks.embedding` is `vector(1024)`. A model with another size needs a migration and a re-embed plan (see `docs/decisions/0004-embeddings.md`).
 8. **The backend owns the schema.** Services in `services/` talk to the backend through HTTP or jobs, not through its tables.
 9. **The frontend uses only the public JSON API.** `frontend/src/types.ts` mirrors the `*JSON` views. If you change a response shape, change the types in the same branch.
