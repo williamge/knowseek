@@ -3,12 +3,18 @@
 SHELL := /bin/bash
 PORT ?= $(or $(CONDUCTOR_PORT),4000)
 
+# Task worktrees live next to the main checkout: ../knowseek-worktrees/<name>.
+# The main checkout is found through git, so this also works inside a worktree.
+MAIN_REPO := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
+WORKTREES ?= $(abspath $(MAIN_REPO)/../knowseek-worktrees)
+BASE ?= origin/main
+
 # Prefix for recipe lines that run mix. Sources .env (see .env.example) with
 # shell syntax, then restores the variables that were already exported, so the
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-quiet web-check fmt
+.PHONY: help setup db-up db-down db-reset ollama dev web iex test check check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -45,8 +51,8 @@ web: ## Run the web UI on $PORT+1 (proxies /api to the API on $PORT). Run `make 
 iex: db-up ## Run the API server inside an IEx shell
 	$(LOAD_ENV); cd backend && PORT=$(PORT) iex -S mix phx.server
 
-test: db-up ## Run the test suite
-	$(LOAD_ENV); cd backend && mix test
+test: db-up ## Run the test suite. Single file: make test ARGS=test/knowseek/search_test.exs
+	$(LOAD_ENV); cd backend && mix test $(ARGS)
 
 check: db-up web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
 	$(LOAD_ENV); cd backend && mix precommit
@@ -72,3 +78,20 @@ web-check: ## Typecheck, format check, and test the web UI
 fmt: ## Format Elixir and web UI code
 	cd backend && mix format
 	cd frontend && npm run format
+
+# One worktree per task, with its own branch and databases. KNOWSEEK_WORKSPACE
+# in the worktree's .env names the databases (see backend/config/dev.exs).
+# Runs from any checkout. The branch starts at BASE (default origin/main).
+worktree: ## Create a task worktree + branch + databases: make worktree NAME=task-014-one-hit
+	@[[ "$(NAME)" =~ ^[a-z0-9][a-z0-9-]{0,30}$$ ]] || { echo "Usage: make worktree NAME=<lowercase-letters-digits-dashes, max 31 chars>"; exit 1; }
+	git fetch origin main
+	git worktree add -b "$(NAME)" "$(WORKTREES)/$(NAME)" "$(BASE)"
+	@if [ -f "$(MAIN_REPO)/.env" ]; then cp "$(MAIN_REPO)/.env" "$(WORKTREES)/$(NAME)/.env"; fi
+	@echo "KNOWSEEK_WORKSPACE=$(NAME)" >> "$(WORKTREES)/$(NAME)/.env"
+	$(MAKE) -C "$(WORKTREES)/$(NAME)" setup
+	@echo "Worktree ready: $(WORKTREES)/$(NAME)"
+
+worktree-rm: ## Drop a worktree's databases and remove it (keeps the branch): make worktree-rm NAME=...
+	@test -d "$(WORKTREES)/$(NAME)" || { echo "No worktree at $(WORKTREES)/$(NAME)"; exit 1; }
+	cd "$(WORKTREES)/$(NAME)/backend" && KNOWSEEK_WORKSPACE="$(NAME)" mix ecto.drop --quiet && KNOWSEEK_WORKSPACE="$(NAME)" MIX_ENV=test mix ecto.drop --quiet
+	git worktree remove --force "$(WORKTREES)/$(NAME)"
