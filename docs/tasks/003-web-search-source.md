@@ -6,6 +6,8 @@
 
 Note: parked until the owner wants general web/news coverage. The owner does not want news search now and prefers entity-specific sources first (see [028](028-live-facts-for-entities.md)).
 
+Note: what newspapers, wires, social and official sources should be for the results list is a deferred open question in [ADR 0017](../decisions/0017-live-fact-cards.md) and [028](028-live-facts-for-entities.md). The task stays parked.
+
 ## Goal
 
 Find new data on the open web for queries that Wikipedia does not cover.

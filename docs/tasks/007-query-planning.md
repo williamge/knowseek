@@ -6,6 +6,8 @@
 
 Note: for entity queries its job (turning a query into something searchable) overlaps entity resolution in [028](028-live-facts-for-entities.md). Decide after 028 whether 007 is still needed and for what.
 
+Note: [ADR 0017](../decisions/0017-live-fact-cards.md) chose Wikidata for entity identity and a plain intent/place splitter (task [030](030-entity-resolution.md)). An LLM intent step stays an open alternative.
+
 ## Goal
 
 A user query like "what's new in battery chemistry for EVs" is a poor

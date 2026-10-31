@@ -46,6 +46,12 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [027](027-rethink-topics.md) | Rethink following, in a session with the owner (folded into 028) | none |
 | [028](028-live-facts-for-entities.md) | Live facts for entities (design session) | none |
 | [029](029-ollama-by-default.md) | Ollama by default, one command to start | none |
+| [030](030-entity-resolution.md) | Entity resolution via Wikidata | none |
+| [031](031-card-framework-sports.md) | Card framework and sports-team card (cache-only endpoint, background refresher) | 030 |
+| [032](032-company-card.md) | Company card | 031 |
+| [033](033-weather-card.md) | Weather card | 031 |
+| [034](034-weather-location-context.md) | Location context for bare "weather" | 033 |
+| [035](035-ranking-prior.md) | Ranking prior from document importance (open; priority undecided) | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
