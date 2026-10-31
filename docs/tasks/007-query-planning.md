@@ -4,6 +4,8 @@
 - Area: `Knowseek.Discovery`
 - Depends on: 002 or 003 (needs at least one real source)
 
+Note: for entity queries its job (turning a query into something searchable) overlaps entity resolution in [028](028-live-facts-for-entities.md). Decide after 028 whether 007 is still needed and for what.
+
 ## Goal
 
 A user query like "what's new in battery chemistry for EVs" is a poor

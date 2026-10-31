@@ -1,6 +1,6 @@
 # 010. Telemetry and job dashboard
 
-- Status: open
+- Status: parked (nothing deployed to observe)
 - Area: `KnowseekWeb.Telemetry`, contexts
 - Depends on: none
 

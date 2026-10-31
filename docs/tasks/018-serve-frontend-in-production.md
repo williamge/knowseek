@@ -1,6 +1,6 @@
 # 018. Serve the web UI in production
 
-- Status: open
+- Status: parked (deployment work, nothing deployed)
 - Area: `frontend/`, `backend/`, release
 - Depends on: 012 (release and container)
 

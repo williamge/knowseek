@@ -1,6 +1,6 @@
 # 013. OpenAPI spec for the API
 
-- Status: open
+- Status: parked (no API consumers besides the web UI)
 - Area: web
 - Depends on: none
 

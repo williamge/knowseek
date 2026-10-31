@@ -1,6 +1,6 @@
 # 022. Merge stored duplicate URLs and detect near-duplicates
 
-- Status: open
+- Status: parked (the stored-URL backfill is moot without production data; near-duplicate detection is speculative)
 - Area: `Knowseek.Documents`, migration
 - Depends on: 011
 

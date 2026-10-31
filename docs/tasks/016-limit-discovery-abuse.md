@@ -1,6 +1,6 @@
 # 016. Limit discovery abuse
 
-- Status: open
+- Status: parked (needs 009, which is parked)
 - Area: `Knowseek.Lookup`, `Knowseek.Discovery`, sources
 - Depends on: 009 (users and API keys) for per-user limits
 
