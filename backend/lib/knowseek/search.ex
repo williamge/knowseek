@@ -247,7 +247,8 @@ defmodule Knowseek.Search do
                title: d.title,
                content: c.content,
                published_at: d.published_at,
-               fetched_at: d.fetched_at
+               fetched_at: d.fetched_at,
+               source_updated_at: d.source_updated_at
              }}
       )
       |> Map.new()

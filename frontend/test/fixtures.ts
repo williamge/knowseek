@@ -9,6 +9,7 @@ export function hit(overrides: Partial<Hit> = {}): Hit {
     content: "Octopuses have nine brains.",
     published_at: null,
     fetched_at: new Date().toISOString(),
+    source_updated_at: null,
     score: 0.03,
     keyword_rank: 1,
     semantic_rank: 1,
@@ -37,6 +38,7 @@ export function document(overrides: Partial<KnowseekDocument> = {}): KnowseekDoc
     source: "wikipedia",
     published_at: null,
     fetched_at: new Date().toISOString(),
+    source_updated_at: null,
     metadata: {},
     ...overrides,
   };

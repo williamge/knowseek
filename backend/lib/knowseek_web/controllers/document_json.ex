@@ -14,6 +14,7 @@ defmodule KnowseekWeb.DocumentJSON do
       source: document.source,
       published_at: document.published_at,
       fetched_at: document.fetched_at,
+      source_updated_at: document.source_updated_at,
       metadata: document.metadata
     }
   end

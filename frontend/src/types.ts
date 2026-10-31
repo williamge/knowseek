@@ -23,6 +23,8 @@ export interface Hit {
   content: string;
   published_at: string | null;
   fetched_at: string;
+  /** When the source says the page was last edited. Null when it does not say. */
+  source_updated_at: string | null;
   score: number;
   keyword_rank: number | null;
   semantic_rank: number | null;
@@ -46,6 +48,7 @@ export interface KnowseekDocument {
   source: string;
   published_at: string | null;
   fetched_at: string;
+  source_updated_at: string | null;
   metadata: Record<string, unknown>;
 }
 

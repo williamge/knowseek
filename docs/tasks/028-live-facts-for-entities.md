@@ -143,9 +143,13 @@ Deferred on purpose. Do not design these without the owner:
   [027](027-rethink-topics.md)).
 - General web and news search (tasks [003](003-web-search-source.md) and
   [004](004-feed-source.md) stay parked).
-- How fresh and stale Wikipedia content is shown. The indexed Knicks article is
-  a season old although labelled "fetched just now": freshness of fetch is not
-  recency of content.
+- How fresh and stale Wikipedia content is shown. Wikipedia text is current
+  within days (the indexed Knicks article was edited the day before the probe),
+  but it does not carry yesterday's game: game logs are tables, and plain-text
+  extracts drop tables. That is why live facts come from cards. The search
+  returned the 2025-26 season page rather than the current 2026-27 one, which
+  is a relevance matter, not freshness. Task 038 shows the source's last-edit
+  date on hit cards.
 - Passage selection. The best passage for the main Knicks article was about the
   1967-68 season.
 - WebSocket or SSE push for cards (revisit with many viewers and updates faster than 5 s).

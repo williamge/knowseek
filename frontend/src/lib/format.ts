@@ -24,6 +24,16 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   return "just now";
 }
 
+/** "Oct 29", or "Oct 29, 2025" when it is not this year. */
+export function shortDate(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  return date.toLocaleDateString("en", {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
 const INTERVALS: [string, number][] = [
   ["week", 7 * 24 * 3600],
   ["day", 24 * 3600],
@@ -72,6 +82,7 @@ export interface HitGroup {
   title: string;
   url: string;
   fetchedAt: string;
+  sourceUpdatedAt: string | null;
   publishedAt: string | null;
   passages: CardPassage[];
 }
@@ -83,6 +94,7 @@ export function groupHits(hits: Hit[]): HitGroup[] {
     title: hit.title?.trim() || displayHost(hit.url),
     url: hit.url,
     fetchedAt: hit.fetched_at,
+    sourceUpdatedAt: hit.source_updated_at,
     publishedAt: hit.published_at,
     passages: [
       hit,

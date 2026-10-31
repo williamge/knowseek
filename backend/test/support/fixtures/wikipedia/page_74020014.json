@@ -7,6 +7,11 @@
         "ns": 0,
         "title": "Vector database",
         "extract": "A vector database, vector store or vector search engine is a database that stores and retrieves embeddings of data in vector space. Vector databases typically implement approximate nearest neighbor algorithms so users can search for records semantically similar to a given input, unlike traditional databases which primarily look up records by exact match. Use-cases for vector databases include similarity search, semantic search, multi-modal search, recommendations engines, object detection, and retrieval-augmented generation (RAG).\nVector embeddings are mathematical representations of data in a high-dimensional space. In this space, each dimension corresponds to a feature of the data, with the number of dimensions ranging from a few hundred to tens of thousands, depending on the complexity of the data being represented. Each data item is represented by one vector in this space. Words, phrases, or entire documents, as well as images, audio, and other types of data, can all be vectorized.\nThese feature vectors may be computed from the raw data using machine learning methods such as feature extraction algorithms, word embeddings or deep learning networks. The goal is that semantically similar data items receive feature vectors close to each other.\nVector retrieval can be combined with metadata filtering, lexical or sparse retrieval, graph-based retrieval, and multimodal retrieval to support a range of filtered and hybrid retrieval workflows.\n\n\nTechniques\nCommon techniques for similarity search on high-dimensional vectors include:",
+        "revisions": [
+          {
+            "timestamp": "2026-09-10T19:31:06Z"
+          }
+        ],
         "contentmodel": "wikitext",
         "pagelanguage": "en",
         "pagelanguagehtmlcode": "en",

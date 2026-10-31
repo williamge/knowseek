@@ -22,6 +22,28 @@ describe("App", () => {
     expect(screen.getByText("Well covered")).toBeInTheDocument();
   });
 
+  it("shows when the source says the page was last edited, only when it says", async () => {
+    const edited = new Date(new Date().getFullYear(), 9, 29, 12).toISOString();
+    mockApi({
+      "GET /documents": () => [],
+      "POST /search": () =>
+        result({
+          hits: [
+            hit({ document_id: "a", chunk_id: "a", title: "Edited", source_updated_at: edited }),
+            hit({ document_id: "b", chunk_id: "b", title: "Undated" }),
+          ],
+        }),
+    });
+    render(<App watch={FAST} />);
+
+    await userEvent.type(screen.getByLabelText("Search query"), "octopus{Enter}");
+
+    await screen.findByRole("button", { name: "Edited" });
+    expect(screen.getAllByText(/^fetched just now$/)).toHaveLength(2);
+    expect(screen.getAllByText(/^edited /)).toHaveLength(1);
+    expect(screen.getByText("edited Oct 29")).toBeInTheDocument();
+  });
+
   it("does not search for an empty query", async () => {
     const { calls } = mockApi({ "GET /documents": () => [] });
     render(<App watch={FAST} />);

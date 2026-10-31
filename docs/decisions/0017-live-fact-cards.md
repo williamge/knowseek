@@ -146,9 +146,11 @@ built; the card framework (tasks 031-034) is decided design, not shipped code.
   odds as a card extension.
 - What "following" should be (absorbs the questions of task 027).
 - General web and news search (tasks 003 and 004 stay parked).
-- How fresh and stale Wikipedia content is shown: the indexed Knicks article is
-  a season old although labelled "fetched just now". Freshness of fetch is not
-  recency of content.
+- How fresh and stale Wikipedia content is shown. Wikipedia text is current
+  within days, but it does not carry yesterday's game (game logs are tables,
+  which plain-text extracts drop), which is why live facts come from cards. The
+  search returned the 2025-26 season page rather than the current 2026-27 one:
+  a relevance matter, not freshness. See the correction below.
 - Passage selection: the best passage for the main Knicks article was about the
   1967-68 season.
 - The ranking prior (document importance from Wikipedia pageviews or Wikidata
@@ -170,3 +172,13 @@ built; the card framework (tasks 031-034) is decided design, not shipped code.
   disposable cache, and one job row per refresh interval per viewed entity is
   churn.
 - **WebSocket or SSE push.** Deferred, not rejected (see decision 4).
+
+## Correction (2026-10-31)
+
+An earlier version of this ADR and of task 028 said the indexed Knicks
+Wikipedia article was "a season old although labelled fetched just now". That
+was a mistake. The copies were fetched fresh: New York Knicks was last edited
+on 2026-10-29, and the 2026-27 season page an hour before the probe. What was
+true is that Wikipedia text does not carry yesterday's game, and that the
+search returned the 2025-26 season page instead of the current one. The
+decision itself is unchanged.
