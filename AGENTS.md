@@ -79,6 +79,7 @@ These keep the code base coherent while many agents work in parallel. If a task 
 - Oban runs in `:manual` testing mode. Assert with `assert_enqueued/1`, and run jobs with `perform_job/2`.
 - Use the fixtures in `test/support/fixtures.ex`. Add new fixtures there.
 - Every new public function gets a test. Every bug fix gets a regression test.
+- Search tests that load many chunks (the 35-chunk documents in `test/knowseek/search_test.exs`) can bloat the HNSW index in a long-lived local test database. Unrelated search tests then fail on and off. Run `VACUUM FULL chunks; REINDEX TABLE chunks` against that database (`psql` into `knowseek_test_<workspace>`), or drop and recreate it with `make setup`. CI uses a fresh database and is not affected.
 
 ## How to work on a task
 
@@ -98,6 +99,10 @@ Every task is one worktree, one branch, and one pull request. **Never commit to 
 ### CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`. The `backend` job compiles with warnings as errors, checks formatting, runs Credo, checks for unused dependencies, and runs the tests against Postgres + pgvector. The `frontend` job runs the type check, the format check, the tests, and the build. The `image` job builds `backend/Dockerfile` without pushing it. This is the same as `make check`, plus the build. A PR must be green before it is merged. The `backend`, `frontend`, and `image` jobs are the required checks. GitHub does not enforce this on this private repository (branch protection needs a paid plan), so the rule is a team convention: see `docs/decisions/0010-worktrees-and-pull-requests.md`.
+
+### Coordinating several agents
+
+To run several tasks at once (one subagent each), read `docs/WORKING-WITH-AGENTS.md`. It has the steps, the rules that kept parallel work from colliding, and `docs/agent-brief.md`, the prompt templates to copy.
 
 ## Definition of done
 

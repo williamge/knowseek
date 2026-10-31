@@ -35,10 +35,13 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [016](016-limit-discovery-abuse.md) | Limit discovery abuse | 009 |
 | [017](017-re-embed-job.md) | Re-embed chunks after a model change | 001 |
 | [018](018-serve-frontend-in-production.md) | Serve the web UI in production | 012 |
-| [019](019-web-ui-follow-ups.md) | Web UI follow-ups | 006, 008, 013 |
+| [019](019-web-ui-follow-ups.md) | Web UI follow-ups | 006, 008, 013, 024 |
 | [020](020-unique-topics.md) | Topics unique by query | none |
 | [021](021-reliable-discovery-completion-in-ui.md) | Reliable discovery completion in the web UI | 006 |
 | [022](022-backfill-urls-and-near-duplicates.md) | Merge stored duplicate URLs; near-duplicate detection | 011 |
+| [023](023-group-search-hits-in-sql.md) | Group search hits by document in SQL | 014 |
+| [024](024-edit-topics.md) | Edit and pause topics | 020 |
+| [025](025-container-ci-smoke-and-publish.md) | Boot the container in CI and publish the image | 012 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
