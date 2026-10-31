@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { displayHost, isWebUrl, timeAgo, type HitGroup } from "../lib/format";
+import { displayHost, isWebUrl, timeAgo, type CardPassage, type HitGroup } from "../lib/format";
 import { Highlighted } from "./Highlighted";
 
 interface Props {
@@ -61,10 +61,11 @@ export function ResultCard({ group, query, fresh, onOpen }: Props) {
   );
 }
 
-function matchedBy(hit: HitGroup["passages"][number]): string {
+function matchedBy(hit: CardPassage): string {
   const parts = [];
   if (hit.keyword_rank) parts.push(`keyword rank ${hit.keyword_rank}`);
   if (hit.semantic_rank) parts.push(`semantic rank ${hit.semantic_rank}`);
   if (hit.similarity !== null) parts.push(`similarity ${hit.similarity.toFixed(2)}`);
-  return `Matched by ${parts.join(", ")}. Score ${hit.score.toFixed(4)}.`;
+  const by = parts.length > 0 ? `Matched by ${parts.join(", ")}. ` : "";
+  return `${by}Score ${hit.score.toFixed(4)}.`;
 }

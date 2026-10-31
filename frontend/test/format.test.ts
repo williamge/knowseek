@@ -51,14 +51,19 @@ describe("urls", () => {
 });
 
 describe("groupHits", () => {
-  it("groups chunks by document and keeps the order of the best hit", () => {
+  it("makes one group per hit: the best chunk first, then its passages", () => {
     const groups = groupHits([
-      hit({ document_id: "a", chunk_id: "a1" }),
+      hit({
+        document_id: "a",
+        chunk_id: "a1",
+        passages: [{ chunk_id: "a2", content: "More.", score: 0.01 }],
+      }),
       hit({ document_id: "b", chunk_id: "b1" }),
-      hit({ document_id: "a", chunk_id: "a2" }),
     ]);
     expect(groups.map((g) => g.documentId)).toEqual(["a", "b"]);
     expect(groups[0].passages.map((p) => p.chunk_id)).toEqual(["a1", "a2"]);
+    expect(groups[0].passages[1].similarity).toBeNull();
+    expect(groups[1].passages).toHaveLength(1);
   });
   it("uses the host when a document has no title", () => {
     const [group] = groupHits([hit({ title: null, url: "https://www.example.com/x" })]);

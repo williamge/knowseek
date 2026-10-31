@@ -1,6 +1,7 @@
 defmodule Knowseek.SearchTest do
-  use Knowseek.DataCase, async: true
+  use Knowseek.DataCase, async: false
 
+  alias Knowseek.Repo
   alias Knowseek.Search
   alias Knowseek.Search.{Coverage, Hit}
 
@@ -86,6 +87,117 @@ defmodule Knowseek.SearchTest do
     end
   end
 
+  describe "search/2 groups chunks by document" do
+    test "a document with many matching chunks is one hit, with the best chunk on top" do
+      long = document_fixture(body: long_body("octopus", 6))
+      other = document_fixture(body: "The octopus has three hearts.")
+
+      assert {:ok, %{hits: hits}} = Search.search("octopus")
+
+      assert Enum.sort(Enum.map(hits, & &1.document_id)) == Enum.sort([long.id, other.id])
+      hit = Enum.find(hits, &(&1.document_id == long.id))
+
+      assert hit.content =~ "octopus"
+      assert length(hit.passages) == 3
+      scores = Enum.map(hit.passages, & &1.score)
+      assert scores == Enum.sort(scores, :desc)
+      assert Enum.all?(hit.passages, &(&1.score <= hit.score and &1.content =~ "octopus"))
+      refute hit.chunk_id in Enum.map(hit.passages, & &1.chunk_id)
+
+      assert Enum.uniq(Enum.map(hit.passages, & &1.content)) ==
+               Enum.map(hit.passages, & &1.content)
+    end
+
+    test "a document's score is its best chunk's score, not a sum" do
+      document_fixture(body: long_body("octopus", 6))
+      assert {:ok, %{hits: [hit]}} = Search.search("octopus")
+
+      # One chunk's RRF score is at most 2 / 61: a sum over 7 chunks would exceed it.
+      assert hit.score <= 2 / 61
+    end
+
+    test "caps passages at :max_passages" do
+      document_fixture(body: long_body("octopus", 8))
+      assert {:ok, %{hits: [hit]}} = Search.search("octopus", max_passages: 2)
+      assert length(hit.passages) == 2
+    end
+
+    test "a single-chunk document has no passages" do
+      document_fixture(body: "The octopus has three hearts.")
+      assert {:ok, %{hits: [%Hit{passages: []}]}} = Search.search("octopus")
+    end
+
+    test "hits come from different documents even when one has more chunks than :limit" do
+      hog = document_fixture(body: long_body("octopus", 12))
+      others = for i <- 1..3, do: document_fixture(body: "Octopus fact number #{i}.")
+
+      assert {:ok, %{hits: hits}} = Search.search("octopus", limit: 4)
+
+      ids = Enum.map(hits, & &1.document_id)
+      assert Enum.sort(ids) == Enum.sort([hog.id | Enum.map(others, & &1.id)])
+    end
+
+    test "the default :candidate_factor fills :limit where a small one underfills" do
+      # Five equally relevant 35-chunk documents: 3 hits need more than 4 * 3 chunks.
+      for _ <- 1..5, do: document_fixture(body: long_body("octopus", 35))
+
+      config = Application.get_env(:knowseek, Search)
+      on_exit(fn -> Application.put_env(:knowseek, Search, config) end)
+
+      Application.put_env(:knowseek, Search, Keyword.put(config, :candidate_factor, 4))
+      assert {:ok, %{hits: small}} = Search.search("octopus", limit: 3)
+      assert length(small) < 3
+
+      Application.put_env(:knowseek, Search, config)
+      assert {:ok, %{hits: hits}} = Search.search("octopus", limit: 3)
+      assert length(hits) == 3
+    end
+
+    test "returns fewer hits than :limit when fewer documents match" do
+      document_fixture(body: long_body("octopus", 4))
+      assert {:ok, %{hits: [_]}} = Search.search("octopus", limit: 5)
+    end
+
+    test "one document with several strong chunks gives :partial coverage" do
+      document_fixture(body: long_body("octopus", 5))
+      assert {:ok, %{hits: [_], coverage: :partial}} = Search.search("octopus")
+    end
+  end
+
+  describe "group/2" do
+    test "keeps the fused order for documents with equal scores" do
+      ranked = [
+        %{chunk_id: "a1", document_id: "a", score: 0.5},
+        %{chunk_id: "b1", document_id: "b", score: 0.5},
+        %{chunk_id: "c1", document_id: "c", score: 0.5},
+        %{chunk_id: "a2", document_id: "a", score: 0.5},
+        %{chunk_id: "b2", document_id: "b", score: 0.4}
+      ]
+
+      grouped = Search.group(ranked, 3)
+
+      assert Enum.map(grouped, & &1.document_id) == ["a", "b", "c"]
+      assert Enum.map(grouped, & &1.chunk_id) == ["a1", "b1", "c1"]
+      assert [%{chunk_id: "a2"}] = hd(grouped).passages
+    end
+  end
+
+  describe "ef_search/1 and with_ef_search/2" do
+    test "has a floor of 40, scales with the candidates, and caps at 1000" do
+      assert Search.ef_search(1) == 40
+      assert Search.ef_search(40) == 40
+      assert Search.ef_search(400) == 400
+      assert Search.ef_search(1000) == 1000
+      assert Search.ef_search(50_000) == 1000
+    end
+
+    test "applies the setting inside the transaction" do
+      read = fn -> Repo.query!("SELECT current_setting('hnsw.ef_search', true)").rows end
+
+      assert [["400"]] = Search.with_ef_search(400, read)
+    end
+  end
+
   describe "Coverage.assess/2" do
     test "counts keyword matches and similar hits as strong" do
       keyword = hit(keyword_rank: 1, similarity: 0.1)
@@ -154,6 +266,14 @@ defmodule Knowseek.SearchTest do
 
       assert Coverage.assess([hit(similarity: 0.1, fetched_at: @now)], opts) == :none
     end
+  end
+
+  # `count` paragraphs of about 1,000 characters each: the chunker makes one
+  # chunk per paragraph.
+  defp long_body(word, count) do
+    Enum.map_join(1..count, "\n\n", fn i ->
+      String.pad_trailing("The #{word} fact #{i} is documented. ", 1_000, "filler text. ")
+    end)
   end
 
   defp hit(attrs) do

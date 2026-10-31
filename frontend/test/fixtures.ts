@@ -13,6 +13,7 @@ export function hit(overrides: Partial<Hit> = {}): Hit {
     keyword_rank: 1,
     semantic_rank: 1,
     similarity: 0.8,
+    passages: [],
     ...overrides,
   };
 }

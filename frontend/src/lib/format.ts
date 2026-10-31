@@ -56,37 +56,44 @@ export function displayHost(url: string): string {
   }
 }
 
+/** A passage to show on a result card: the hit's best chunk, then its other passages. */
+export interface CardPassage {
+  chunk_id: string;
+  content: string;
+  score: number;
+  /** Only the best chunk has ranks and a similarity. */
+  keyword_rank: number | null;
+  semantic_rank: number | null;
+  similarity: number | null;
+}
+
 export interface HitGroup {
   documentId: string;
   title: string;
   url: string;
   fetchedAt: string;
   publishedAt: string | null;
-  passages: Hit[];
+  passages: CardPassage[];
 }
 
-/**
- * The API returns one hit per chunk, so one document can appear several
- * times. Group the hits by document and keep the order of the best hit.
- */
+/** The API returns one hit per document. Shape each one for a result card. */
 export function groupHits(hits: Hit[]): HitGroup[] {
-  const groups = new Map<string, HitGroup>();
-  for (const hit of hits) {
-    const group = groups.get(hit.document_id);
-    if (group) {
-      group.passages.push(hit);
-    } else {
-      groups.set(hit.document_id, {
-        documentId: hit.document_id,
-        title: hit.title?.trim() || displayHost(hit.url),
-        url: hit.url,
-        fetchedAt: hit.fetched_at,
-        publishedAt: hit.published_at,
-        passages: [hit],
-      });
-    }
-  }
-  return [...groups.values()];
+  return hits.map((hit) => ({
+    documentId: hit.document_id,
+    title: hit.title?.trim() || displayHost(hit.url),
+    url: hit.url,
+    fetchedAt: hit.fetched_at,
+    publishedAt: hit.published_at,
+    passages: [
+      hit,
+      ...hit.passages.map((passage) => ({
+        ...passage,
+        keyword_rank: null,
+        semantic_rank: null,
+        similarity: null,
+      })),
+    ],
+  }));
 }
 
 export interface Segment {
