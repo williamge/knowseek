@@ -31,7 +31,7 @@ Built (see `docs/decisions/0013-url-canonicalization-and-aliases.md`):
   no fragment, no default port, no tracking parameters, sorted query). The
   tracking list is in that module. `Document.ingest_changeset/2` applies it.
 - `document_aliases` table and `Knowseek.Documents.DocumentAlias`. `ingest/1`
-  matches by URL or alias, then by `content_hash`, and records the alias.
+  matches by URL or alias, then by `content_hash`, and records the alias. A merge only moves `fetched_at`. An alias that serves a new body becomes its own document.
   Bodies shorter than 200 characters are not merged by hash.
   `documents.content_hash` is indexed.
 - Tests for the canonicalization rules and the ingest flow.

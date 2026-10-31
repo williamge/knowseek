@@ -27,8 +27,10 @@ by a few characters are still separate documents.
   in a column and compared by Hamming distance. Decide the distance at which
   documents merge, measure false positives on real data, and write an ADR
   (it supersedes the exact-hash rule in 0013 or extends it).
-- Decide what happens when an aliased document's body changes at one of the
-  alias URLs (see "Consequences" in ADR 0013).
+- Clean up documents that share a body but were not merged, because a known
+  URL wins over a hash match at ingest (see "Consequences" in ADR 0013).
+- Optional: unify host spellings that canonicalization leaves apart:
+  internationalized names (Unicode and punycode) and a trailing dot.
 
 ## Acceptance criteria
 

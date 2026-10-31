@@ -67,6 +67,18 @@ defmodule Knowseek.Documents.URLTest do
       assert variants |> Enum.map(&URL.canonicalize/1) |> Enum.uniq() |> length() == 1
     end
 
+    test "handles IPv6 hosts" do
+      assert URL.canonicalize("http://[::1]:80/a") == "http://[::1]/a"
+
+      assert URL.canonicalize("HTTPS://[2001:DB8::1]:8443/a?b=1") ==
+               "https://[2001:db8::1]:8443/a?b=1"
+    end
+
+    test "drops an empty query" do
+      assert URL.canonicalize("https://example.com/a?") == "https://example.com/a"
+      assert URL.canonicalize("https://example.com/a?&&") == "https://example.com/a"
+    end
+
     test "keeps userinfo" do
       assert URL.canonicalize("https://user:pw@Example.com/a") == "https://user:pw@example.com/a"
     end

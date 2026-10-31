@@ -160,11 +160,18 @@ defmodule Knowseek.DocumentsTest do
       assert [%Chunk{}] = chunks(first)
     end
 
-    test "ingesting by the alias URL updates the same document and keeps its URL" do
+    test "ingesting the same body by the alias URL only moves fetched_at" do
       body = long_body("alias")
+      old = ~U[2020-01-01 00:00:00Z]
 
       {:ok, first} =
-        Documents.ingest(%{url: "https://a.example/post", body: body, source: "test"})
+        Documents.ingest(%{
+          url: "https://a.example/post",
+          title: "Original",
+          body: body,
+          source: "orig",
+          fetched_at: old
+        })
 
       {:ok, _} = Documents.ingest(%{url: "https://b.example/copy", body: body, source: "test"})
 
@@ -173,20 +180,58 @@ defmodule Knowseek.DocumentsTest do
           url: "https://b.example/copy?utm_source=x",
           title: "Via alias",
           body: body,
-          source: "test"
+          source: "mirror"
         })
 
       assert again.id == first.id
       assert again.url == "https://a.example/post"
 
-      assert %Document{title: "Via alias", url: "https://a.example/post"} =
-               Documents.get_document(first.id)
+      assert %Document{title: "Original", source: "orig", url: "https://a.example/post"} =
+               stored = Documents.get_document(first.id)
 
+      assert DateTime.compare(stored.fetched_at, old) == :gt
       assert Repo.aggregate(Document, :count) == 1
       assert alias_urls(first) == ["https://b.example/copy"]
     end
 
-    test "a changed body through an alias URL rewrites the aliased document" do
+    test "a hash match only moves fetched_at; the original keeps its fields" do
+      body = long_body("fields")
+      old = ~U[2020-01-01 00:00:00Z]
+
+      {:ok, first} =
+        Documents.ingest(%{
+          url: "https://a.example/post",
+          title: "Original",
+          body: body,
+          source: "orig",
+          metadata: %{"k" => "orig"},
+          published_at: ~U[2019-01-01 00:00:00Z],
+          fetched_at: old
+        })
+
+      {:ok, merged} =
+        Documents.ingest(%{
+          url: "https://b.example/copy",
+          title: "Mirror",
+          body: body,
+          source: "mirror",
+          metadata: %{"k" => "mirror"},
+          published_at: ~U[2021-01-01 00:00:00Z]
+        })
+
+      assert merged.id == first.id
+
+      assert %Document{
+               title: "Original",
+               source: "orig",
+               metadata: %{"k" => "orig"},
+               published_at: ~U[2019-01-01 00:00:00Z]
+             } = stored = Documents.get_document(first.id)
+
+      assert DateTime.compare(stored.fetched_at, old) == :gt
+    end
+
+    test "a changed body at an alias URL drops the alias and makes a new document" do
       body = long_body("changed")
 
       {:ok, first} =
@@ -196,15 +241,35 @@ defmodule Knowseek.DocumentsTest do
 
       new_body = long_body("changed again")
 
-      {:ok, updated} =
+      {:ok, second} =
         Documents.ingest(%{url: "https://b.example/copy", body: new_body, source: "test"})
 
-      assert updated.id == first.id
-      assert updated.url == "https://a.example/post"
-      assert updated.body == new_body
-      assert [%Chunk{content: content}] = chunks(updated)
-      assert content == String.trim(new_body)
-      assert Repo.aggregate(Document, :count) == 1
+      refute second.id == first.id
+      assert second.url == "https://b.example/copy"
+      assert second.body == new_body
+      assert alias_urls(first) == []
+      assert Documents.get_document(first.id).body == body
+      assert Repo.aggregate(Document, :count) == 2
+
+      # Fetching the original again does not flip anything.
+      {:ok, again} = Documents.ingest(%{url: "https://a.example/post", body: body, source: "t"})
+      assert again.id == first.id
+      assert Documents.get_document(second.id).body == new_body
+    end
+
+    test "a changed body at an alias URL still merges into a document with that body" do
+      body = long_body("one")
+      other = long_body("two")
+
+      {:ok, first} = Documents.ingest(%{url: "https://a.example/1", body: body, source: "test"})
+      {:ok, third} = Documents.ingest(%{url: "https://c.example/3", body: other, source: "test"})
+      {:ok, _} = Documents.ingest(%{url: "https://b.example/2", body: body, source: "test"})
+
+      {:ok, moved} = Documents.ingest(%{url: "https://b.example/2", body: other, source: "test"})
+
+      assert moved.id == third.id
+      assert alias_urls(first) == []
+      assert alias_urls(third) == ["https://b.example/2"]
     end
 
     test "a repeated ingest does not duplicate the alias" do
@@ -283,7 +348,7 @@ defmodule Knowseek.DocumentsTest do
       assert Repo.aggregate(DocumentAlias, :count) == 0
     end
 
-    test "a real URL for a body first stored without a URL becomes its alias" do
+    test "the first real URL for a body stored without a URL becomes its url" do
       body = long_body("urnfirst")
       {:ok, first} = Documents.ingest(%{body: body, source: "test"})
 
@@ -291,8 +356,36 @@ defmodule Knowseek.DocumentsTest do
         Documents.ingest(%{url: "https://a.example/post", body: body, source: "test"})
 
       assert second.id == first.id
-      assert "urn:knowseek:sha256:" <> _ = second.url
-      assert alias_urls(first) == ["https://a.example/post"]
+      assert second.url == "https://a.example/post"
+      assert Documents.get_document(first.id).url == "https://a.example/post"
+      assert alias_urls(first) == []
+
+      # The next real URL is an alias, and the same body without a URL is the same document.
+      {:ok, mirror} =
+        Documents.ingest(%{url: "https://b.example/copy", body: body, source: "test"})
+
+      {:ok, no_url} = Documents.ingest(%{body: body, source: "test"})
+
+      assert mirror.id == first.id
+      assert no_url.id == first.id
+      assert alias_urls(first) == ["https://b.example/copy"]
+      assert Repo.aggregate(Document, :count) == 1
+    end
+
+    test "a real URL that already has a document is not taken from it" do
+      body = long_body("owned")
+      {:ok, urn_doc} = Documents.ingest(%{body: body, source: "test"})
+
+      {:ok, owner} =
+        Documents.ingest(%{url: "https://a.example/post", body: long_body("old"), source: "t"})
+
+      # The owner's body changes to the urn document's body: the URL stays with the owner.
+      {:ok, updated} =
+        Documents.ingest(%{url: "https://a.example/post", body: body, source: "test"})
+
+      assert updated.id == owner.id
+      assert "urn:knowseek:sha256:" <> _ = Documents.get_document(urn_doc.id).url
+      assert Documents.get_document(owner.id).url == "https://a.example/post"
     end
 
     test "different bodies under different URLs stay separate documents" do

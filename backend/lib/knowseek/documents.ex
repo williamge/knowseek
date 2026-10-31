@@ -26,39 +26,58 @@ defmodule Knowseek.Documents do
 
   The URL is canonicalized first (`Knowseek.Documents.URL`). The document is:
 
-  1. the one whose `url` or alias URL equals the canonical URL, else
-  2. when the body is at least `min_alias_body_length/0` characters, the
-     oldest document with the same body. The canonical URL is then recorded
-     as an alias of that document, and that document is returned. Else
-  3. a new document.
-
-  A document keeps its own `url`. Ingesting through an alias never changes it.
-
-  If the stored document already has the same body, nothing is re-chunked
-  or re-embedded. The other fields are still updated, and `fetched_at` moves
-  to now (unless the caller gives one), because the fetch saw the content.
+  1. the one whose `url` equals the canonical URL. A changed body re-chunks
+     and re-embeds it. Else
+  2. the one that has the canonical URL as an alias. If the body is the same,
+     only `fetched_at` moves. If the body differs, the page is no longer a copy:
+     the alias is deleted and the URL is handled as a new one (step 3 or 4).
+     Else
+  3. when the body is at least `min_alias_body_length/0` characters, the
+     oldest document with the same body. Only its `fetched_at` moves, and the
+     canonical URL is recorded as its alias. If that document has only a URL
+     generated from the body, the canonical URL becomes its `url` instead,
+     and there is no alias. Else
+  4. a new document.
 
   Required attrs: `:body`, `:source`. Optional: `:url`, `:title`,
   `:published_at`, `:fetched_at`, `:metadata`.
+
+  If the stored document found by its own URL already has the same body,
+  nothing is re-chunked or re-embedded. The other fields are still updated,
+  and `fetched_at` moves to now (unless the caller gives one), because the
+  fetch saw the content.
   """
   @spec ingest(map()) :: {:ok, Document.t()} | {:error, Ecto.Changeset.t() | term()}
   def ingest(attrs) do
     changeset = Document.ingest_changeset(%Document{}, attrs)
 
     with {:ok, incoming} <- Ecto.Changeset.apply_action(changeset, :insert) do
-      case locate(incoming) do
-        {:known, %Document{content_hash: hash} = existing} when hash == incoming.content_hash ->
-          existing |> existing_changeset(attrs) |> Repo.update()
+      dispatch(incoming, attrs)
+    end
+  end
 
-        {:known, existing} ->
-          store(existing, attrs, incoming.body)
+  defp dispatch(incoming, attrs) do
+    case locate(incoming) do
+      {:url, %Document{content_hash: hash} = existing} when hash == incoming.content_hash ->
+        existing |> Document.ingest_changeset(attrs) |> Repo.update()
 
-        {:same_content, existing} ->
-          merge(existing, attrs, incoming.url)
+      {:url, existing} ->
+        store(existing, attrs, incoming.body)
 
-        :new ->
-          store(nil, attrs, incoming.body)
-      end
+      {:alias, %Document{content_hash: hash} = existing, _alias}
+      when hash == incoming.content_hash ->
+        touch(existing, incoming)
+
+      {:alias, _existing, stale} ->
+        # The alias URL now serves something else. Drop the alias and start over.
+        Repo.delete!(stale)
+        dispatch(incoming, attrs)
+
+      {:same_content, existing} ->
+        merge(existing, incoming)
+
+      :new ->
+        store(nil, attrs, incoming.body)
     end
   end
 
@@ -66,20 +85,20 @@ defmodule Knowseek.Documents do
   # an alias wins over one found by content.
   defp locate(%Document{url: url, body: body, content_hash: hash}) do
     cond do
-      document = get_by_url_or_alias(url) -> {:known, document}
+      document = Repo.get_by(Document, url: url) -> {:url, document}
+      match = get_by_alias(url) -> {:alias, elem(match, 0), elem(match, 1)}
       document = long_enough?(body) && get_by_content_hash(hash) -> {:same_content, document}
       true -> :new
     end
   end
 
-  defp get_by_url_or_alias(url) do
-    Repo.get_by(Document, url: url) ||
-      Repo.one(
-        from d in Document,
-          join: a in DocumentAlias,
-          on: a.document_id == d.id,
-          where: a.url == ^url
-      )
+  defp get_by_alias(url) do
+    Repo.one(
+      from a in DocumentAlias,
+        join: d in assoc(a, :document),
+        where: a.url == ^url,
+        select: {d, a}
+    )
   end
 
   # Oldest first, so concurrent duplicates all merge into the same document.
@@ -94,34 +113,45 @@ defmodule Knowseek.Documents do
 
   defp long_enough?(body), do: String.length(String.trim(body)) >= @min_alias_body_length
 
-  # Same body as `existing`, found under a different URL: no chunks to write.
-  # The alias and the document update commit together. A URL generated from
-  # the body is no alias: the body already implies it.
-  defp merge(existing, attrs, url) do
-    Repo.transact(fn ->
-      with {:ok, document} <- existing |> existing_changeset(attrs) |> Repo.update() do
-        add_alias(document, url)
-      end
-    end)
-  end
-
-  # A concurrent ingest can insert the same alias first; keep that row.
-  defp add_alias(document, url) do
-    if Document.content_url?(url), do: {:ok, document}, else: insert_alias(document, url)
-  end
-
-  defp insert_alias(document, url) do
-    with {:ok, _alias} <-
-           %DocumentAlias{}
-           |> DocumentAlias.changeset(%{url: url, document_id: document.id})
-           |> Repo.insert(on_conflict: :nothing, conflict_target: :url) do
-      {:ok, document}
+  # `existing` has the same body as `incoming` but is known under another URL.
+  # There is nothing to chunk or embed. The incoming fields (source, title,
+  # metadata) describe the copy, so they never overwrite the original's.
+  defp merge(existing, incoming) do
+    cond do
+      Document.content_url?(incoming.url) -> touch(existing, incoming)
+      Document.content_url?(existing.url) -> adopt_url(existing, incoming)
+      true -> add_alias(existing, incoming)
     end
   end
 
-  # The caller's URL may be an alias: the stored document keeps its own.
-  defp existing_changeset(%Document{} = existing, attrs) do
-    existing |> Document.ingest_changeset(attrs) |> Ecto.Changeset.put_change(:url, existing.url)
+  # A body stored without a URL gets the first real URL it is seen under. If
+  # a concurrent ingest took that URL first, keep it as an alias instead.
+  defp adopt_url(existing, incoming) do
+    existing
+    |> Ecto.Changeset.change(url: incoming.url, fetched_at: incoming.fetched_at)
+    |> Ecto.Changeset.unique_constraint(:url)
+    |> Repo.update()
+    |> case do
+      {:error, %Ecto.Changeset{errors: [url: _]}} -> add_alias(existing, incoming)
+      result -> result
+    end
+  end
+
+  defp touch(existing, incoming),
+    do: existing |> Ecto.Changeset.change(fetched_at: incoming.fetched_at) |> Repo.update()
+
+  # The alias and the `fetched_at` update commit together. A concurrent ingest
+  # can insert the same alias first; `on_conflict: :nothing` keeps that row.
+  defp add_alias(existing, incoming) do
+    Repo.transact(fn ->
+      with {:ok, document} <- touch(existing, incoming),
+           {:ok, _alias} <-
+             %DocumentAlias{}
+             |> DocumentAlias.changeset(%{url: incoming.url, document_id: document.id})
+             |> Repo.insert(on_conflict: :nothing, conflict_target: :url) do
+        {:ok, document}
+      end
+    end)
   end
 
   defp store(existing, attrs, body) do
@@ -153,7 +183,7 @@ defmodule Knowseek.Documents do
   end
 
   defp upsert_document(%Document{} = existing, attrs),
-    do: existing |> existing_changeset(attrs) |> Repo.update()
+    do: existing |> Document.ingest_changeset(attrs) |> Repo.update()
 
   defp replace_chunks(document, contents_and_vectors) do
     Repo.delete_all(from c in Chunk, where: c.document_id == ^document.id)
