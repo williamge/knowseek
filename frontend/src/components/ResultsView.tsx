@@ -39,11 +39,7 @@ export function ResultsView({ state, topics, onOpenDocument }: Props) {
   }
 
   const groups = groupHits(state.result.hits);
-  const freshDocs = new Set(
-    state.result.hits
-      .filter((hit) => state.freshChunkIds.has(hit.chunk_id))
-      .map((hit) => hit.document_id),
-  );
+  const freshDocs = state.freshDocumentIds;
 
   return (
     <section className="results">

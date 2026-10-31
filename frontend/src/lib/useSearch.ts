@@ -25,8 +25,8 @@ export type SearchState =
       watching: boolean;
       /** Number of documents that discovery added since the search. */
       discovered: number;
-      /** Hits that were not in the first result. */
-      freshChunkIds: ReadonlySet<string>;
+      /** Documents that were not in the first result. */
+      freshDocumentIds: ReadonlySet<string>;
     };
 
 /**
@@ -65,7 +65,7 @@ export function useSearch(
 
     const watchDiscovery = (first: SearchResult, baseline: DocumentSummary[]) => {
       const known = new Set(baseline.map((doc) => doc.id));
-      const firstChunks = new Set(first.hits.map((hit) => hit.chunk_id));
+      const firstDocuments = new Set(first.hits.map((hit) => hit.document_id));
       const deadline = Date.now() + timeoutMs;
       let discovered = 0;
       let quiet = 0;
@@ -82,11 +82,11 @@ export function useSearch(
             added.forEach((doc) => known.add(doc.id));
             discovered += added.length;
             quiet = 0;
-            const freshChunkIds = new Set(
-              result.hits.map((hit) => hit.chunk_id).filter((id) => !firstChunks.has(id)),
+            const freshDocumentIds = new Set(
+              result.hits.map((hit) => hit.document_id).filter((id) => !firstDocuments.has(id)),
             );
             const watching = result.coverage !== "sufficient";
-            update((s) => ({ ...s, result, discovered, freshChunkIds, watching }));
+            update((s) => ({ ...s, result, discovered, freshDocumentIds, watching }));
             if (!watching) return;
           } else if (discovered > 0) {
             quiet += 1;
@@ -120,7 +120,7 @@ export function useSearch(
           result,
           watching,
           discovered: 0,
-          freshChunkIds: new Set(),
+          freshDocumentIds: new Set(),
         });
         if (watching) watchDiscovery(result, baseline);
       } catch (error) {

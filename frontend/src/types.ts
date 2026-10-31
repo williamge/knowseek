@@ -7,6 +7,14 @@ export type Discovery =
   | { status: "enqueued"; job_id: number }
   | { status: "error"; reason: string };
 
+/** Another matching chunk of a hit's document. */
+export interface Passage {
+  chunk_id: string;
+  content: string;
+  score: number;
+}
+
+/** One search hit: a document, shown by its best matching chunk. */
 export interface Hit {
   document_id: string;
   chunk_id: string;
@@ -19,6 +27,8 @@ export interface Hit {
   keyword_rank: number | null;
   semantic_rank: number | null;
   similarity: number | null;
+  /** Other matching chunks of the document, best first. */
+  passages: Passage[];
 }
 
 export interface SearchResult {

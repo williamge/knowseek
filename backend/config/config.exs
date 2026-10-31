@@ -36,8 +36,13 @@ config :knowseek, Knowseek.Embeddings,
 # Search tuning and the coverage heuristic that decides when to seek new data.
 # `max_age_seconds` is the default freshness need for a search. `nil` means
 # that hits of any age count. A caller can override it per request.
+# `candidate_factor`: each ranked list fetches `limit * candidate_factor`
+# chunks, so grouping them by document still fills `limit` hits.
+# `max_passages`: the most extra chunks a hit carries in `passages`.
 config :knowseek, Knowseek.Search,
   default_limit: 10,
+  candidate_factor: 40,
+  max_passages: 3,
   min_similarity: 0.5,
   min_strong_hits: 3,
   max_age_seconds: nil

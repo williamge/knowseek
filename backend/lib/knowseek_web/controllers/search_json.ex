@@ -28,7 +28,10 @@ defmodule KnowseekWeb.SearchJSON do
       score: hit.score,
       keyword_rank: hit.keyword_rank,
       semantic_rank: hit.semantic_rank,
-      similarity: hit.similarity
+      similarity: hit.similarity,
+      passages: Enum.map(hit.passages, &passage/1)
     }
   end
+
+  defp passage(passage), do: Map.take(passage, [:chunk_id, :content, :score])
 end

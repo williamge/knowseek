@@ -1,6 +1,6 @@
 # 014. One search hit per document
 
-- Status: open
+- Status: done
 - Area: `Knowseek.Search`, `Knowseek.Search.Coverage`, web (`SearchJSON`)
 - Depends on: none
 
@@ -74,3 +74,34 @@ Task 005 landed first. `Coverage.assess/2` already counts distinct
 documents (`Enum.uniq_by(& &1.document_id)`), and
 `test/knowseek/search_test.exs` already tests that one document with many
 strong chunks counts once. Keep that rule when hits become documents.
+
+## Outcome
+
+Built:
+
+- `Search.search/2` groups relevant fused chunks by `document_id`. A hit is a
+  document: its score and chunk fields come from its best chunk (no sum).
+  `Hit.passages` holds the other matching chunks (`chunk_id`, `content`,
+  `score`), best first, capped by `max_passages` (config, default 3; also a
+  search option). `SearchJSON` renders `passages`; all old fields stay.
+- Candidate fetch: `candidate_factor` (config) replaces the fixed `limit * 4`.
+  Default 40. Measured in a throwaway test with the hashing adapter: 5
+  equally relevant 35-chunk articles plus 15 short documents, `limit` 10.
+  Factor 4 gave 2 hits, 10 gave 3, 20 gave 10; at `limit` 3 or 5, factor 20
+  still underfilled (2 and 3 hits) and 40 filled (3 and 5). See ADR 0011.
+- The HNSW index returns at most `hnsw.ef_search` rows (default 40), so the
+  vector query now sets it per query (`set_config(..., true)`, at most 1000).
+  Without that the factor would not raise the vector list above 40.
+- Frontend: `types.ts` has `Hit.passages`; `groupHits` no longer groups
+  client-side, it shapes each hit and its passages for the card. "New"
+  detection after discovery compares document ids, not chunk ids.
+- Tests for the three acceptance criteria plus score, cap, and fewer-hits.
+
+Task 005's "count distinct documents" already existed in `Coverage.assess/2`.
+Task 005 is done, so it needs no change. The coverage rule is kept, and now
+counts documents because each hit is one.
+
+Left out: the worst case is not guaranteed. Several documents that all have
+more than `candidate_factor` matching chunks can still underfill `limit`.
+Exact grouping in SQL (window function over chunks per document) is a
+possible follow-up. Using `passages` in answer synthesis is task 008.
