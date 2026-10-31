@@ -91,6 +91,10 @@ defmodule Knowseek.Entities do
   @spec resolve(String.t(), keyword()) ::
           {:ok, resolution()} | :none | {:pending, String.t()} | {:error, term()}
   def resolve(query, opts \\ []) when is_binary(query) do
+    if String.valid?(query), do: resolve_text(query, opts), else: :none
+  end
+
+  defp resolve_text(query, opts) do
     {intent, text} = Intent.split(query)
     config = config(opts)
 
@@ -186,13 +190,32 @@ defmodule Knowseek.Entities do
     {:ok, %{intent: intent, entity: entity, alternatives: alternatives}}
   end
 
-  # Entities are resolved by lowercase text: `Knicks` and `knicks` share an
-  # entry, and so do `weather in tokyo` and `tokyo`.
+  # Entities are resolved by normalized text: lowercase, Unicode compatibility
+  # form (NFKC), single spaces. `Knicks`, `knicks` and `ｋｎｉｃｋｓ` share an
+  # entry, and so do `weather in tokyo` and `tokyo`. The text is user input, so
+  # it is bounded: not printable text, or more characters (or bytes) than a
+  # name needs, is no key and no fetch, so junk cannot grow the cache or cost
+  # an upstream call.
   defp cache_key(text, config) do
-    if text == "" or String.length(text) > config.max_query_length do
+    text = normalize(text)
+
+    if text == "" or String.length(text) > config.max_query_length or
+         byte_size(text) > config.max_query_length * 4 do
       nil
     else
-      {config.resolver, String.downcase(text)}
+      {config.resolver, text}
+    end
+  end
+
+  defp normalize(text) do
+    if String.valid?(text) and String.printable?(text) do
+      text
+      |> :unicode.characters_to_nfkc_binary()
+      |> String.downcase()
+      |> String.split()
+      |> Enum.join(" ")
+    else
+      ""
     end
   end
 

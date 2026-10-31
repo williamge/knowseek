@@ -10,6 +10,7 @@ defmodule KnowseekWeb.Router do
 
     get "/health", HealthController, :show
     post "/search", SearchController, :create
+    get "/cards", CardController, :show
 
     resources "/documents", DocumentController, only: [:index, :show, :create]
   end

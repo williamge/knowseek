@@ -14,7 +14,10 @@ defmodule Knowseek.Application do
       {Phoenix.PubSub, name: Knowseek.PubSub},
       {Oban, Application.fetch_env!(:knowseek, Oban)},
       # In-memory, disposable caches with single-flight background refresh.
-      {Knowseek.Cache, name: Knowseek.Entities.Cache},
+      {Knowseek.Cache, [name: Knowseek.Entities.Cache] ++ cache_options(Knowseek.Entities)},
+      {Knowseek.Cache, [name: Knowseek.Cards.Cache] ++ cache_options(Knowseek.Cards)},
+      # The ESPN team list: one key, one long TTL.
+      {Knowseek.Cache, name: Knowseek.Cards.EspnTeams, max_entries: 10},
       # Start to serve requests, typically the last entry
       KnowseekWeb.Endpoint
     ]
@@ -24,6 +27,10 @@ defmodule Knowseek.Application do
     opts = [strategy: :one_for_one, name: Knowseek.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
+  # Start options of a context's cache (config `:cache`).
+  defp cache_options(context),
+    do: Application.fetch_env!(:knowseek, context) |> Keyword.get(:cache, [])
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.

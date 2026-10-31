@@ -345,4 +345,124 @@ defmodule Knowseek.CacheTest do
       assert {:fresh, :new, _as_of} = Cache.get(name, :a, fetcher({:ok, :other}))
     end
   end
+
+  describe "max_in_flight" do
+    defp start_capped_cache(clock, max_in_flight) do
+      name = :"cache_capped_#{System.unique_integer([:positive])}"
+
+      start_supervised!(
+        {Cache, name: name, max_in_flight: max_in_flight, clock: fn -> Agent.get(clock, & &1) end}
+      )
+
+      name
+    end
+
+    test "at most that many fetches run at once; the others are dropped", %{clock: clock} do
+      name = start_capped_cache(clock, 2)
+
+      # Fifty distinct keys, as a client that makes up queries would send.
+      for key <- 1..50, do: assert(Cache.get(name, key, blocked_fetcher({:ok, key})) == :pending)
+
+      # Every refresh request has reached the cache process once this returns.
+      _ = :sys.get_state(name)
+
+      assert_receive {:fetching, first}
+      assert_receive {:fetching, second}
+      refute_receive {:fetching, _}, 50
+
+      # Nothing was stored for the dropped keys, so the table stays small.
+      assert :ets.info(name, :size) <= 1
+
+      # A slot frees up: the next request for a dropped key is fetched.
+      send(first, :release)
+      send(second, :release)
+      :ok = Cache.await(name, 1)
+      :ok = Cache.await(name, 2)
+
+      assert Cache.get(name, 3, fetcher({:ok, 3})) == :pending
+      assert_receive {:fetching, _third}
+      :ok = Cache.await(name, 3)
+      assert {:fresh, 3, _as_of} = Cache.get(name, 3, fetcher({:ok, :x}))
+    end
+
+    test "the default is no cap", %{cache: cache} do
+      for key <- 1..20, do: Cache.get(cache, key, blocked_fetcher({:ok, key}))
+      _ = :sys.get_state(cache)
+
+      for _ <- 1..20, do: assert_receive({:fetching, _pid})
+    end
+  end
+
+  describe "rate limits" do
+    test "a rate-limited fetch stops every fetch of the cache until Retry-After", %{
+      cache: cache,
+      clock: clock
+    } do
+      assert Cache.get(cache, :a, fetcher({:error, {:rate_limited, 30_000}})) == :pending
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :a)
+
+      # The failing key and every other key report the limit and start nothing.
+      assert {:unavailable, {:rate_limited, 30_000}} =
+               Cache.get(cache, :a, fetcher({:ok, :a}))
+
+      advance(clock, 10_000)
+
+      assert {:unavailable, {:rate_limited, 20_000}} =
+               Cache.get(cache, :b, fetcher({:ok, :b}))
+
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, _}, 20
+
+      # The block ends: fetching resumes.
+      advance(clock, 20_001)
+      assert Cache.get(cache, :b, fetcher({:ok, :b})) == :pending
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :b)
+      assert {:fresh, :b, _as_of} = Cache.get(cache, :b, fetcher({:ok, :x}))
+    end
+
+    test "keys with a value keep it as stale and do not refresh during the block", %{
+      cache: cache,
+      clock: clock
+    } do
+      fill(cache, :kept, {:ok, :old}, ttl: 1_000)
+      advance(clock, 5_000)
+
+      # Another key hits the limit.
+      Cache.get(cache, :other, fetcher({:error, {:rate_limited, 60_000}}))
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :other)
+
+      assert {:stale, :old, _as_of} = Cache.get(cache, :kept, fetcher({:ok, :new}))
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, _}, 20
+
+      advance(clock, 60_001)
+      assert {:stale, :old, _as_of} = Cache.get(cache, :kept, fetcher({:ok, :new}))
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :kept)
+      assert {:fresh, :new, _as_of} = Cache.get(cache, :kept, fetcher({:ok, :x}))
+    end
+
+    test "the block is at most ten minutes", %{cache: cache, clock: clock} do
+      Cache.get(cache, :a, fetcher({:error, {:rate_limited, :timer.hours(5)}}))
+      assert_receive {:fetching, _}
+      :ok = Cache.await(cache, :a)
+
+      advance(clock, :timer.minutes(10) + 1)
+      Cache.get(cache, :b, fetcher({:ok, :b}))
+      assert_receive {:fetching, _}
+    end
+
+    test "rate_limited/1 reads Retry-After in seconds, else waits a minute" do
+      response = fn headers -> %Req.Response{status: 429, headers: headers} end
+
+      assert Cache.rate_limited(response.(%{"retry-after" => ["7"]})) == {:rate_limited, 7_000}
+      assert Cache.rate_limited(response.(%{})) == {:rate_limited, 60_000}
+
+      assert Cache.rate_limited(response.(%{"retry-after" => ["Wed, 21 Oct 2026 07:28:00 GMT"]})) ==
+               {:rate_limited, 60_000}
+    end
+  end
 end

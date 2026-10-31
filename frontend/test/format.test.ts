@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  clockTime,
   displayHost,
   everyInterval,
+  gameTime,
   groupHits,
   highlight,
   isWebUrl,
   normalizeQuery,
   shortDate,
   timeAgo,
+  versus,
 } from "../src/lib/format";
 import { hit } from "./fixtures";
 
@@ -99,5 +102,38 @@ describe("highlight", () => {
       { text: "c++ is ", match: false },
       { text: "fun", match: true },
     ]);
+  });
+});
+
+describe("card times", () => {
+  // Local time: the expected text is built with the same time zone.
+  const iso = "2026-11-03T00:30:00Z";
+  const local = new Date(iso);
+
+  it("clockTime is the local clock time, with seconds on request", () => {
+    expect(clockTime(iso)).toBe(
+      local.toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" }),
+    );
+    expect(clockTime("2026-10-31T15:42:15Z", true)).toMatch(
+      /^\d{1,2}:42:15\s?[AP]M$|^\d{2}:42:15$/,
+    );
+  });
+
+  it("gameTime has the weekday, the date and the time", () => {
+    const text = gameTime(iso);
+    expect(text).toMatch(/^(Sun|Mon|Tue), (Nov 2|Nov 3), \d{1,2}:\d{2}\s?[AP]M$/);
+    expect(text).toContain(String(local.getDate()));
+  });
+});
+
+describe("versus", () => {
+  it("is at for an away game and vs for a home game", () => {
+    expect(versus("away", "Boston Celtics")).toBe("at Boston Celtics");
+    expect(versus("home", "Boston Celtics")).toBe("vs Boston Celtics");
+    expect(versus(null, "Boston Celtics")).toBe("vs Boston Celtics");
+  });
+
+  it("is empty without an opponent", () => {
+    expect(versus("home", null)).toBe("");
   });
 });

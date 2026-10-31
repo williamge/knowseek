@@ -205,14 +205,16 @@ defmodule Knowseek.EntitiesTest do
   end
 
   describe "resolve/2 failures" do
-    test "an HTTP 429 is {:error, _}, and is not retried during the backoff", %{cache: cache} do
+    test "an HTTP 429 is {:error, {:rate_limited, ms}}, and is not retried during the backoff", %{
+      cache: cache
+    } do
       Req.Test.stub(Wikidata, &Plug.Conn.send_resp(&1, 429, "Too Many Requests"))
 
-      assert resolve_when_ready("knicks", cache: cache) == {:error, {:http_status, 429}}
+      assert resolve_when_ready("knicks", cache: cache) == {:error, {:rate_limited, 60_000}}
 
       # Back on, but the failure is remembered for the backoff.
       stub_wikidata()
-      assert Entities.resolve("knicks", cache: cache) == {:error, {:http_status, 429}}
+      assert Entities.resolve("knicks", cache: cache) == {:error, {:rate_limited, 60_000}}
       assert drain_requests() == []
     end
 
@@ -353,6 +355,90 @@ defmodule Knowseek.EntitiesTest do
     test "is :none without a candidate with a kind, and for no candidates" do
       assert Entities.choose([]) == :none
       assert Entities.choose([%Entity{id: "Q1", types: ["Q5"]}]) == :none
+    end
+  end
+
+  describe "resolve/2 with user-chosen queries" do
+    alias Knowseek.Entities.BlockingResolver
+
+    test "case, spacing and Unicode width variants share one entry and one fetch", %{
+      cache: cache
+    } do
+      assert {:ok, %{entity: %{id: "Q131364"}}} = resolve_when_ready("knicks", cache: cache)
+
+      for variant <- ["Knicks", "  KNICKS  ", "ｋｎｉｃｋｓ"] do
+        assert {:ok, %{entity: %{id: "Q131364"}}} = Entities.resolve(variant, cache: cache)
+      end
+
+      # Two requests for the first query (search and details), none after.
+      assert length(drain_requests()) == 2
+    end
+
+    test "at most max_in_flight resolutions run at once, however many queries come" do
+      cache = :"entities_capped_#{System.unique_integer([:positive])}"
+      start_supervised!({Cache, name: cache, max_in_flight: 3, max_entries: 10})
+      BlockingResolver.register()
+      opts = [cache: cache, resolver: BlockingResolver]
+
+      for n <- 1..200, do: assert({:pending, _} = Entities.resolve("junk #{n}", opts))
+      # Every refresh request has reached the cache process once this returns.
+      _ = :sys.get_state(cache)
+
+      assert_receive {:resolving, _first, _text}
+      assert_receive {:resolving, _second, _text}
+      assert_receive {:resolving, _third, _text}
+      refute_receive {:resolving, _, _}, 50
+
+      # Dropped queries leave nothing in the table.
+      assert :ets.info(cache, :size) <= 1
+    end
+
+    test "the table stays within max_entries for any number of distinct queries" do
+      cache = :"entities_small_#{System.unique_integer([:positive])}"
+      start_supervised!({Cache, name: cache, max_entries: 20})
+      opts = [cache: cache, resolver: FakeResolver]
+
+      for n <- 1..300 do
+        Entities.resolve("junk #{n}", opts)
+        Entities.await("junk #{n}", opts)
+      end
+
+      assert :ets.select_count(cache, [{{{:entry, :_}, :_}, [], [true]}]) <= 20
+    end
+
+    test "text that is not a name is :none and starts no fetch", %{cache: cache} do
+      queries = [
+        "a\u0000b",
+        "a\nb\u0001",
+        String.duplicate("a", 101),
+        String.duplicate("é", 101),
+        <<255, 254, 253>>,
+        # One character with 300 combining marks: few characters, many bytes.
+        "a" <> String.duplicate("\u0301", 300)
+      ]
+
+      for query <- queries, do: assert(Entities.resolve(query, cache: cache) == :none)
+      assert drain_requests() == []
+    end
+
+    test "a Wikidata rate limit stops every resolution until Retry-After", %{cache: cache} do
+      test = self()
+
+      Req.Test.stub(Wikidata, fn conn ->
+        send(test, {:wikidata_request, "429", %{}, []})
+        conn |> Plug.Conn.put_resp_header("retry-after", "30") |> Plug.Conn.send_resp(429, "")
+      end)
+
+      assert {:pending, "knicks"} = Entities.resolve("knicks", cache: cache)
+      :ok = Entities.await("knicks", cache: cache)
+
+      assert {:error, {:rate_limited, 30_000}} = Entities.resolve("knicks", cache: cache)
+      assert [_one_request] = drain_requests()
+
+      # Another query starts no fetch, and says why.
+      assert {:error, {:rate_limited, ms}} = Entities.resolve("nvidia", cache: cache)
+      assert ms in 1..30_000
+      assert drain_requests() == []
     end
   end
 

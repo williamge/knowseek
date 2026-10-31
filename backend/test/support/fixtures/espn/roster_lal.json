@@ -1,0 +1,73 @@
+{
+  "athletes": [
+    {
+      "displayName": "Cameron Carr"
+    },
+    {
+      "displayName": "Luka Doncic"
+    },
+    {
+      "displayName": "Quentin Grimes"
+    },
+    {
+      "displayName": "Jaden Hardy"
+    },
+    {
+      "displayName": "Bronny James"
+    },
+    {
+      "displayName": "Arthur Kaluma"
+    },
+    {
+      "displayName": "Walker Kessler"
+    },
+    {
+      "displayName": "Jake LaRavia"
+    },
+    {
+      "displayName": "Kevon Looney"
+    },
+    {
+      "displayName": "Lawson Lovering"
+    },
+    {
+      "displayName": "Sandro Mamukelashvili"
+    },
+    {
+      "displayName": "Chris Manon"
+    },
+    {
+      "displayName": "AK Okereke"
+    },
+    {
+      "displayName": "Austin Reaves"
+    },
+    {
+      "displayName": "Collin Sexton"
+    },
+    {
+      "displayName": "Adou Thiero",
+      "injuries": [
+        {
+          "status": "Out",
+          "date": "2026-10-30T00:05Z"
+        }
+      ]
+    },
+    {
+      "displayName": "Matisse Thybulle"
+    },
+    {
+      "displayName": "Jarred Vanderbilt"
+    },
+    {
+      "displayName": "Ziaire Williams",
+      "injuries": [
+        {
+          "status": "Out",
+          "date": "2026-10-30T20:05Z"
+        }
+      ]
+    }
+  ]
+}

@@ -61,7 +61,10 @@ config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikip
 # `instance of` ids make an entity a kind a card provider handles (see
 # "Supported types" in the Knowseek.Entities docs). Ids marked "seen" appeared
 # in the probes of tasks 028 and 030; the others were checked by label.
+# `cache`: start options of the entity cache. Its keys come from user queries,
+# so at most 4 Wikidata resolutions run at once and 5000 entries are kept.
 config :knowseek, Knowseek.Entities,
+  cache: [max_entries: 5_000, max_in_flight: 4],
   resolver: Knowseek.Entities.Wikidata,
   ttl: :timer.hours(24),
   backoff: :timer.minutes(1),
@@ -109,6 +112,25 @@ config :knowseek, Knowseek.Entities.Wikidata,
   base_url: "https://www.wikidata.org/w/api.php",
   search_limit: 20,
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  req_options: []
+
+# Live fact cards (ADR 0017, task 031). `providers` implement
+# Knowseek.Cards.Provider and are tried in order. `backoff` and `timeout`
+# (milliseconds) go to Knowseek.Cache: a failed ESPN fetch is not retried for
+# 10 s (ESPN caches for 3 s), and a fetch (two parallel requests of 4 s at
+# most) is killed after 12 s. `cache` holds the start options of the cards
+# cache.
+config :knowseek, Knowseek.Cards,
+  providers: [Knowseek.Cards.Providers.EspnNba],
+  backoff: :timer.seconds(10),
+  timeout: :timer.seconds(12),
+  cache: [max_entries: 1_000, max_in_flight: 8]
+
+# ESPN's public site API. `receive_timeout` is per request.
+config :knowseek, Knowseek.Cards.Espn,
+  base_url: "https://site.api.espn.com/apis/site/v2/sports",
+  user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  receive_timeout: 4_000,
   req_options: []
 
 # Configure the endpoint

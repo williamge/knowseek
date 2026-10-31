@@ -1,0 +1,61 @@
+{
+  "athletes": [
+    {
+      "displayName": "Jaden Akins"
+    },
+    {
+      "displayName": "Jose Alvarado",
+      "injuries": [
+        {
+          "status": "Out",
+          "date": "2026-10-29T22:50Z"
+        }
+      ]
+    },
+    {
+      "displayName": "OG Anunoby"
+    },
+    {
+      "displayName": "Mikal Bridges"
+    },
+    {
+      "displayName": "Jalen Brunson"
+    },
+    {
+      "displayName": "Jordan Clarkson"
+    },
+    {
+      "displayName": "Pacome Dadiet"
+    },
+    {
+      "displayName": "Mohamed Diawara"
+    },
+    {
+      "displayName": "Andre Drummond"
+    },
+    {
+      "displayName": "Josh Hart"
+    },
+    {
+      "displayName": "Dalton Knecht"
+    },
+    {
+      "displayName": "Tyler Kolek"
+    },
+    {
+      "displayName": "Miles McBride"
+    },
+    {
+      "displayName": "Tyler Nickel"
+    },
+    {
+      "displayName": "Landry Shamet"
+    },
+    {
+      "displayName": "Karl-Anthony Towns"
+    },
+    {
+      "displayName": "James Wiseman"
+    }
+  ]
+}

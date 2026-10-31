@@ -71,12 +71,12 @@ The default embedding adapter is Ollama (`brew install ollama`, `brew services s
 
 These keep the code base coherent while many agents work in parallel. If a task needs you to break one, write an ADR first.
 
-1. **Context boundaries.** Code outside a context calls only the context's public module (`Knowseek.Documents`, `Knowseek.Search`, `Knowseek.Discovery`, `Knowseek.Lookup`, `Knowseek.Entities`). Do not query another context's schemas directly, except for read joins inside `Knowseek.Search`.
+1. **Context boundaries.** Code outside a context calls only the context's public module (`Knowseek.Documents`, `Knowseek.Search`, `Knowseek.Discovery`, `Knowseek.Lookup`, `Knowseek.Entities`, `Knowseek.Cards`). Do not query another context's schemas directly, except for read joins inside `Knowseek.Search`.
 2. **One write path into the index.** Only `Knowseek.Documents.ingest/1` writes documents and chunks.
 3. **Sources only find data.** A `Knowseek.Discovery.Source` returns candidates. It never writes to the database.
-4. **Pluggable parts are behaviours plus config.** Embedding providers, discovery sources, and entity resolvers implement a behaviour and are selected in `config/*.exs`. Add new providers the same way.
+4. **Pluggable parts are behaviours plus config.** Embedding providers, discovery sources, entity resolvers, and card providers implement a behaviour and are selected in `config/*.exs`. Add new providers the same way.
 5. **No external calls inside a transaction.** Call APIs first, then write.
-6. **Slow or external work runs in Oban jobs**, not in the request path, and the request path may only enqueue. One existing exception: `Search` embeds the query through the embeddings adapter in the request path (503 on provider failure, ADR 0016). Live-fact card and entity-cache refreshes run in supervised in-process tasks instead of Oban: `Knowseek.Cache` is that mechanism, and `Knowseek.Entities` (task 030) is built on it. The card endpoint (tasks 031-034, not built yet) reads only a cache and never calls a provider, and refreshes are disposable (their retry is the next poll). Everything that writes to the index still goes through Oban. See `docs/decisions/0017-live-fact-cards.md`.
+6. **Slow or external work runs in Oban jobs**, not in the request path, and the request path may only enqueue. One existing exception: `Search` embeds the query through the embeddings adapter in the request path (503 on provider failure, ADR 0016). Live-fact card and entity-cache refreshes run in supervised in-process tasks instead of Oban: `Knowseek.Cache` is that mechanism, and `Knowseek.Entities` (task 030) and `Knowseek.Cards` (task 031) are built on it. The card endpoint (`GET /api/cards`) reads only caches and never calls a provider or Wikidata, and refreshes are disposable (their retry is the next poll). A cache whose keys come from user input sets `max_in_flight` (the entity cache does). Everything that writes to the index still goes through Oban. See `docs/decisions/0017-live-fact-cards.md`.
 7. **The embedding size is fixed by the schema.** `chunks.embedding` is `vector(1024)`. A model with another size needs a migration and a re-embed plan (see `docs/decisions/0004-embeddings.md`).
 8. **The backend owns the schema.** Services in `services/` talk to the backend through HTTP or jobs, not through its tables.
 9. **The frontend uses only the public JSON API.** `frontend/src/types.ts` mirrors the `*JSON` views. If you change a response shape, change the types in the same branch.
@@ -85,7 +85,7 @@ These keep the code base coherent while many agents work in parallel. If a task 
 
 - Frontend tests (`cd frontend && npm test`) stub `fetch` (see `frontend/test/fixtures.ts`). They never call the backend.
 - Tests never call the network. Stub HTTP with `Req.Test` (pass `plug: {Req.Test, Name}` through config) and use fake sources and adapters from `test/support/`.
-- A `Req.Test` stub that a supervised task calls (the `Knowseek.Cache` fetch behind `Knowseek.Entities`) needs shared mode: a non-async test with `setup :set_req_test_from_context` (see `test/knowseek/entities_test.exs`). Wait for the fetch with `Knowseek.Entities.await/2`, never with a sleep.
+- A `Req.Test` stub that a supervised task calls (the `Knowseek.Cache` fetch behind `Knowseek.Entities` and `Knowseek.Cards`) needs shared mode: a non-async test with `setup :set_req_test_from_context` (see `test/knowseek/entities_test.exs` and `test/knowseek/cards_test.exs`). Wait for the fetch with `Knowseek.Entities.await/2` or `Knowseek.Cards.await/2`, never with a sleep.
 - Oban runs in `:manual` testing mode. Assert with `assert_enqueued/1`, and run jobs with `perform_job/2`.
 - Use the fixtures in `test/support/fixtures.ex`. Add new fixtures there.
 - Every new public function gets a test. Every bug fix gets a regression test.

@@ -1,4 +1,4 @@
-import type { DocumentSummary, KnowseekDocument, SearchResult } from "./types";
+import type { CardResponse, DocumentSummary, KnowseekDocument, SearchResult } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -49,4 +49,8 @@ export const api = {
 
   getDocument: (id: string, signal?: AbortSignal) =>
     request<KnowseekDocument>(`/documents/${encodeURIComponent(id)}`, { signal }),
+
+  /** Cache-only on the server: it never waits for an upstream. Poll it. */
+  getCard: (query: string, signal?: AbortSignal) =>
+    request<CardResponse>(`/cards?q=${encodeURIComponent(query)}`, { signal }),
 };

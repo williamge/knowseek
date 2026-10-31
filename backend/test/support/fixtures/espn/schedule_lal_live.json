@@ -1,0 +1,209 @@
+{
+  "team": {
+    "id": "13",
+    "displayName": "Los Angeles Lakers",
+    "recordSummary": "4-1"
+  },
+  "events": [
+    {
+      "id": "401909880",
+      "date": "2026-10-28T03:00Z",
+      "name": "Portland Trail Blazers at Los Angeles Lakers",
+      "competitions": [
+        {
+          "status": {
+            "clock": 720.0,
+            "displayClock": "12:00",
+            "period": 4,
+            "type": {
+              "id": "3",
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true,
+              "description": "Final",
+              "detail": "Final",
+              "shortDetail": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "id": "13",
+              "homeAway": "home",
+              "score": {
+                "value": 129.0,
+                "displayValue": "129"
+              },
+              "winner": false,
+              "team": {
+                "id": "13",
+                "abbreviation": "LAL",
+                "displayName": "Los Angeles Lakers"
+              }
+            },
+            {
+              "id": "22",
+              "homeAway": "away",
+              "score": {
+                "value": 136.0,
+                "displayValue": "136"
+              },
+              "winner": true,
+              "team": {
+                "id": "22",
+                "abbreviation": "POR",
+                "displayName": "Portland Trail Blazers"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909892",
+      "date": "2026-10-29T02:30Z",
+      "name": "Los Angeles Lakers at LA Clippers",
+      "competitions": [
+        {
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 4,
+            "type": {
+              "id": "3",
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true,
+              "description": "Final",
+              "detail": "Final",
+              "shortDetail": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "id": "12",
+              "homeAway": "home",
+              "score": {
+                "value": 87.0,
+                "displayValue": "87"
+              },
+              "winner": false,
+              "team": {
+                "id": "12",
+                "abbreviation": "LAC",
+                "displayName": "LA Clippers"
+              }
+            },
+            {
+              "id": "13",
+              "homeAway": "away",
+              "score": {
+                "value": 103.0,
+                "displayValue": "103"
+              },
+              "winner": true,
+              "team": {
+                "id": "13",
+                "abbreviation": "LAL",
+                "displayName": "Los Angeles Lakers"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909285",
+      "date": "2026-10-31T02:00Z",
+      "name": "Los Angeles Lakers at Golden State Warriors",
+      "competitions": [
+        {
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 3,
+            "type": {
+              "id": "22",
+              "name": "STATUS_END_PERIOD",
+              "state": "in",
+              "completed": false,
+              "description": "End of Period",
+              "detail": "End of 3rd Quarter",
+              "shortDetail": "End of 3rd"
+            }
+          },
+          "competitors": [
+            {
+              "id": "9",
+              "homeAway": "home",
+              "score": {
+                "value": 85.0,
+                "displayValue": "85"
+              },
+              "team": {
+                "id": "9",
+                "abbreviation": "GS",
+                "displayName": "Golden State Warriors"
+              }
+            },
+            {
+              "id": "13",
+              "homeAway": "away",
+              "score": {
+                "value": 80.0,
+                "displayValue": "80"
+              },
+              "team": {
+                "id": "13",
+                "abbreviation": "LAL",
+                "displayName": "Los Angeles Lakers"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909906",
+      "date": "2026-11-02T02:00Z",
+      "name": "Toronto Raptors at Los Angeles Lakers",
+      "competitions": [
+        {
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Sun, November 1st at 9:00 PM EST",
+              "shortDetail": "11/1 - 9:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "13",
+              "homeAway": "home",
+              "team": {
+                "id": "13",
+                "abbreviation": "LAL",
+                "displayName": "Los Angeles Lakers"
+              }
+            },
+            {
+              "id": "28",
+              "homeAway": "away",
+              "team": {
+                "id": "28",
+                "abbreviation": "TOR",
+                "displayName": "Toronto Raptors"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

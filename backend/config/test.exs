@@ -45,6 +45,9 @@ config :knowseek, Knowseek.Embeddings.Ollama,
     retry_log_level: false
   ]
 
+config :knowseek, Knowseek.Cards.Espn,
+  req_options: [plug: {Req.Test, Knowseek.Cards.Espn}, retry: false]
+
 config :knowseek, Knowseek.Embeddings.Voyage,
   api_key: "test-key",
   req_options: [
