@@ -2,11 +2,15 @@ defmodule Knowseek.Documents.Document do
   @moduledoc """
   A piece of source content: a web page, an article, a manual note.
 
-  The `url` is the identity of a document. Ingesting the same URL again
-  updates the existing row.
+  The `url` is the identity of a document. It is stored in canonical form
+  (`Knowseek.Documents.URL`). Ingesting the same URL again updates the
+  existing row. Other URLs that served the same body are recorded in
+  `Knowseek.Documents.DocumentAlias`.
   """
   use Ecto.Schema
   import Ecto.Changeset
+
+  alias Knowseek.Documents.URL
 
   @type t :: %__MODULE__{}
 
@@ -28,19 +32,25 @@ defmodule Knowseek.Documents.Document do
   end
 
   @doc """
-  Changeset for ingestion. Fills in `content_hash` and `fetched_at`, and
-  generates a content-addressed URL when the caller does not give one.
+  Changeset for ingestion. Canonicalizes the `url`, fills in `content_hash`
+  and `fetched_at`, and generates a content-addressed URL when the caller does
+  not give one.
   """
   def ingest_changeset(document, attrs) do
     document
     |> cast(attrs, [:url, :title, :body, :source, :published_at, :fetched_at, :metadata])
     |> validate_required([:body, :source])
+    |> update_change(:url, &URL.canonicalize/1)
     |> put_content_hash()
     |> put_default_url()
     |> put_default_fetched_at()
     |> validate_required([:url, :content_hash, :fetched_at])
     |> unique_constraint(:url)
   end
+
+  @doc "True when `url` was generated from the body, not given by the caller."
+  def content_url?("urn:knowseek:sha256:" <> _), do: true
+  def content_url?(_), do: false
 
   @doc "SHA-256 of the body, hex encoded."
   def hash_body(body), do: :crypto.hash(:sha256, body) |> Base.encode16(case: :lower)

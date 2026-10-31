@@ -139,7 +139,8 @@ defmodule Knowseek.SearchTest do
 
     test "the default :candidate_factor fills :limit where a small one underfills" do
       # Five equally relevant 35-chunk documents: 3 hits need more than 4 * 3 chunks.
-      for _ <- 1..5, do: document_fixture(body: long_body("octopus", 35))
+      # Each body differs, or exact-duplicate aliasing (ADR 0013) merges them into one.
+      for n <- 1..5, do: document_fixture(body: "Edition #{n}.\n\n" <> long_body("octopus", 35))
 
       config = Application.get_env(:knowseek, Search)
       on_exit(fn -> Application.put_env(:knowseek, Search, config) end)

@@ -17,6 +17,16 @@ defmodule Knowseek.Fixtures do
     document
   end
 
+  @doc """
+  A body long enough to be merged by content hash (see
+  `Knowseek.Documents.min_alias_body_length/0`). Different `tag`s give
+  different bodies.
+  """
+  def long_body(tag \\ "a") do
+    "Article #{tag}. " <>
+      String.duplicate("This sentence pads the body past the alias length floor. ", 8)
+  end
+
   def topic_fixture(attrs \\ %{}) do
     {:ok, topic, :created} =
       attrs
