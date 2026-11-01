@@ -88,7 +88,7 @@ Oban stores its jobs in `oban_jobs` in the same database.
 
 | Queue | Workers | Notes |
 | --- | --- | --- |
-| `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
+| `discovery` | `Discovery.SeekWorker` | Unique per normalized query while an earlier job for it (enqueued within the last hour) is still queued, running or retrying (`states: :incomplete`); after it completes, a repeat uncovered search enqueues a new job, which is cheap because an unchanged body is not re-embedded. 3 attempts. |
 
 ## Ranking prior
 
@@ -165,3 +165,7 @@ The backend builds into a Mix release image (`backend/Dockerfile`). `docker comp
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 
 Each limitation has a task in `docs/tasks/`.
+
+## See also
+
+- [`DATA-AND-JOBS.md`](DATA-AND-JOBS.md): every table with measured sizes and growth, the in-memory caches, every Oban job with measured durations, and commands to inspect them.
