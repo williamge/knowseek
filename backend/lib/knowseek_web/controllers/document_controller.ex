@@ -5,6 +5,9 @@ defmodule KnowseekWeb.DocumentController do
 
   action_fallback KnowseekWeb.FallbackController
 
+  # Ingest embeds the body: limited per client (ADR 0023). Reads are not.
+  plug KnowseekWeb.Plugs.RateLimit, [bucket: :documents] when action == :create
+
   def index(conn, _params) do
     render(conn, :index, documents: Documents.list_documents())
   end

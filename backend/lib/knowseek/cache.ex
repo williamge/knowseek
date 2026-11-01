@@ -23,9 +23,23 @@ defmodule Knowseek.Cache do
       key stays `:pending` and the next `get/4` asks again. N distinct
       (user-chosen) keys cost at most `:max_in_flight` upstream calls at a time.
       Every drop is counted (`stats/1`) and logged as a warning, at most once
-      every ten seconds, so that a flood of distinct keys shows up. A flood
-      can keep every slot busy and leave a real key `:pending`: the cap bounds
-      the upstream load, it does not decide who gets the slots.
+      every ten seconds, so that a flood of distinct keys shows up.
+    * **Fairness: slots reserved for refreshes.** The cap alone does not
+      decide who gets the slots: a flood of always-new keys could keep all of
+      them busy. A cache whose keys come from user input sets
+      `:reserve_for_refresh`, a number of the `:max_in_flight` slots that a
+      new key can never take. Two kinds of fetch compete:
+
+        * a *refresh* is the fetch for a key that already holds a value (an
+          expired one). It may use any slot.
+        * a *new key* has no value (never fetched, or every fetch failed). It
+          may use a slot only while fewer than `max_in_flight -
+          reserve_for_refresh` fetches run.
+
+      So with the new-key share full of junk, the refresh of a key that has a
+      value still starts, and a real new key starts as soon as one fetch
+      finishes. The reserve does not tell a real new key from a junk one; per
+      client limits do (ADR 0023, `KnowseekWeb.Plugs.RateLimit`).
     * **Cache-wide rate-limit backoff.** A fetch that fails with
       `{:error, {:rate_limited, retry_after_ms}}` (the upstream said 429, or
       `maxlag`, with a `Retry-After`) stops *every* fetch of this cache until
@@ -75,6 +89,10 @@ defmodule Knowseek.Cache do
       recently written ones (10%, at least one) are dropped. Default `10_000`.
     * `:max_in_flight` - at most this many fetches run at once. Default
       `:infinity`. Caches whose keys come from user input set it.
+    * `:reserve_for_refresh` - how many of the `:max_in_flight` slots only
+      refreshes of keys with a value may use (see above). Default `0`: every
+      fetch may use every slot. Must be less than `:max_in_flight` (a new key
+      would never fetch), and needs `:max_in_flight` to be a number.
   """
   use GenServer
 
@@ -244,6 +262,8 @@ defmodule Knowseek.Cache do
   def init(opts) do
     cache = Keyword.fetch!(opts, :name)
     clock = Keyword.get(opts, :clock, fn -> System.system_time(:millisecond) end)
+    max_in_flight = Keyword.get(opts, :max_in_flight, :infinity)
+    reserve = Keyword.get(opts, :reserve_for_refresh, 0)
 
     # The task supervisor is linked: if it dies the cache dies with it, and
     # the parent supervisor restarts both.
@@ -258,7 +278,8 @@ defmodule Knowseek.Cache do
        clock: clock,
        task_sup: task_sup,
        max_entries: Keyword.get(opts, :max_entries, @default_max_entries),
-       max_in_flight: Keyword.get(opts, :max_in_flight, :infinity),
+       max_in_flight: max_in_flight,
+       new_key_limit: new_key_limit(max_in_flight, reserve),
        blocked_until: 0,
        dropped: 0,
        last_drop_log: nil,
@@ -267,23 +288,43 @@ defmodule Knowseek.Cache do
      }}
   end
 
+  # `reserve` slots are for refreshes only, so new keys get fewer.
+  defp new_key_limit(:infinity, 0), do: :infinity
+
+  defp new_key_limit(max, reserve)
+       when is_integer(max) and max > 0 and is_integer(reserve) and reserve >= 0 and reserve < max,
+       do: max - reserve
+
+  defp new_key_limit(max, reserve) do
+    raise ArgumentError,
+          "invalid :reserve_for_refresh #{inspect(reserve)} for :max_in_flight #{inspect(max)}: " <>
+            "it must be an integer from 0 to max_in_flight - 1, and max_in_flight a number"
+  end
+
   @impl true
   def handle_cast({:refresh, key, fetch_fun, opts}, state) do
     now = state.clock.()
+    entry = lookup(state.cache, key)
 
     # Callers decide on a stale read, so re-check here: the entry may have
     # been refreshed since, and a fetch may be running already.
     cond do
       Map.has_key?(state.in_flight, key) -> {:noreply, state}
       state.blocked_until > now -> {:noreply, state}
-      not refresh_due?(lookup(state.cache, key), now) -> {:noreply, state}
-      at_capacity?(state) -> {:noreply, drop(state, now)}
+      not refresh_due?(entry, now) -> {:noreply, state}
+      at_capacity?(state, entry) -> {:noreply, drop(state, now)}
       true -> {:noreply, start_fetch(state, key, fetch_fun, opts)}
     end
   end
 
-  defp at_capacity?(%{max_in_flight: :infinity}), do: false
-  defp at_capacity?(state), do: map_size(state.in_flight) >= state.max_in_flight
+  # A key that holds a value may use every slot; a key without one only the
+  # slots that are not reserved for refreshes.
+  defp at_capacity?(%{max_in_flight: :infinity}, _entry), do: false
+
+  defp at_capacity?(state, %{result: {:ok, _}}),
+    do: map_size(state.in_flight) >= state.max_in_flight
+
+  defp at_capacity?(state, _entry), do: map_size(state.in_flight) >= state.new_key_limit
 
   defp drop(state, now) do
     state = %{state | dropped: state.dropped + 1}
@@ -291,7 +332,8 @@ defmodule Knowseek.Cache do
     if state.last_drop_log == nil or now - state.last_drop_log >= @drop_log_interval do
       Logger.warning(
         "#{inspect(state.cache)}: #{state.dropped} refreshes dropped so far, " <>
-          "#{state.max_in_flight} fetches already in flight"
+          "#{map_size(state.in_flight)} fetches in flight of #{state.max_in_flight} " <>
+          "(#{state.max_in_flight - state.new_key_limit} reserved for refreshes)"
       )
 
       %{state | last_drop_log: now}

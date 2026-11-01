@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, rateLimitDelayMs } from "../api";
 import type { CardResponse } from "../types";
 
 export interface CardPolling {
@@ -54,6 +54,9 @@ export const DEFAULT_CARD_POLLING: CardPolling = {
  *     as fresh until the next response says stale again: the refresh that
  *     makes it stale finishes in a second, and the notice would flash on
  *     every refresh of a live game. A refresh that failed stays stale.
+ *   - HTTP 429 (this client asked too often): the next request waits for the
+ *     server's `Retry-After` (1-60 s). The card on screen stays, and nothing
+ *     is shown: the retries and the stale mark below are for a source that is down.
  *   - `none`: stops at once. The server caches "no card for this" for a day, so
  *     asking again changes nothing.
  *   - `unavailable` and failed requests: retried after each of `retryDelaysMs`
@@ -131,9 +134,13 @@ export function useCard(
         const data = await api.getCard(query!, signal);
         if (signal.aborted) return;
         handle(data);
-      } catch {
+      } catch (error) {
         if (signal.aborted) return;
-        retryOrSlow(0);
+        const limitedMs = rateLimitDelayMs(error);
+        // Too many requests is not a failure of the source: wait as long as
+        // the server says, keep the card, and do not use up the retries.
+        if (limitedMs !== null) schedule(limitedMs);
+        else retryOrSlow(0);
       } finally {
         inFlight = false;
       }

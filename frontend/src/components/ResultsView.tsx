@@ -25,6 +25,16 @@ export function ResultsView({ state, onOpenDocument }: Props) {
     );
   }
 
+  if (state.status === "rate_limited") {
+    return (
+      <section className="results">
+        <p className="muted" role="status">
+          Too many requests, retrying shortly
+        </p>
+      </section>
+    );
+  }
+
   if (state.status === "error") {
     return (
       <section className="results">

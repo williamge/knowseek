@@ -1,6 +1,6 @@
 # 039. Rate-limit anonymous endpoints
 
-- Status: open
+- Status: done
 - Area: `KnowseekWeb` plugs, `Knowseek.Cache` fairness
 - Depends on: none (per-user limits need [009](009-users-and-api-keys.md), which is parked)
 
@@ -60,3 +60,21 @@ public internet as it is. The review of task 031 found these limits:
 
 Users, API keys and quotas per user ([009](009-users-and-api-keys.md)); limits
 on discovery sources ([016](016-limit-discovery-abuse.md)).
+
+## Outcome
+
+Built (decisions and arguments: [ADR 0023](../decisions/0023-rate-limiting-anonymous-endpoints.md)):
+
+- `Knowseek.RateLimiter`: an in-repo token bucket (one process, integer math, a fake clock for tests). Full buckets are swept every minute, at most 50,000 are kept, and past the cap the least recently used 10% go, so the table cannot grow without bound.
+- `KnowseekWeb.Plugs.RateLimit` on `GET /api/cards`, `POST /api/search` and `POST /api/documents`, one budget per endpoint and client (`config :knowseek, KnowseekWeb.RateLimit`: `cards` 120 then 2 a second, `search` and `documents` 30 then one every 2 s). `429` with `{"errors": {"detail": "Too many requests"}}` and `Retry-After`. `/api/health` and the reads of `/api/documents` are not limited. Off in `config/test.exs`.
+- `KnowseekWeb.ClientIp`: the client is the socket address (an IPv6 client is its /64, an IPv4-mapped address is the IPv4 one). `X-Forwarded-For` counts only from a socket address in `trusted_proxies` (CIDRs, `TRUSTED_PROXIES`, default none), read from the right. A malformed entry stops the application at start.
+- `Knowseek.Cache` option `reserve_for_refresh`: slots that only refreshes of keys that hold a value may use, so junk (always-new keys) cannot starve them, and a new key starts once a junk fetch ends. Entity cache 1 of 4, cards cache 2 of 8. The `Cache` API is otherwise unchanged; the drop warning now names the reserve.
+- Frontend: `ApiError.retryAfterMs`; the card poller waits for `Retry-After` (1-60 s, 5 s without it), keeps the card and shows nothing; a limited search shows the muted message "Too many requests, retrying shortly" and asks again after `Retry-After`, giving up with the server's message after three tries; the discovery watcher keeps its results and waits for `Retry-After` before the next check.
+- Tests: limiter semantics (burst, refill, `Retry-After` rounding, independent keys, memory cap, LRU, sweep), `ClientIp` (trust on and off, spoofing, IPv6, CIDR errors), the plug per endpoint, the flood regression (100 distinct junk queries from one client: 3 reach the cache, a second client is served), cache fairness (a hammering test) and the frontend 429 handling.
+
+Left out:
+
+- Evictions that favor entries that were read over entries that were only written (a Scope item of this task): follow-up [042](042-evict-unread-cache-entries.md). It needs a write on every read or a per-key counter, which changes how `Cache.get/4` reads, so it is a task of its own. The per-client limit makes the flood of junk entries slower; it does not stop many addresses.
+- A per-client share of the cache's in-flight slots, and a warning log that names the share of clients: the cache does not know clients (ADR 0023).
+- Limits per user or API key ([009](009-users-and-api-keys.md)), and on discovery sources ([016](016-limit-discovery-abuse.md)).
+- Limits are per node and start over on restart. A flood from many addresses is not stopped, and a Wikidata 429 still blocks entity resolution cache-wide.

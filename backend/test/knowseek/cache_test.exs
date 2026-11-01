@@ -407,7 +407,7 @@ defmodule Knowseek.CacheTest do
       assert length(warnings) == 2
       assert log =~ ": 1 refreshes dropped so far"
       assert log =~ ": 31 refreshes dropped so far"
-      assert log =~ "1 fetches already in flight"
+      assert log =~ "1 fetches in flight of 1 (0 reserved for refreshes)"
     end
 
     test "stats/1 of a fresh cache", %{cache: cache} do
@@ -419,6 +419,149 @@ defmodule Knowseek.CacheTest do
       _ = :sys.get_state(cache)
 
       for _ <- 1..20, do: assert_receive({:fetching, _pid})
+    end
+  end
+
+  describe "reserve_for_refresh" do
+    # Four slots, one of them reserved: new keys get three.
+    setup %{clock: clock} do
+      name = :"cache_reserved_#{System.unique_integer([:positive])}"
+
+      start_supervised!(
+        {Cache,
+         name: name,
+         max_in_flight: 4,
+         reserve_for_refresh: 1,
+         clock: fn -> Agent.get(clock, & &1) end}
+      )
+
+      {:ok, reserved: name}
+    end
+
+    # A fetch that names its key and waits for the test to release it.
+    defp keyed_fetcher(key, result) do
+      test = self()
+
+      fn ->
+        send(test, {:fetching, key, self()})
+
+        receive do
+          :release -> result
+        end
+      end
+    end
+
+    # Hammers the cache with `count` distinct keys, as a client that makes up
+    # queries would, and returns the fetch processes that started.
+    defp flood(cache, count) do
+      for n <- 1..count,
+          do:
+            assert(Cache.get(cache, {:junk, n}, keyed_fetcher({:junk, n}, {:ok, n})) == :pending)
+
+      # Every refresh request has reached the cache process once this returns.
+      _ = :sys.get_state(cache)
+      collect_fetches()
+    end
+
+    defp collect_fetches(acc \\ []) do
+      receive do
+        {:fetching, key, pid} -> collect_fetches([{key, pid} | acc])
+      after
+        20 -> Enum.reverse(acc)
+      end
+    end
+
+    test "junk keys fill only the new-key share: a refresh still starts, and a new key starts when a junk fetch ends",
+         %{reserved: cache, clock: clock} do
+      # A key with a value that has expired: it needs a refresh.
+      Cache.get(cache, :real, fetcher({:ok, 1}), ttl: 1_000)
+      :ok = Cache.await(cache, :real)
+      assert_receive {:fetching, _}
+      advance(clock, 5_000)
+
+      junk = flood(cache, 200)
+      assert length(junk) == 3
+      assert %{in_flight: 3, dropped: 197} = Cache.stats(cache)
+
+      # The refresh of the key with a value takes the reserved slot.
+      assert {:stale, 1, _as_of} = Cache.get(cache, :real, keyed_fetcher(:real, {:ok, 2}))
+      assert_receive {:fetching, :real, refresh_pid}
+      assert %{in_flight: 4} = Cache.stats(cache)
+
+      # A real new key is dropped while junk holds the new-key share ...
+      assert Cache.get(cache, :new, keyed_fetcher(:new, {:ok, :n})) == :pending
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, :new, _}, 20
+
+      # ... and so is another new key while the refresh runs ...
+      send(refresh_pid, :release)
+      :ok = Cache.await(cache, :real)
+      assert {:fresh, 2, _as_of} = Cache.get(cache, :real, fetcher({:ok, :x}))
+      assert Cache.get(cache, :new, keyed_fetcher(:new, {:ok, :n})) == :pending
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, :new, _}, 20
+
+      # ... until a junk fetch ends: the next ask for the real key gets the slot.
+      [{junk_key, junk_pid} | _] = junk
+      send(junk_pid, :release)
+      :ok = Cache.await(cache, junk_key)
+      assert Cache.get(cache, :new, keyed_fetcher(:new, {:ok, :n})) == :pending
+      assert_receive {:fetching, :new, new_pid}
+
+      send(new_pid, :release)
+      :ok = Cache.await(cache, :new)
+      assert {:fresh, :n, _as_of} = Cache.get(cache, :new, fetcher({:ok, :x}))
+    end
+
+    test "refreshes of several keys can use all four slots when no new key runs",
+         %{reserved: cache, clock: clock} do
+      for key <- 1..4, do: fill(cache, key, {:ok, key}, ttl: 1_000)
+      advance(clock, 5_000)
+
+      for key <- 1..4,
+          do: assert({:stale, ^key, _} = Cache.get(cache, key, keyed_fetcher(key, {:ok, 0})))
+
+      _ = :sys.get_state(cache)
+
+      assert length(collect_fetches()) == 4
+      assert %{in_flight: 4, dropped: 0} = Cache.stats(cache)
+    end
+
+    test "a key whose fetches only failed is a new key, not a refresh", %{
+      reserved: cache,
+      clock: clock
+    } do
+      fill(cache, :failed, {:error, :boom}, backoff: 0)
+      advance(clock, 1)
+      assert {:unavailable, :boom} = Cache.get(cache, :failed, keyed_fetcher(:failed, {:ok, 1}))
+      assert_receive {:fetching, :failed, failed_pid}
+      send(failed_pid, :release)
+      :ok = Cache.await(cache, :failed)
+      assert {:fresh, 1, _as_of} = Cache.get(cache, :failed, fetcher({:ok, 2}))
+
+      # With the new-key share full, a key that never had a value is dropped.
+      fill(cache, :failed_again, {:error, :boom}, backoff: 0)
+      _junk = flood(cache, 10)
+      advance(clock, 1)
+
+      assert {:unavailable, :boom} =
+               Cache.get(cache, :failed_again, keyed_fetcher(:failed_again, {:ok, 1}))
+
+      _ = :sys.get_state(cache)
+      refute_receive {:fetching, :failed_again, _}, 20
+    end
+
+    test "the reserve must leave a slot for new keys" do
+      for opts <- [
+            [max_in_flight: 2, reserve_for_refresh: 2],
+            [max_in_flight: :infinity, reserve_for_refresh: 1],
+            [max_in_flight: 4, reserve_for_refresh: -1]
+          ] do
+        assert {:error, _reason} =
+                 start_supervised(
+                   {Cache, [name: :"cache_bad_#{System.unique_integer([:positive])}"] ++ opts}
+                 )
+      end
     end
   end
 
