@@ -93,6 +93,9 @@ defmodule Knowseek.Cards do
   module name>`), started by `Knowseek.Application`.
   """
   @spec cache_name(module()) :: atom()
+  # The argument is a provider module from config, never user input, so the
+  # atoms are as many as the providers.
+  # sobelow_skip ["DOS.ModuleConcat"]
   def cache_name(provider) when is_atom(provider) do
     Module.concat(Knowseek.Cards.Cache, provider |> Module.split() |> List.last())
   end
