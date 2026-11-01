@@ -64,13 +64,16 @@ defmodule Knowseek.Entities.WikidataTest do
                sitelinks: 74,
                wikipedia_title: "New York Knicks",
                coordinates: nil,
-               exchange_tickers: []
+               exchange_tickers: [],
+               leagues: ["Q155223"]
              } = knicks
 
       assert length(rest) == 19
       assert List.last(rest).id == "Q15927936"
       assert List.last(rest).label == "Westchester Knicks"
       assert List.last(rest).types == ["Q13393265"]
+      # The NBA G League, not the NBA.
+      assert List.last(rest).leagues == ["Q842793"]
     end
 
     test "nvidia: the ticker comes from the P249 qualifier on the P414 exchange claim" do
@@ -192,6 +195,25 @@ defmodule Knowseek.Entities.WikidataTest do
       assert entity.exchange_tickers == [%{exchange: "Q10", ticker: "OK"}]
     end
 
+    test "reads the leagues a team plays in now (P118), not deprecated or ended ones" do
+      stub_api([%{"id" => "Q1"}], %{
+        "Q1" =>
+          item(%{
+            "claims" => %{
+              "P118" => [
+                claim("P118", item_value("Q155223")),
+                claim("P118", item_value("Q1429493"), %{"rank" => "deprecated"}),
+                claim("P118", item_value("Q2"), %{"qualifiers" => %{"P582" => [%{}]}}),
+                claim("P118", %{"type" => "string", "value" => "not an item"})
+              ]
+            }
+          })
+      })
+
+      assert {:ok, [entity]} = search("x")
+      assert entity.leagues == ["Q155223"]
+    end
+
     test "a claim with several tickers lists each" do
       qualifiers = %{
         "P249" =>
@@ -305,10 +327,18 @@ defmodule Knowseek.Entities.WikidataTest do
   end
 
   describe "search/2 failures" do
-    test "an HTTP 429 is an error" do
+    test "an HTTP 429 is a rate limit that honors Retry-After" do
+      Req.Test.stub(Wikidata, fn conn ->
+        conn |> Plug.Conn.put_resp_header("retry-after", "42") |> Plug.Conn.send_resp(429, "")
+      end)
+
+      assert search("knicks") == {:error, {:rate_limited, 42_000}}
+    end
+
+    test "an HTTP 429 without Retry-After waits a minute" do
       Req.Test.stub(Wikidata, &Plug.Conn.send_resp(&1, 429, "Too Many Requests"))
 
-      assert search("knicks") == {:error, {:http_status, 429}}
+      assert search("knicks") == {:error, {:rate_limited, 60_000}}
     end
 
     test "a timeout is an error" do
@@ -317,10 +347,20 @@ defmodule Knowseek.Entities.WikidataTest do
       assert {:error, %Req.TransportError{reason: :timeout}} = search("knicks")
     end
 
-    test "an API error body is an error" do
-      Req.Test.stub(Wikidata, &Req.Test.json(&1, %{"error" => %{"code" => "maxlag"}}))
+    test "maxlag is a rate limit that honors Retry-After" do
+      Req.Test.stub(Wikidata, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("retry-after", "5")
+        |> Req.Test.json(%{"error" => %{"code" => "maxlag"}})
+      end)
 
-      assert search("knicks") == {:error, {:api_error, "maxlag"}}
+      assert search("knicks") == {:error, {:rate_limited, 5_000}}
+    end
+
+    test "another API error body is an error" do
+      Req.Test.stub(Wikidata, &Req.Test.json(&1, %{"error" => %{"code" => "badvalue"}}))
+
+      assert search("knicks") == {:error, {:api_error, "badvalue"}}
     end
 
     test "a body that is not a search answer is an error" do

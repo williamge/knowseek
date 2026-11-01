@@ -1,15 +1,25 @@
 import { useCallback, useState } from "react";
 import { DocumentReader } from "./components/DocumentReader";
+import { FactCard } from "./components/FactCard";
 import { RecentDocuments } from "./components/RecentDocuments";
 import { ResultsView } from "./components/ResultsView";
 import { SearchBox } from "./components/SearchBox";
 import { parseRoute, useRoute } from "./router";
 import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
+import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
 
-export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
+export function App({
+  watch = DEFAULT_WATCH,
+  cardPolling = DEFAULT_CARD_POLLING,
+}: {
+  watch?: WatchOptions;
+  cardPolling?: CardPolling;
+}) {
   const [route, navigate] = useRoute();
   const [refreshKey, setRefreshKey] = useState(0);
   const search = useSearch(route.query, watch, refreshKey);
+  // The card has its own state and requests: the results never wait for it.
+  const card = useCard(route.query, cardPolling);
 
   // The URL does not change when the user searches for the same query again
   // (for example to see what discovery added), so run the search again here.
@@ -62,6 +72,7 @@ export function App({ watch = DEFAULT_WATCH }: { watch?: WatchOptions }) {
             <SearchBox variant="compact" initialQuery={route.query ?? ""} onSearch={runSearch} />
           </header>
           <main className="page">
+            {card && <FactCard data={card} onSearch={runSearch} />}
             <ResultsView state={search} onOpenDocument={openDocument} />
           </main>
         </>

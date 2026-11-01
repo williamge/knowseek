@@ -1,0 +1,45 @@
+{
+  "header": {
+    "id": "401909285",
+    "competitions": [
+      {
+        "id": "401909285",
+        "status": {
+          "displayClock": "7:12",
+          "period": 4,
+          "type": {
+            "id": "2",
+            "name": "STATUS_IN_PROGRESS",
+            "state": "in",
+            "completed": false,
+            "description": "In Progress",
+            "detail": "7:12 - 4th Quarter",
+            "shortDetail": "7:12 - 4th"
+          }
+        },
+        "competitors": [
+          {
+            "id": "9",
+            "homeAway": "home",
+            "score": "98",
+            "team": {
+              "id": "9",
+              "abbreviation": "GS",
+              "displayName": "Golden State Warriors"
+            }
+          },
+          {
+            "id": "13",
+            "homeAway": "away",
+            "score": "84",
+            "team": {
+              "id": "13",
+              "abbreviation": "LAL",
+              "displayName": "Los Angeles Lakers"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

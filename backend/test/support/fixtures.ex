@@ -90,6 +90,83 @@ defmodule Knowseek.Fixtures do
     %{"entities" => entities, "success" => 1}
   end
 
+  @espn_fixtures Path.expand("fixtures/espn", __DIR__)
+
+  @doc """
+  A recorded ESPN answer, decoded. `name` is a file in
+  `test/support/fixtures/espn` without `.json`: `teams`, `schedule_ny` (the
+  Knicks: two final games, two scheduled), `roster_ny`, `schedule_lal_live`
+  (the Lakers with a game in progress), `schedule_lal_live_noscore` (the same,
+  recorded later, when ESPN listed the game in progress without scores),
+  `summary_lal_live` (the scores and status of that game) and `roster_lal`. See that
+  directory's README for how they were recorded and trimmed.
+  """
+  def espn_fixture(name) do
+    @espn_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
+  end
+
+  @doc """
+  Stubs `Knowseek.Cards.Espn` HTTP calls (`Req.Test`) with the recorded
+  answers: the NBA `/teams` list, and the `/schedule` and `/roster` of the
+  Knicks (team id 18) and the Lakers (13, game in progress). Any other path
+  is a 404. Pass `schedule_ny: body` (or `roster_ny:`, `schedule_lal_live:`,
+  `roster_lal:`, `summary_lal_live:`) to replace a body. With `gate: true` every request first
+  sends `{:espn_gated, pid}` and waits for `:go` sent to `pid`, so that a test
+  controls when the upstream answers.
+
+  Each request sends `{:espn_request, path, user_agent}` to the calling
+  process. The stub runs in the cache's fetch task, so the test must use
+  shared mode: `setup :set_req_test_from_context` in a non-async test.
+  """
+  def stub_espn(overrides \\ []) do
+    test_pid = self()
+    gate? = Keyword.get(overrides, :gate, false)
+
+    bodies =
+      Map.new(
+        [
+          {"/basketball/nba/teams", :teams},
+          {"/basketball/nba/teams/18/schedule", :schedule_ny},
+          {"/basketball/nba/teams/18/roster", :roster_ny},
+          {"/basketball/nba/teams/13/schedule", :schedule_lal_live},
+          {"/basketball/nba/teams/13/roster", :roster_lal},
+          {"/basketball/nba/summary", :summary_lal_live}
+        ],
+        fn {path, name} ->
+          {path, Keyword.get_lazy(overrides, name, fn -> espn_fixture(name) end)}
+        end
+      )
+
+    Req.Test.stub(Knowseek.Cards.Espn, fn conn ->
+      user_agent = Plug.Conn.get_req_header(conn, "user-agent")
+      path = String.replace_prefix(conn.request_path, "/apis/site/v2/sports", "")
+      send(test_pid, {:espn_request, path, user_agent})
+
+      if gate? do
+        send(test_pid, {:espn_gated, self()})
+
+        receive do
+          :go -> :ok
+        end
+      end
+
+      case Map.fetch(bodies, path) do
+        {:ok, body} -> Req.Test.json(conn, body)
+        :error -> conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"code" => 404})
+      end
+    end)
+  end
+
+  @doc """
+  Empties the application's cache of the ESPN team list (a day's TTL), so
+  that a test sees the `/teams` request itself.
+  """
+  def reset_espn_teams_cache do
+    :ok = Supervisor.terminate_child(Knowseek.Supervisor, Knowseek.Cards.EspnTeams)
+    {:ok, _pid} = Supervisor.restart_child(Knowseek.Supervisor, Knowseek.Cards.EspnTeams)
+    :ok
+  end
+
   @doc """
   A body long enough to be merged by content hash (see
   `Knowseek.Documents.min_alias_body_length/0`). Different `tag`s give

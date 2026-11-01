@@ -19,6 +19,9 @@ defmodule Knowseek.Entities.Wikidata do
       not a claim of its own. An item can list several exchanges (Sony:
       Tokyo and New York); all of them are kept. Deprecated claims, claims
       with an end time (`P582`), and claims without a ticker are skipped.
+    * `P118` (league) into `leagues`: the leagues a team plays in now.
+      Deprecated claims and claims with an end time (`P582`) are skipped,
+      so a defunct team that once played in the NBA has none.
     * `sitelinks` into the sitelink count and the English Wikipedia title.
 
   Requests send `maxlag` and a descriptive User-Agent (Wikimedia policy), and
@@ -26,6 +29,9 @@ defmodule Knowseek.Entities.Wikidata do
   the backoff of `Knowseek.Cache`. A non-200 answer is
   `{:error, {:http_status, status}}`, an API error body is
   `{:error, {:api_error, code}}`, and a timeout is the transport exception.
+  HTTP 429 and the `maxlag` API error (the replicas are behind; both come
+  with `Retry-After`) are `{:error, {:rate_limited, retry_after_ms}}`, which
+  makes `Knowseek.Cache` stop all Wikidata fetches for that long.
 
   Configuration (all optional):
 
@@ -38,6 +44,8 @@ defmodule Knowseek.Entities.Wikidata do
   @behaviour Knowseek.Entities.Resolver
 
   alias Knowseek.Entities.Entity
+
+  require Logger
 
   @defaults [
     base_url: "https://www.wikidata.org/w/api.php",
@@ -113,7 +121,8 @@ defmodule Knowseek.Entities.Wikidata do
       sitelinks: map_size(sitelinks),
       wikipedia_title: get_in(sitelinks, ["enwiki", "title"]),
       coordinates: coordinates(Map.get(claims, "P625", [])),
-      exchange_tickers: exchange_tickers(Map.get(claims, "P414", []))
+      exchange_tickers: exchange_tickers(Map.get(claims, "P414", [])),
+      leagues: leagues(Map.get(claims, "P118", []))
     }
   end
 
@@ -155,6 +164,15 @@ defmodule Knowseek.Entities.Wikidata do
     end
   end
 
+  defp leagues(claims) do
+    for claim <- claims,
+        claim["rank"] != "deprecated",
+        not Map.has_key?(claim["qualifiers"] || %{}, "P582"),
+        league <- item_ids(claim) do
+      league
+    end
+  end
+
   defp tickers(qualifiers) do
     for %{"snaktype" => "value", "datavalue" => %{"value" => ticker}} <-
           Map.get(qualifiers, "P249", []),
@@ -164,6 +182,8 @@ defmodule Knowseek.Entities.Wikidata do
   end
 
   defp api_get(params, config) do
+    Logger.debug("Wikidata #{params[:action]}")
+
     request =
       Req.new(
         url: config[:base_url],
@@ -175,6 +195,9 @@ defmodule Knowseek.Entities.Wikidata do
       |> Req.merge(config[:req_options])
 
     case Req.get(request) do
+      {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => "maxlag"}}} = response} ->
+        {:error, Knowseek.Cache.rate_limited(response)}
+
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => code}}}} ->
         {:error, {:api_error, code}}
 
@@ -183,6 +206,9 @@ defmodule Knowseek.Entities.Wikidata do
 
       {:ok, %Req.Response{status: 200}} ->
         {:error, :unexpected_body}
+
+      {:ok, %Req.Response{status: 429} = response} ->
+        {:error, Knowseek.Cache.rate_limited(response)}
 
       {:ok, %Req.Response{status: status}} ->
         {:error, {:http_status, status}}

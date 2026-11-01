@@ -7,6 +7,8 @@ Recorded responses of the Wikidata API (`https://www.wikidata.org/w/api.php`, `f
 | `search_<query>.json` | `action=wbsearchentities&search=<query>&language=en&uselang=en&type=item` |
 | `entities_<query>.json` | `action=wbgetentities&ids=<Q-ids from the search>&props=claims|sitelinks` |
 
+`entities_knicks.json` has one hand-added claim on two items, copied from the live API on 2026-10-31 (task 031, which reads `P118`, league): `P118` = `Q155223` (NBA) on the New York Knicks (`Q131364`) and `P118` = `Q842793` (NBA G League) on the Westchester Knicks (`Q15927936`). Both claims are trimmed to the fields the resolver reads, like the rest of the file.
+
 ## License
 
-Wikidata structured data is available under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication). Attribution is not required. The files are kept as recorded.
+Wikidata structured data is available under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication). Attribution is not required. The files are kept as recorded, except for the claims named above.

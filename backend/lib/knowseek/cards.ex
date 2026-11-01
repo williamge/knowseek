@@ -1,0 +1,165 @@
+defmodule Knowseek.Cards do
+  @moduledoc """
+  Live fact cards for an entity (ADR 0017, decision 4): the score of a team,
+  later the filings of a company and the weather of a place.
+
+  `get/2` is cache-only, like `Knowseek.Entities.resolve/2`. It never calls a
+  provider in the caller's process. It reads the in-memory cache of
+  `Knowseek.Cache` and, when the card is missing or past its TTL, asks the
+  cache to refresh it in a supervised task (one fetch per entity, however many
+  callers; a short timeout; a backoff after a failure; at most `:max_in_flight`
+  fetches at once; and a stop of all fetches while an upstream rate limit
+  lasts). The caller polls. Nothing writes to the database.
+
+  Which provider handles an entity is config (`:providers`, in order, the
+  first whose `c:Knowseek.Cards.Provider.handles?/1` is true wins). Providers
+  implement `Knowseek.Cards.Provider`.
+
+  ## Result
+
+  `:none` when no provider handles the entity (callers show no card), else a
+  map:
+
+    * `status` - `:fresh` (within its TTL), `:stale` (past its TTL, kept while
+      the refresh runs or after it failed), `:pending` (nothing cached yet, a
+      fetch was started), `:unavailable` (the fetch failed and nothing was ever
+      cached).
+    * `type`, `title`, `facts` - the card (`Knowseek.Cards.Provider`), or `nil`
+      for `:pending` and `:unavailable`.
+    * `as_of` - when the data was fetched (UTC), or `nil`.
+    * `refresh_after_ms` - when to ask again: the time the card has left,
+      clamped to 2-60 s, or 2 s for `:stale` (the refresh that runs finishes
+      in a second or two; a failed one is retried after the backoff) and 30 s
+      for `:unavailable`;
+      0.7 s for `:pending`.
+
+  ## Configuration
+
+  See `config/config.exs`: `providers`, `backoff`, `timeout`, and `cache`
+  (start options of the `Knowseek.Cards.Cache` instance).
+  """
+
+  alias Knowseek.Cache
+  alias Knowseek.Entities.Entity
+
+  @cache Knowseek.Cards.Cache
+
+  @pending_poll_ms 700
+  @stale_poll_ms 2_000
+  @unavailable_poll_ms 30_000
+  @min_poll_ms 2_000
+  @max_poll_ms 60_000
+
+  @type status :: :fresh | :stale | :pending | :unavailable
+  @type t :: %{
+          status: status(),
+          type: String.t() | nil,
+          title: String.t() | nil,
+          facts: map() | nil,
+          as_of: DateTime.t() | nil,
+          refresh_after_ms: pos_integer()
+        }
+
+  @doc """
+  The card for `entity`, or `:none`. Options (for tests): `:cache` (a started
+  `Knowseek.Cache` name), `:providers`, and `:clock` (a function returning the
+  time in milliseconds, the one the cache uses).
+  """
+  @spec get(Entity.t(), keyword()) :: t() | :none
+  def get(%Entity{} = entity, opts \\ []) do
+    config = config(opts)
+
+    case provider(entity, config) do
+      nil -> :none
+      provider -> read(provider, entity, config)
+    end
+  end
+
+  @doc """
+  Blocks until the fetch running for `entity` (if any) has finished. For
+  tests and scripts that need the result of a `:pending`; the request path
+  never calls it. Same options as `get/2`.
+  """
+  @spec await(Entity.t(), keyword()) :: :ok
+  def await(%Entity{} = entity, opts \\ []) do
+    config = config(opts)
+
+    case provider(entity, config) do
+      nil ->
+        :ok
+
+      provider ->
+        Cache.await(config.cache, key(provider, entity), Keyword.get(opts, :timeout, :infinity))
+    end
+  end
+
+  defp provider(entity, config), do: Enum.find(config.providers, & &1.handles?(entity))
+
+  defp key(provider, entity), do: {provider, entity.id}
+
+  defp read(provider, entity, config) do
+    result =
+      Cache.get(
+        config.cache,
+        key(provider, entity),
+        fn -> fetch(provider, entity) end,
+        ttl: fn {_card, ttl} -> ttl end,
+        backoff: config.backoff,
+        timeout: config.timeout
+      )
+
+    present(result, config)
+  end
+
+  # Runs in the cache's task, never in the caller. The TTL is stored with the
+  # card, so that the cache can read it from the value.
+  defp fetch(provider, entity) do
+    case provider.fetch(entity) do
+      {:ok, %{type: _, title: _, facts: _} = card, ttl} when is_integer(ttl) -> {:ok, {card, ttl}}
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:bad_provider_return, other}}
+    end
+  end
+
+  defp present({status, {card, ttl}, as_of}, config) when status in [:fresh, :stale] do
+    refresh_after =
+      if status == :fresh do
+        remaining = DateTime.diff(as_of, now(config), :millisecond) + ttl
+        remaining |> max(@min_poll_ms) |> min(@max_poll_ms)
+      else
+        @stale_poll_ms
+      end
+
+    Map.merge(card, %{status: status, as_of: as_of, refresh_after_ms: refresh_after})
+  end
+
+  defp present(:pending, _config), do: empty(:pending, @pending_poll_ms)
+  defp present({:unavailable, _reason}, _config), do: empty(:unavailable, @unavailable_poll_ms)
+
+  defp empty(status, refresh_after_ms) do
+    %{
+      status: status,
+      type: nil,
+      title: nil,
+      facts: nil,
+      as_of: nil,
+      refresh_after_ms: refresh_after_ms
+    }
+  end
+
+  defp now(config) do
+    DateTime.from_unix!(config.clock.(), :millisecond)
+  end
+
+  defp config(opts) do
+    env = Application.fetch_env!(:knowseek, __MODULE__)
+
+    %{
+      cache: Keyword.get(opts, :cache, @cache),
+      providers: Keyword.get(opts, :providers, Keyword.fetch!(env, :providers)),
+      backoff: Keyword.fetch!(env, :backoff),
+      timeout: Keyword.fetch!(env, :timeout),
+      clock: Keyword.get(opts, :clock, fn -> System.system_time(:millisecond) end)
+    }
+  end
+end

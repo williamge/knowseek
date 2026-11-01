@@ -1,8 +1,8 @@
 defmodule Knowseek.Cache do
   @moduledoc """
   A disposable in-memory cache with a background refresher (ADR 0017,
-  decision 4). Entity resolution uses it (`Knowseek.Entities`), and the card
-  framework will too.
+  decision 4). Entity resolution (`Knowseek.Entities`) and the live fact cards
+  (`Knowseek.Cards`) use it, each with its own instance.
 
   `get/4` reads an ETS table and never calls the fetch function in the
   caller's process. When the entry is missing or past its TTL, `get/4` asks
@@ -18,6 +18,21 @@ defmodule Knowseek.Cache do
       milliseconds no new fetch starts, so a down upstream is not hammered.
       With no value ever stored, `get/4` returns `{:unavailable, reason}`.
     * **TTL.** A fetched value is `:fresh` for `:ttl` milliseconds.
+    * **Cap on concurrent fetches.** At most `:max_in_flight` fetches run at
+      once. A refresh that would be the next one is dropped, not queued: the
+      key stays `:pending` and the next `get/4` asks again. N distinct
+      (user-chosen) keys cost at most `:max_in_flight` upstream calls at a time.
+      Every drop is counted (`stats/1`) and logged as a warning, at most once
+      every ten seconds, so that a flood of distinct keys shows up. A flood
+      can keep every slot busy and leave a real key `:pending`: the cap bounds
+      the upstream load, it does not decide who gets the slots.
+    * **Cache-wide rate-limit backoff.** A fetch that fails with
+      `{:error, {:rate_limited, retry_after_ms}}` (the upstream said 429, or
+      `maxlag`, with a `Retry-After`) stops *every* fetch of this cache until
+      the time is up (at most ten minutes). Keys with a value keep returning it
+      as `:stale`; keys without one return
+      `{:unavailable, {:rate_limited, ms_left}}`. Give each upstream its own
+      cache instance, so that one upstream's limit does not stop another's.
 
   The cache is lost on restart. Nothing writes to the database, and nothing
   runs for a key that nobody asks for.
@@ -58,13 +73,19 @@ defmodule Knowseek.Cache do
       inject one. Default `System.system_time(:millisecond)`.
     * `:max_entries` - at most this many keys are kept. Above it, the least
       recently written ones (10%, at least one) are dropped. Default `10_000`.
+    * `:max_in_flight` - at most this many fetches run at once. Default
+      `:infinity`. Caches whose keys come from user input set it.
   """
   use GenServer
+
+  require Logger
 
   @default_ttl 60_000
   @default_backoff 5_000
   @default_timeout 10_000
   @default_max_entries 10_000
+  @max_rate_limit_backoff :timer.minutes(10)
+  @drop_log_interval :timer.seconds(10)
 
   @type key :: term()
   @type cache :: atom()
@@ -111,10 +132,12 @@ defmodule Knowseek.Cache do
   def get(cache, key, fetch_fun, opts \\ []) when is_atom(cache) and is_function(fetch_fun, 0) do
     now = now(cache)
     entry = lookup(cache, key)
+    blocked_until = blocked_until(cache)
 
-    if refresh_due?(entry, now), do: GenServer.cast(cache, {:refresh, key, fetch_fun, opts})
+    if blocked_until <= now and refresh_due?(entry, now),
+      do: GenServer.cast(cache, {:refresh, key, fetch_fun, opts})
 
-    classify(entry, now)
+    classify(entry, now, blocked_until)
   rescue
     # The ETS table is gone while the cache process restarts.
     ArgumentError -> {:unavailable, :cache_not_running}
@@ -136,6 +159,41 @@ defmodule Knowseek.Cache do
     GenServer.call(cache, {:await, key}, timeout)
   end
 
+  @doc """
+  Counters of the cache, for logs and tests: `entries` (keys stored),
+  `in_flight` (fetches running), `dropped` (refreshes dropped over
+  `:max_in_flight` since the start) and `blocked_until` (the end of a
+  rate-limit stop, in the clock's milliseconds, or 0).
+  """
+  @spec stats(cache()) :: %{
+          entries: non_neg_integer(),
+          in_flight: non_neg_integer(),
+          dropped: non_neg_integer(),
+          blocked_until: non_neg_integer()
+        }
+  def stats(cache) when is_atom(cache), do: GenServer.call(cache, :stats)
+
+  @default_retry_after 60_000
+
+  @doc """
+  The `{:rate_limited, retry_after_ms}` reason for a rate-limited upstream
+  `Req.Response` (HTTP 429, or Wikidata's `maxlag`), for fetch functions to
+  return as `{:error, reason}`. Reads `Retry-After` in seconds (an HTTP date
+  or a missing header is one minute).
+  """
+  @spec rate_limited(Req.Response.t()) :: {:rate_limited, non_neg_integer()}
+  def rate_limited(%Req.Response{} = response) do
+    ms =
+      with [value | _] <- Req.Response.get_header(response, "retry-after"),
+           {seconds, ""} when seconds >= 0 <- Integer.parse(String.trim(value)) do
+        seconds * 1000
+      else
+        _ -> @default_retry_after
+      end
+
+    {:rate_limited, ms}
+  end
+
   ## Entry logic (pure)
 
   defp lookup(cache, key) do
@@ -153,14 +211,24 @@ defmodule Knowseek.Cache do
     end
   end
 
-  defp classify(nil, _now), do: :pending
+  defp blocked_until(cache) do
+    case :ets.lookup(cache, :blocked_until) do
+      [{:blocked_until, ms}] -> ms
+      [] -> 0
+    end
+  end
 
-  defp classify(%{result: {:ok, value}, as_of: as_of, expires_at: expires_at}, now) do
+  defp classify(nil, now, blocked_until) when blocked_until > now,
+    do: {:unavailable, {:rate_limited, blocked_until - now}}
+
+  defp classify(nil, _now, _blocked_until), do: :pending
+
+  defp classify(%{result: {:ok, value}, as_of: as_of, expires_at: expires_at}, now, _blocked) do
     status = if now < expires_at, do: :fresh, else: :stale
     {status, value, DateTime.from_unix!(as_of, :millisecond)}
   end
 
-  defp classify(%{result: nil, error: error}, _now), do: {:unavailable, error}
+  defp classify(%{result: nil, error: error}, _now, _blocked), do: {:unavailable, error}
 
   defp refresh_due?(nil, _now), do: true
 
@@ -190,6 +258,10 @@ defmodule Knowseek.Cache do
        clock: clock,
        task_sup: task_sup,
        max_entries: Keyword.get(opts, :max_entries, @default_max_entries),
+       max_in_flight: Keyword.get(opts, :max_in_flight, :infinity),
+       blocked_until: 0,
+       dropped: 0,
+       last_drop_log: nil,
        in_flight: %{},
        waiters: %{}
      }}
@@ -201,10 +273,30 @@ defmodule Knowseek.Cache do
 
     # Callers decide on a stale read, so re-check here: the entry may have
     # been refreshed since, and a fetch may be running already.
-    if Map.has_key?(state.in_flight, key) or not refresh_due?(lookup(state.cache, key), now) do
-      {:noreply, state}
+    cond do
+      Map.has_key?(state.in_flight, key) -> {:noreply, state}
+      state.blocked_until > now -> {:noreply, state}
+      not refresh_due?(lookup(state.cache, key), now) -> {:noreply, state}
+      at_capacity?(state) -> {:noreply, drop(state, now)}
+      true -> {:noreply, start_fetch(state, key, fetch_fun, opts)}
+    end
+  end
+
+  defp at_capacity?(%{max_in_flight: :infinity}), do: false
+  defp at_capacity?(state), do: map_size(state.in_flight) >= state.max_in_flight
+
+  defp drop(state, now) do
+    state = %{state | dropped: state.dropped + 1}
+
+    if state.last_drop_log == nil or now - state.last_drop_log >= @drop_log_interval do
+      Logger.warning(
+        "#{inspect(state.cache)}: #{state.dropped} refreshes dropped so far, " <>
+          "#{state.max_in_flight} fetches already in flight"
+      )
+
+      %{state | last_drop_log: now}
     else
-      {:noreply, start_fetch(state, key, fetch_fun, opts)}
+      state
     end
   end
 
@@ -215,6 +307,17 @@ defmodule Knowseek.Cache do
     else
       {:reply, :ok, state}
     end
+  end
+
+  def handle_call(:stats, _from, state) do
+    stats = %{
+      entries: entry_count(state.cache),
+      in_flight: map_size(state.in_flight),
+      dropped: state.dropped,
+      blocked_until: state.blocked_until
+    }
+
+    {:reply, stats, state}
   end
 
   @impl true
@@ -310,7 +413,7 @@ defmodule Knowseek.Cache do
           }
 
         {:error, reason} ->
-          failed(previous, reason, now, flight.backoff)
+          failed(previous, reason, now, backoff_for(reason, flight.backoff))
       end
 
     :ets.insert(state.cache, {{:entry, key}, entry})
@@ -318,8 +421,22 @@ defmodule Knowseek.Cache do
 
     {waiters, remaining} = Map.pop(state.waiters, key, [])
     Enum.each(waiters, &GenServer.reply(&1, :ok))
-    %{state | waiters: remaining}
+    block(%{state | waiters: remaining}, result, now)
   end
+
+  # A rate limit from the upstream stops every fetch, not just this key's.
+  defp block(state, {:error, {:rate_limited, ms}}, now) when is_number(ms) and ms >= 0 do
+    blocked_until = max(state.blocked_until, now + min(trunc(ms), @max_rate_limit_backoff))
+    :ets.insert(state.cache, {:blocked_until, blocked_until})
+    %{state | blocked_until: blocked_until}
+  end
+
+  defp block(state, _result, _now), do: state
+
+  defp backoff_for({:rate_limited, ms}, backoff) when is_number(ms),
+    do: max(backoff, min(trunc(ms), @max_rate_limit_backoff))
+
+  defp backoff_for(_reason, backoff), do: backoff
 
   # The old value, if any, stays.
   defp failed(nil, reason, now, backoff) do
@@ -339,11 +456,15 @@ defmodule Knowseek.Cache do
 
   defp next_seq, do: System.unique_integer([:monotonic])
 
-  # `:meta` is one of the rows. Entries go in order of `seq`, a counter that
-  # never repeats, so equal clock readings cannot make the key that was just
-  # written the oldest. Keys that are being fetched stay.
+  # `:meta` and `:blocked_until` are rows too, so count only the entries.
+  defp entry_count(cache),
+    do: :ets.select_count(cache, [{{{:entry, :_}, :_}, [], [true]}])
+
+  # Entries go in order of `seq`, a counter that never repeats, so equal clock
+  # readings cannot make the key that was just written the oldest. Keys that
+  # are being fetched stay.
   defp evict(%{cache: cache, max_entries: max_entries} = state) do
-    if :ets.info(cache, :size) - 1 > max_entries do
+    if entry_count(cache) > max_entries do
       busy = Map.keys(state.in_flight)
 
       oldest =

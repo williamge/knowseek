@@ -150,3 +150,29 @@ export function highlight(text: string, query: string): Segment[] {
     .map((part, index) => ({ text: part, match: index % 2 === 1 }))
     .filter((segment) => segment.text !== "");
 }
+
+/** "3:42 PM", or "3:42:15 PM" with `seconds`, in the user's time zone. */
+export function clockTime(iso: string, seconds = false): string {
+  return new Date(iso).toLocaleTimeString("en", {
+    hour: "numeric",
+    minute: "2-digit",
+    ...(seconds ? { second: "2-digit" } : {}),
+  });
+}
+
+/** "Mon, Nov 2, 7:30 PM", in the user's time zone. */
+export function gameTime(iso: string): string {
+  return new Date(iso).toLocaleString("en", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+/** "at Boston Celtics" or "vs Boston Celtics". */
+export function versus(homeAway: string | null, opponent: string | null): string {
+  if (!opponent) return "";
+  return `${homeAway === "away" ? "at" : "vs"} ${opponent}`;
+}

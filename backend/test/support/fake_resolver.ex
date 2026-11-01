@@ -1,7 +1,8 @@
 defmodule Knowseek.Entities.FakeResolver do
   @moduledoc """
   A `Knowseek.Entities.Resolver` for tests: no HTTP. `"fake"` finds a
-  basketball team, `"boom"` fails, anything else finds nothing.
+  basketball team, `"dup"` finds three (two share a label), `"boom"` fails,
+  anything else finds nothing.
   """
   @behaviour Knowseek.Entities.Resolver
 
@@ -19,6 +20,14 @@ defmodule Knowseek.Entities.FakeResolver do
          wikipedia_title: "Fake Team"
        }
      ]}
+  end
+
+  def search("dup", _opts) do
+    team = fn id, label ->
+      %Entity{id: id, label: label, types: ["Q13393265"], sitelinks: 1}
+    end
+
+    {:ok, [team.("Q-1", "Same Name"), team.("Q-2", "Same name "), team.("Q-3", "Other Name")]}
   end
 
   def search("boom", _opts), do: {:error, :boom}

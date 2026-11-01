@@ -1,0 +1,201 @@
+{
+  "team": {
+    "id": "18",
+    "displayName": "New York Knicks",
+    "recordSummary": "2-4"
+  },
+  "events": [
+    {
+      "id": "401909886",
+      "date": "2026-10-29T00:00Z",
+      "name": "New York Knicks at Chicago Bulls",
+      "competitions": [
+        {
+          "status": {
+            "clock": 720.0,
+            "displayClock": "12:00",
+            "period": 4,
+            "type": {
+              "id": "3",
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true,
+              "description": "Final",
+              "detail": "Final",
+              "shortDetail": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "id": "4",
+              "homeAway": "home",
+              "score": {
+                "value": 127.0,
+                "displayValue": "127"
+              },
+              "winner": false,
+              "team": {
+                "id": "4",
+                "abbreviation": "CHI",
+                "displayName": "Chicago Bulls"
+              }
+            },
+            {
+              "id": "18",
+              "homeAway": "away",
+              "score": {
+                "value": 133.0,
+                "displayValue": "133"
+              },
+              "winner": true,
+              "team": {
+                "id": "18",
+                "abbreviation": "NY",
+                "displayName": "New York Knicks"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909280",
+      "date": "2026-10-30T23:30Z",
+      "name": "New York Knicks at Philadelphia 76ers",
+      "competitions": [
+        {
+          "status": {
+            "clock": 720.0,
+            "displayClock": "12:00",
+            "period": 4,
+            "type": {
+              "id": "3",
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true,
+              "description": "Final",
+              "detail": "Final",
+              "shortDetail": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "id": "20",
+              "homeAway": "home",
+              "score": {
+                "value": 98.0,
+                "displayValue": "98"
+              },
+              "winner": true,
+              "team": {
+                "id": "20",
+                "abbreviation": "PHI",
+                "displayName": "Philadelphia 76ers"
+              }
+            },
+            {
+              "id": "18",
+              "homeAway": "away",
+              "score": {
+                "value": 93.0,
+                "displayValue": "93"
+              },
+              "winner": false,
+              "team": {
+                "id": "18",
+                "abbreviation": "NY",
+                "displayName": "New York Knicks"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909910",
+      "date": "2026-11-03T00:30Z",
+      "name": "Brooklyn Nets at New York Knicks",
+      "competitions": [
+        {
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Mon, November 2nd at 7:30 PM EST",
+              "shortDetail": "11/2 - 7:30 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "18",
+              "homeAway": "home",
+              "team": {
+                "id": "18",
+                "abbreviation": "NY",
+                "displayName": "New York Knicks"
+              }
+            },
+            {
+              "id": "17",
+              "homeAway": "away",
+              "team": {
+                "id": "17",
+                "abbreviation": "BKN",
+                "displayName": "Brooklyn Nets"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909926",
+      "date": "2026-11-05T00:30Z",
+      "name": "Chicago Bulls at New York Knicks",
+      "competitions": [
+        {
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 4th at 7:30 PM EST",
+              "shortDetail": "11/4 - 7:30 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "18",
+              "homeAway": "home",
+              "team": {
+                "id": "18",
+                "abbreviation": "NY",
+                "displayName": "New York Knicks"
+              }
+            },
+            {
+              "id": "4",
+              "homeAway": "away",
+              "team": {
+                "id": "4",
+                "abbreviation": "CHI",
+                "displayName": "Chicago Bulls"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
