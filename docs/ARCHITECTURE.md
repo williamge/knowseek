@@ -165,3 +165,7 @@ The backend builds into a Mix release image (`backend/Dockerfile`). `docker comp
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 
 Each limitation has a task in `docs/tasks/`.
+
+## See also
+
+- [`DATA-AND-JOBS.md`](DATA-AND-JOBS.md): every table with measured sizes and growth, the in-memory caches, every Oban job with measured durations, and commands to inspect them.

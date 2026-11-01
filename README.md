@@ -126,6 +126,7 @@ Test fixtures contain excerpts of Wikipedia (CC BY-SA 4.0) and Wikidata (CC0). S
 - [`AGENTS.md`](AGENTS.md): how to work in this repo (for humans and coding agents)
 - [`docs/WORKING-WITH-AGENTS.md`](docs/WORKING-WITH-AGENTS.md): how to run several agents in parallel, with prompt templates in [`docs/agent-brief.md`](docs/agent-brief.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, data model
+- [`docs/DATA-AND-JOBS.md`](docs/DATA-AND-JOBS.md): every table and cache, measured sizes and growth, every background job, and commands to inspect them
 - [`docs/decisions/`](docs/decisions/): architecture decision records
 - [`docs/tasks/`](docs/tasks/): the task backlog
 - [`frontend/README.md`](frontend/README.md): the web UI
