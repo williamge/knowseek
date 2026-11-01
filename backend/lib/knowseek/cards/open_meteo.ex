@@ -9,7 +9,7 @@ defmodule Knowseek.Cards.OpenMeteo do
   Requests send a descriptive User-Agent, have a short timeout, and never retry (the
   retry is the next refresh, after the backoff of `Knowseek.Cache`). A non-200 answer is
   `{:error, {:http_status, status}}`. HTTP 429 is `{:error, {:rate_limited, retry_after_ms}}`,
-  which stops every fetch of the cards cache for that long.
+  which stops every fetch of the weather cache (each card provider has its own, `Knowseek.Cards.cache_name/1`) for that long.
 
   Configuration:
 

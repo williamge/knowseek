@@ -1,11 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { FactCard } from "../src/components/FactCard";
 import { WeatherFacts } from "../src/components/WeatherFacts";
 import { weatherFacts, weatherResponse } from "./fixtures";
 
 const noop = () => {};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("weather card", () => {
   it("shows the place, its description, the temperature in the reader's units and the condition", () => {
@@ -18,7 +22,6 @@ describe("weather card", () => {
     expect(card.querySelector(".weather__temp")).toHaveTextContent("63°F");
     expect(within(card).getByText(/Clear sky/)).toBeInTheDocument();
     expect(within(card).getByText(/feels like 60°F/)).toBeInTheDocument();
-    vi.restoreAllMocks();
   });
 
   it("shows today's high and low, the wind and the humidity", () => {
@@ -26,7 +29,7 @@ describe("weather card", () => {
 
     expect(screen.getByText(/High 68°F · low 53°F/)).toBeInTheDocument();
     expect(screen.getByText(/0% chance of rain/)).toBeInTheDocument();
-    expect(screen.getByText(/3 mph N/)).toBeInTheDocument();
+    expect(screen.getByText(/3 mph from N/)).toBeInTheDocument();
     expect(screen.getByText(/humidity 55%/)).toBeInTheDocument();
   });
 
@@ -35,7 +38,7 @@ describe("weather card", () => {
 
     expect(screen.getAllByText("17°C")[0]).toHaveClass("weather__temp");
     expect(screen.getByText(/High 20°C · low 12°C/)).toBeInTheDocument();
-    expect(screen.getByText(/5 km\/h N/)).toBeInTheDocument();
+    expect(screen.getByText(/5 km\/h from N/)).toBeInTheDocument();
   });
 
   it("shows a strip of the days, today first", () => {
@@ -138,5 +141,58 @@ describe("weather card", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "New York City" }));
     expect(onSearch).toHaveBeenCalledWith("weather in New York City");
+  });
+
+  it.each(["", "not a locale!"])(
+    "renders with en-US units when navigator.language is %j (no crash)",
+    (language) => {
+      vi.spyOn(navigator, "language", "get").mockReturnValue(language);
+      render(<FactCard data={weatherResponse()} onSearch={noop} />);
+
+      expect(screen.getByRole("region", { name: "Live facts: Tokyo" })).toBeInTheDocument();
+      expect(screen.getByText("10:00 AM GMT+9")).toBeInTheDocument();
+      expect(document.querySelector(".weather__temp")).toHaveTextContent("63°F");
+    },
+  );
+
+  it("links the license as well as the credit", () => {
+    render(<FactCard data={weatherResponse()} onSearch={noop} />);
+    expect(screen.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute(
+      "href",
+      "https://creativecommons.org/licenses/by/4.0/",
+    );
+  });
+
+  it("says where the wind comes from, and nothing when the direction is unknown", () => {
+    const facts = weatherFacts();
+    const { rerender } = render(
+      <WeatherFacts title="Tokyo" description={null} facts={facts} locale="en-US" />,
+    );
+    expect(screen.getByText(/3 mph from N/)).toBeInTheDocument();
+
+    rerender(
+      <WeatherFacts
+        title="Tokyo"
+        description={null}
+        facts={{ ...facts, current: { ...facts.current, wind_direction_deg: null } }}
+        locale="en-US"
+      />,
+    );
+    expect(screen.queryByText(/from/)).not.toBeInTheDocument();
+  });
+
+  it("gives an alternative place its description as a tooltip", () => {
+    const alternative = {
+      id: "Q1384",
+      label: "New York",
+      description: "state of the United States of America",
+      kind: "place",
+      wikipedia_title: "New York (state)",
+    };
+    render(<FactCard data={weatherResponse({ alternatives: [alternative] })} onSearch={noop} />);
+    expect(screen.getByRole("button", { name: "New York" })).toHaveAttribute(
+      "title",
+      "state of the United States of America",
+    );
   });
 });

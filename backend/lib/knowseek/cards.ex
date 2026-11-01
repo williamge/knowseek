@@ -36,16 +36,24 @@ defmodule Knowseek.Cards do
       for `:unavailable`;
       0.7 s for `:pending`.
 
+  ## One cache per provider
+
+  Each provider has its own `Knowseek.Cache` instance (`cache_name/1`, started
+  by the application for every provider in `:providers`), because a rate limit
+  stops every fetch of a cache: a 429 from Open-Meteo must not make the NBA
+  cards `unavailable`, and the entries and in-flight slots that a flood of
+  places uses must not push out the team cards. Adding a provider to the list
+  gives it a cache.
+
   ## Configuration
 
-  See `config/config.exs`: `providers`, `backoff`, `timeout`, and `cache`
-  (start options of the `Knowseek.Cards.Cache` instance).
+  See `config/config.exs`: `providers`, `backoff`, `timeout`, `cache` (start
+  options of every provider's cache) and `caches` (options per provider, merged
+  over `cache`).
   """
 
   alias Knowseek.Cache
   alias Knowseek.Entities.Entity
-
-  @cache Knowseek.Cards.Cache
 
   @pending_poll_ms 700
   @stale_poll_ms 2_000
@@ -65,7 +73,8 @@ defmodule Knowseek.Cards do
 
   @doc """
   The card for `entity`, or `:none`. Options (for tests): `:cache` (a started
-  `Knowseek.Cache` name), `:providers`, `:clock` (a function returning the
+  `Knowseek.Cache` name for every provider, or a map of provider to cache
+  name), `:providers`, `:clock` (a function returning the
   time in milliseconds, the one the cache uses), and `:intent` (the intent of
   the query, `nil` when it had none).
   """
@@ -77,6 +86,29 @@ defmodule Knowseek.Cards do
       nil -> :none
       provider -> read(provider, entity, config)
     end
+  end
+
+  @doc """
+  The name of the cache of `provider` (`Knowseek.Cards.Cache.<last part of the
+  module name>`), started by `Knowseek.Application`.
+  """
+  @spec cache_name(module()) :: atom()
+  def cache_name(provider) when is_atom(provider) do
+    Module.concat(Knowseek.Cards.Cache, provider |> Module.split() |> List.last())
+  end
+
+  @doc """
+  The start options of the cache of `provider`: config `cache`, with the
+  provider's entry of `caches` merged over it.
+  """
+  @spec cache_options(module()) :: keyword()
+  def cache_options(provider) when is_atom(provider) do
+    env = Application.fetch_env!(:knowseek, __MODULE__)
+
+    Keyword.merge(
+      Keyword.get(env, :cache, []),
+      env |> Keyword.get(:caches, []) |> Keyword.get(provider, [])
+    )
   end
 
   @doc """
@@ -93,7 +125,11 @@ defmodule Knowseek.Cards do
         :ok
 
       provider ->
-        Cache.await(config.cache, key(provider, entity), Keyword.get(opts, :timeout, :infinity))
+        Cache.await(
+          cache(config, provider),
+          key(provider, entity),
+          Keyword.get(opts, :timeout, :infinity)
+        )
     end
   end
 
@@ -106,12 +142,19 @@ defmodule Knowseek.Cards do
       provider.intent() == intent
   end
 
+  defp cache(%{cache: nil}, provider), do: cache_name(provider)
+
+  defp cache(%{cache: %{} = caches}, provider),
+    do: Map.get_lazy(caches, provider, fn -> cache_name(provider) end)
+
+  defp cache(%{cache: name}, _provider), do: name
+
   defp key(provider, entity), do: {provider, entity.id}
 
   defp read(provider, entity, config) do
     result =
       Cache.get(
-        config.cache,
+        cache(config, provider),
         key(provider, entity),
         fn -> fetch(provider, entity) end,
         ttl: fn {_card, ttl} -> ttl end,
@@ -166,7 +209,7 @@ defmodule Knowseek.Cards do
     env = Application.fetch_env!(:knowseek, __MODULE__)
 
     %{
-      cache: Keyword.get(opts, :cache, @cache),
+      cache: Keyword.get(opts, :cache),
       providers: Keyword.get(opts, :providers, Keyword.fetch!(env, :providers)),
       backoff: Keyword.fetch!(env, :backoff),
       timeout: Keyword.fetch!(env, :timeout),

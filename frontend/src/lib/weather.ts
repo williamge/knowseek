@@ -1,22 +1,39 @@
 import type { WeatherDay } from "../types";
 
+const FALLBACK_LOCALE = "en-US";
+
+/**
+ * `locale` if it is a valid BCP 47 tag, else `en-US`. `navigator.language` can
+ * be empty, and `Intl` throws a RangeError on an empty or malformed tag, which
+ * would unmount the page.
+ */
+export function safeLocale(locale: string | null | undefined): string {
+  if (!locale) return FALLBACK_LOCALE;
+  try {
+    return Intl.getCanonicalLocales(locale).length > 0 ? locale : FALLBACK_LOCALE;
+  } catch {
+    return FALLBACK_LOCALE;
+  }
+}
+
 /**
  * The backend sends metric values. Only the US reads Fahrenheit, mph and
  * inches; every other locale gets metric. A bare language ("en") counts as its
  * most likely region (`en` is `en-US`), like the browser's own formatting.
  */
 export function usesImperial(locale: string): boolean {
-  try {
-    return new Intl.Locale(locale).maximize().region === "US";
-  } catch {
-    return false;
-  }
+  return new Intl.Locale(safeLocale(locale)).maximize().region === "US";
 }
 
 const MISSING = "–";
 
+/** Rounds first, so that -0.2 shows as "0", not "-0". */
 function number(value: number, locale: string, maximumFractionDigits = 0): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);
+  const scale = 10 ** maximumFractionDigits;
+  const rounded = Math.round(value * scale) / scale;
+  return new Intl.NumberFormat(safeLocale(locale), { maximumFractionDigits }).format(
+    rounded === 0 ? 0 : rounded,
+  );
 }
 
 /** 17 -> "63°F" (US) or "17°C". */
@@ -47,7 +64,7 @@ const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
 /** 351 -> "N", 90 -> "E": the direction the wind blows from. */
 export function compassPoint(degrees: number | null): string {
-  if (degrees === null) return "";
+  if (degrees === null || !Number.isFinite(degrees)) return "";
   const index = Math.round((((degrees % 360) + 360) % 360) / 45) % 8;
   return COMPASS[index];
 }
@@ -60,6 +77,7 @@ export function placeClock(iso: string, timezone: string, locale: string): strin
     timeZoneName: "short",
   };
   const date = new Date(iso);
+  locale = safeLocale(locale);
   try {
     return date.toLocaleTimeString(locale, { ...options, timeZone: timezone });
   } catch {
@@ -72,7 +90,7 @@ export function placeClock(iso: string, timezone: string, locale: string): strin
 export function dayLabel(day: WeatherDay, index: number, locale: string): string {
   if (index === 0) return "Today";
   // A date without a time is the place's calendar date: read it as UTC midnight, show it in UTC.
-  return new Date(`${day.date}T00:00:00Z`).toLocaleDateString(locale, {
+  return new Date(`${day.date}T00:00:00Z`).toLocaleDateString(safeLocale(locale), {
     weekday: "short",
     timeZone: "UTC",
   });

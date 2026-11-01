@@ -5,6 +5,7 @@ import {
   formatSpeed,
   formatTemperature,
   placeClock,
+  safeLocale,
 } from "../lib/weather";
 import type { WeatherFacts as WeatherFactsData } from "../types";
 
@@ -17,7 +18,8 @@ interface Props {
   locale?: string;
 }
 
-const browserLocale = () => (typeof navigator === "undefined" ? "en-US" : navigator.language);
+const browserLocale = () =>
+  safeLocale(typeof navigator === "undefined" ? undefined : navigator.language);
 
 /** The body of a weather card: current conditions and a few days. */
 export function WeatherFacts({ title, description, facts, locale = browserLocale() }: Props) {
@@ -66,7 +68,9 @@ export function WeatherFacts({ title, description, facts, locale = browserLocale
         <div className="fact-card__row">
           <dt>Wind</dt>
           <dd>
-            {formatSpeed(current.wind_speed_kmh, locale)} {compassPoint(current.wind_direction_deg)}
+            {formatSpeed(current.wind_speed_kmh, locale)}
+            {current.wind_direction_deg !== null &&
+              ` from ${compassPoint(current.wind_direction_deg)}`}
             {current.humidity_percent !== null && (
               <span className="fact-card__muted"> · humidity {current.humidity_percent}%</span>
             )}
@@ -119,6 +123,9 @@ export function WeatherCredit({
       </span>
       <a href={facts.source_url} target="_blank" rel="noreferrer">
         Weather data by {facts.source}
+      </a>
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
+        CC BY 4.0
       </a>
     </>
   );

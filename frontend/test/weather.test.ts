@@ -6,6 +6,7 @@ import {
   formatSpeed,
   formatTemperature,
   placeClock,
+  safeLocale,
   usesImperial,
 } from "../src/lib/weather";
 import { weatherFacts } from "./fixtures";
@@ -25,9 +26,34 @@ describe("usesImperial", () => {
     expect(usesImperial("de")).toBe(false);
   });
 
-  it("is metric for a locale it cannot parse", () => {
-    expect(usesImperial("not a locale!")).toBe(false);
-    expect(usesImperial("")).toBe(false);
+  it("falls back to en-US (imperial) for an empty or invalid locale", () => {
+    expect(usesImperial("not a locale!")).toBe(true);
+    expect(usesImperial("")).toBe(true);
+  });
+});
+
+describe("safeLocale", () => {
+  it("keeps a valid tag", () => {
+    expect(safeLocale("de-DE")).toBe("de-DE");
+    expect(safeLocale("en")).toBe("en");
+  });
+
+  it("falls back to en-US for an empty, missing or invalid tag", () => {
+    expect(safeLocale("")).toBe("en-US");
+    expect(safeLocale(undefined)).toBe("en-US");
+    expect(safeLocale(null)).toBe("en-US");
+    expect(safeLocale("not a locale!")).toBe("en-US");
+    expect(safeLocale("en_US")).toBe("en-US");
+  });
+});
+
+describe("an empty or invalid locale never throws", () => {
+  it.each(["", "not a locale!", "en_US"])("formats with %j like en-US", (locale) => {
+    expect(formatTemperature(17, locale)).toBe("63°F");
+    expect(formatSpeed(4.7, locale)).toBe("3 mph");
+    expect(formatPrecipitation(2.5, locale)).toBe("0.1 in");
+    expect(placeClock("2026-11-01T01:00:00Z", "Asia/Tokyo", locale)).toBe("10:00 AM GMT+9");
+    expect(dayLabel(weatherFacts().daily[1], 1, locale)).toBe("Mon");
   });
 });
 
@@ -38,10 +64,20 @@ describe("formatTemperature", () => {
     expect(formatTemperature(-40, "en-US")).toBe("-40°F");
   });
 
+  it("never shows a negative zero", () => {
+    expect(formatTemperature(-0.2, "en-GB")).toBe("0°C");
+    expect(formatTemperature(-0, "en-GB")).toBe("0°C");
+    // -17.8 °C is -0.04 °F.
+    expect(formatTemperature(-17.8, "en-US")).toBe("0°F");
+    expect(formatTemperature(-0.4, "de-DE")).toBe("0°C");
+    expect(formatSpeed(-0.1, "en-GB")).toBe("0 km/h");
+    expect(formatPrecipitation(-0.01, "en-GB")).toBe("0 mm");
+  });
+
   it("en-GB: Celsius, rounded", () => {
     expect(formatTemperature(17, "en-GB")).toBe("17°C");
     expect(formatTemperature(15.7, "en-GB")).toBe("16°C");
-    expect(formatTemperature(-0.4, "en-GB")).toBe("-0°C");
+    expect(formatTemperature(-0.4, "en-GB")).toBe("0°C");
   });
 
   it("de-DE: Celsius with the locale's minus sign", () => {
@@ -114,6 +150,7 @@ describe("compassPoint", () => {
 
   it("is empty for a missing direction", () => {
     expect(compassPoint(null)).toBe("");
+    expect(compassPoint(NaN)).toBe("");
   });
 });
 

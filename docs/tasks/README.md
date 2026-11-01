@@ -56,6 +56,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [037](037-ci-hardening.md) | CI hardening: migration roundtrip, docs consistency, security scans, secret scan, ShellCheck, Dependabot | none |
 | [038](038-source-last-edited.md) | Show when the source says a page was last edited (done) | none |
 | [039](039-rate-limit-anonymous-endpoints.md) | Rate-limit anonymous endpoints (per-client limit, cache fairness) | none |
+| [041](041-card-by-entity-id.md) | Ask for the card of a chosen entity (a card by entity id, so that alternatives with one label are reachable) | 033 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

@@ -18,7 +18,7 @@ export function FactCard({ data, onSearch }: Props) {
   // Two entities can share a label; the id is the key (the API drops the
   // ones that have the label of the top entity).
   const alternatives = data.alternatives.flatMap((entity) =>
-    entity.label ? [{ id: entity.id, label: entity.label }] : [],
+    entity.label ? [{ id: entity.id, label: entity.label, description: entity.description }] : [],
   );
 
   return (
@@ -28,7 +28,7 @@ export function FactCard({ data, onSearch }: Props) {
       <footer className="fact-card__foot">
         {data.card.type === "sports_team" && (
           <>
-            <span>{data.card.facts.source}</span>
+            {data.card.facts.source && <span>{data.card.facts.source}</span>}
             {data.as_of && (
               <span>
                 as of{" "}
@@ -50,11 +50,12 @@ export function FactCard({ data, onSearch }: Props) {
       {alternatives.length > 0 && (
         <div className="fact-card__also">
           <span>also:</span>
-          {alternatives.map(({ id, label }) => (
+          {alternatives.map(({ id, label, description }) => (
             <button
               key={id}
               type="button"
               className="chip"
+              title={description ?? undefined}
               // "weather in New York City": a weather card's alternative is another place's weather.
               onClick={() =>
                 onSearch(data.card?.type === "weather" ? `weather in ${label}` : label)

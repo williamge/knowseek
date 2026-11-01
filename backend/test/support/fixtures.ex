@@ -23,7 +23,8 @@ defmodule Knowseek.Fixtures do
   A recorded Wikidata API answer, decoded. `name` is a file in
   `test/support/fixtures/wikidata` without `.json`: `search_<query>` (a
   `wbsearchentities` answer for `knicks`, `nvidia`, `nvda`, `tokyo`, `texas`,
-  `japan` or `apple`) or `entities_<query>` (the `wbgetentities` answer for the
+  `japan`, `apple`, `new york`, `washington`, `london`, `georgia` or `cambridge`; the
+  file names use `_` for a space) or `entities_<query>` (the `wbgetentities` answer for the
   ids of that search). Recorded from wikidata.org, trimmed to the fields the
   resolver reads. Sitelinks are trimmed too: the `enwiki` entry is real, the
   others are empty placeholders (`x12`) that keep the count the resolver reads.
@@ -38,7 +39,7 @@ defmodule Knowseek.Fixtures do
   `"Q182477"` (Nvidia). Tests change it to build a variant.
   """
   def wikidata_item(id) do
-    ~w(knicks nvidia nvda tokyo texas japan apple)
+    ~w(knicks nvidia nvda tokyo texas japan apple new_york washington london georgia cambridge)
     |> Enum.map(&wikidata_fixture("entities_#{&1}"))
     |> Enum.find_value(&get_in(&1, ["entities", id]))
   end
@@ -57,7 +58,7 @@ defmodule Knowseek.Fixtures do
     test_pid = self()
 
     items =
-      ~w(knicks nvidia nvda tokyo texas japan apple)
+      ~w(knicks nvidia nvda tokyo texas japan apple new_york washington london georgia cambridge)
       |> Enum.map(&wikidata_fixture("entities_#{&1}")["entities"])
       |> Enum.reduce(%{}, &Map.merge/2)
 
@@ -72,7 +73,7 @@ defmodule Knowseek.Fixtures do
   end
 
   defp wikidata_answer(%{"action" => "wbsearchentities", "search" => search}, _items) do
-    fixture = "search_#{String.downcase(search)}"
+    fixture = "search_#{search |> String.downcase() |> String.replace(" ", "_")}"
 
     if File.exists?(Path.join(@wikidata_fixtures, "#{fixture}.json")) do
       wikidata_fixture(fixture)
