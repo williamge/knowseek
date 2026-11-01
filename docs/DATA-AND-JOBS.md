@@ -155,7 +155,7 @@ Three `Knowseek.Cache` instances (ETS tables owned by the Phoenix process, [ADR 
 | `Cards.Cache` | The finished card for an entity (NBA team today) | entity id | set by the provider: 15 s while a game is live, otherwise until the next game, at least 60 s and at most 1 h (6 h after a final) | 1,000 entries; 8 fetches in flight; backoff 10 s; timeout 12 s |
 | `Cards.EspnTeams` | ESPN's NBA team list (maps a team name to its ESPN id) | `:nba` | 24 h | 10 entries; a list with fewer than 25 teams is rejected |
 
-Stale values are served while a refresh runs ("stale-while-revalidate"), and the old value is kept when a refresh fails. A 429 or `maxlag` answer from Wikidata or ESPN pauses every fetch of that cache for the `Retry-After` (at most 10 minutes). Each entry is a small map (an NBA card is a few kilobytes), so the memory ceiling is a few megabytes; I did not measure it.
+Stale values are served while a refresh runs ("stale-while-revalidate"), and the old value is kept when a refresh fails. A 429 or `maxlag` answer from Wikidata or ESPN pauses every fetch of that cache for the `Retry-After` (at most 10 minutes). Memory, measured with `:ets.info(table, :memory)` after filling a cache to its limit with hand-built entries of a realistic shape (a resolved entity with 5 alternatives; an NBA card with two games and 6 injuries): about 3.1 KB per entity entry, so about **16 MB** for 5,000 entries, and about 3.5 KB per card entry, so about **3.5 MB** for 1,000 entries. A real Wikidata answer may differ somewhat in size; the ceiling is tens of megabytes, not hundreds.
 
 ## 4. Background jobs (Oban)
 

@@ -88,7 +88,7 @@ Oban stores its jobs in `oban_jobs` in the same database.
 
 | Queue | Workers | Notes |
 | --- | --- | --- |
-| `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
+| `discovery` | `Discovery.SeekWorker` | Unique per normalized query while an earlier job for it (enqueued within the last hour) is still queued, running or retrying (`states: :incomplete`); after it completes, a repeat uncovered search enqueues a new job, which is cheap because an unchanged body is not re-embedded. 3 attempts. |
 
 ## Ranking prior
 
