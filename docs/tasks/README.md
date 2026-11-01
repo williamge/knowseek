@@ -48,7 +48,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [029](029-ollama-by-default.md) | Ollama by default, one command to start | none |
 | [030](030-entity-resolution.md) | Entity resolution via Wikidata | none |
 | [031](031-card-framework-sports.md) | Card framework and sports-team card (cache-only endpoint, background refresher) | 030 |
-| [032](032-company-card.md) | Company card | 031 |
+| [032](032-company-card.md) | Company card (done) | 031 |
 | [033](033-weather-card.md) | Weather card | 031 |
 | [034](034-weather-location-context.md) | Location context for bare "weather" | 033 |
 | [035](035-ranking-prior.md) | Ranking prior from document importance (done, [ADR 0018](../decisions/0018-ranking-prior.md)) | none |
@@ -56,6 +56,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [037](037-ci-hardening.md) | CI hardening: migration roundtrip, docs consistency, security scans, secret scan, ShellCheck, Dependabot | none |
 | [038](038-source-last-edited.md) | Show when the source says a page was last edited (done) | none |
 | [039](039-rate-limit-anonymous-endpoints.md) | Rate-limit anonymous endpoints (per-client limit, cache fairness) | none |
+| [040](040-company-card-display-license.md) | Company card: a quote source that may be displayed (licence decision, extended-hours states) | 032 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged

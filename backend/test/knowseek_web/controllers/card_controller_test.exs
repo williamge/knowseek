@@ -248,6 +248,93 @@ defmodule KnowseekWeb.CardControllerTest do
     end
   end
 
+  describe "GET /api/cards: companies (Twelve Data)" do
+    setup do
+      stub_twelvedata()
+      :ok
+    end
+
+    for query <- ["nvda", "nvidia"] do
+      test "#{query}: pending, then a fresh price card", %{conn: conn} = context do
+        q = unquote(query)
+
+        assert %{"status" => "pending", "entity" => nil} = card(conn, q)
+        :ok = Entities.await(q, context.entities)
+        assert %{"status" => "pending", "card" => nil, "entity" => entity} = card(conn, q)
+        assert %{"id" => "Q182477", "label" => "Nvidia", "kind" => "company"} = entity
+
+        settle(q, context)
+
+        assert %{
+                 "status" => "fresh",
+                 "card" => %{"type" => "company", "title" => "NVIDIA Corp", "facts" => facts},
+                 "as_of" => as_of,
+                 "refresh_after_ms" => refresh_after_ms
+               } = card(conn, q)
+
+        assert {:ok, _datetime, 0} = DateTime.from_iso8601(as_of)
+        assert refresh_after_ms in 2_000..60_000
+
+        assert %{
+                 "source" => "Twelve Data",
+                 "symbol" => "NVDA",
+                 "exchange" => "Nasdaq",
+                 "currency" => "USD",
+                 "price" => 204.64,
+                 "previous_close" => 213.66,
+                 "change" => -9.02,
+                 "percent_change" => -4.22,
+                 "market_state" => "closed",
+                 "quote_time" => "2026-10-30T20:00:00Z",
+                 "delayed" => false
+               } = facts
+
+        assert_received {:twelvedata_request, "/quote", %{"symbol" => "NVDA"}, _authorization}
+      end
+    end
+
+    test "a rate-limited quote is unavailable, then stale once there was one",
+         %{conn: conn} =
+           context do
+      stub_twelvedata(status: 429, headers: [{"retry-after", "30"}])
+      card(conn, "nvda")
+      settle("nvda", context)
+      card(conn, "nvda")
+      settle("nvda", context)
+
+      assert %{"status" => "unavailable", "card" => nil, "entity" => %{"id" => "Q182477"}} =
+               card(conn, "nvda")
+
+      # The limit lifts, a quote is cached; later the limit is back.
+      Agent.update(context.clock, &(&1 + 31_000))
+      stub_twelvedata()
+      card(conn, "nvda")
+      settle("nvda", context)
+      assert %{"status" => "fresh"} = card(conn, "nvda")
+
+      Agent.update(context.clock, &(&1 + 3_700_000))
+      stub_twelvedata(status: 429)
+
+      assert %{"status" => "stale", "card" => %{"facts" => %{"price" => 204.64}}} =
+               card(conn, "nvda")
+
+      settle("nvda", context)
+
+      assert %{"status" => "stale", "card" => %{"facts" => %{"price" => 204.64}}} =
+               card(conn, "nvda")
+    end
+
+    test "a malformed quote is unavailable, never an error response", %{conn: conn} = context do
+      stub_twelvedata(nvda: %{"symbol" => "NVDA", "close" => nil})
+      card(conn, "nvda")
+      settle("nvda", context)
+      card(conn, "nvda")
+      settle("nvda", context)
+
+      assert %{"status" => "unavailable", "card" => nil} = card(conn, "nvda")
+    end
+  end
+
   describe "GET /api/cards: none" do
     test "the Westchester Knicks have no card (NBA G League)", %{conn: conn} = context do
       stub_westchester_first()
@@ -262,12 +349,16 @@ defmodule KnowseekWeb.CardControllerTest do
       refute_received {:espn_request, _, _}
     end
 
-    test "a company has no card yet", %{conn: conn} = context do
+    test "a company has no card when no Twelve Data key is set", %{conn: conn} = context do
+      previous = Application.fetch_env!(:knowseek, Knowseek.Cards.TwelveData)
+      Application.put_env(:knowseek, Knowseek.Cards.TwelveData, api_key: nil)
+      on_exit(fn -> Application.put_env(:knowseek, Knowseek.Cards.TwelveData, previous) end)
+
       card(conn, "nvda")
       settle("nvda", context)
 
       assert %{"status" => "none", "card" => nil} = card(conn, "nvda")
-      refute_received {:espn_request, _, _}
+      refute_received {:twelvedata_request, _, _, _}
     end
 
     test "weather in tokyo has no card yet", %{conn: conn} = context do

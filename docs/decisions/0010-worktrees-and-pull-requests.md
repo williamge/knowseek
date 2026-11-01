@@ -57,3 +57,13 @@ active on `main`: a pull request is required (0 approvals), the `backend`,
 force-pushed, there are no bypass actors, and merged branches are deleted. The
 rule that a human merges is unchanged: agents never merge and never push to
 `main`; GitHub now rejects direct pushes as well.
+
+## Update (2026-10-31): seven required checks
+
+The ruleset "main protection" now requires seven checks, not three: `backend`,
+`frontend`, `image`, `migrations`, `docs`, `shellcheck`, and `secrets`. The
+`security` job (`mix hex.audit`, `mix deps.audit`, `mix sobelow`, `npm audit`)
+runs on every pull request but is not required, by design: an advisory
+published today must not block pull requests that did not touch the
+dependencies. Where this ADR or `AGENTS.md` says "the three checks", read
+the seven. See `docs/decisions/0020-ci-hardening.md`.

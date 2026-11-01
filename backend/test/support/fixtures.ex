@@ -167,6 +167,68 @@ defmodule Knowseek.Fixtures do
     :ok
   end
 
+  @twelvedata_fixtures Path.expand("fixtures/twelvedata", __DIR__)
+
+  @doc """
+  A decoded body from `test/support/fixtures/twelvedata` without `.json`:
+  `quote_aapl_closed`, `quote_aapl_open`, `quote_nvda_closed`,
+  `error_401_demo` and `error_429`. See that directory's README for which
+  were recorded and which were derived.
+  """
+  def twelvedata_fixture(name) do
+    @twelvedata_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
+  end
+
+  @doc """
+  Stubs `Knowseek.Cards.TwelveData` HTTP calls (`Req.Test`). `/quote` answers
+  for `AAPL` and `NVDA` with `quote_aapl_closed` and `quote_nvda_closed`
+  (pass `aapl: body` or `nvda: body` to replace one); any other symbol is a
+  404. Pass `status: 429` (and `body:`, `headers:`) to answer every request
+  with that status instead, for the failure paths.
+
+  Each request sends `{:twelvedata_request, path, query_params, authorization}`
+  to the calling process. The stub runs in the cache's fetch task, so the test
+  must use shared mode (`setup :set_req_test_from_context`, non-async).
+  """
+  def stub_twelvedata(overrides \\ []) do
+    test_pid = self()
+
+    bodies = %{
+      "AAPL" =>
+        Keyword.get_lazy(overrides, :aapl, fn -> twelvedata_fixture("quote_aapl_closed") end),
+      "NVDA" =>
+        Keyword.get_lazy(overrides, :nvda, fn -> twelvedata_fixture("quote_nvda_closed") end)
+    }
+
+    Req.Test.stub(Knowseek.Cards.TwelveData, fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      authorization = Plug.Conn.get_req_header(conn, "authorization")
+      send(test_pid, {:twelvedata_request, conn.request_path, conn.query_params, authorization})
+
+      conn =
+        Enum.reduce(Keyword.get(overrides, :headers, []), conn, fn {name, value}, conn ->
+          Plug.Conn.put_resp_header(conn, name, value)
+        end)
+
+      case {Keyword.get(overrides, :status), Map.fetch(bodies, conn.query_params["symbol"])} do
+        {nil, {:ok, body}} ->
+          Req.Test.json(conn, body)
+
+        {nil, :error} ->
+          conn
+          |> Plug.Conn.put_status(404)
+          |> Req.Test.json(%{"code" => 404, "status" => "error"})
+
+        {status, _bodies} ->
+          conn
+          |> Plug.Conn.put_status(status)
+          |> Req.Test.json(
+            Keyword.get(overrides, :body, %{"code" => status, "status" => "error"})
+          )
+      end
+    end)
+  end
+
   @doc """
   A body long enough to be merged by content hash (see
   `Knowseek.Documents.min_alias_body_length/0`). Different `tag`s give

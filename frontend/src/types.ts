@@ -110,8 +110,31 @@ export interface SportsTeamFacts {
   injuries: TeamInjury[];
 }
 
+/**
+ * A public company's stock quote (`Knowseek.Cards.Providers.TwelveDataCompany`).
+ * `change` and `percent_change` are against `previous_close`.
+ */
+export interface CompanyFacts {
+  source: string;
+  symbol: string;
+  /** "Nasdaq" or "NYSE". */
+  exchange: string;
+  currency: string | null;
+  price: number;
+  previous_close: number;
+  change: number;
+  percent_change: number | null;
+  market_state: "open" | "closed" | "pre_market" | "after_hours";
+  /** When the quote itself was made (ISO 8601, UTC), not when it was fetched. */
+  quote_time: string | null;
+  /** True when the source says the quote is delayed. */
+  delayed: boolean;
+}
+
 /** A card of live facts. `type` says which shape `facts` has. */
-export type FactCard = { type: "sports_team"; title: string; facts: SportsTeamFacts };
+export type FactCard =
+  | { type: "sports_team"; title: string; facts: SportsTeamFacts }
+  | { type: "company"; title: string; facts: CompanyFacts };
 
 export interface CardResponse {
   status: CardStatus;

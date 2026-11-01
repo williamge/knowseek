@@ -11,7 +11,7 @@ The repository is public. CI ran the tests and the build, and nothing else: no s
 
 ## Decision
 
-**Separate jobs.** Each new check runs in its own job in `.github/workflows/ci.yml`, in parallel with `backend`, `frontend`, and `image`: `migrations`, `docs`, `shellcheck`, `security`, `secrets`. A registry outage then fails `security` and nothing else, and test results stay visible. The existing job names do not change (the ruleset requires them). The new job names are added to the ruleset's required checks by the owner after the merge.
+**Separate jobs.** Each new check runs in its own job in `.github/workflows/ci.yml`, in parallel with `backend`, `frontend`, and `image`: `migrations`, `docs`, `shellcheck`, `security`, `secrets`. A registry outage then fails `security` and nothing else, and test results stay visible. The existing job names do not change (the ruleset requires them). The new job names are added to the ruleset's required checks by the owner after the merge (done: all of them except `security`, which stays advisory on purpose, so that a new advisory cannot block unrelated pull requests; ADR 0010, Update 2026-10-31).
 
 **Failure policy for dependency scans** (job `security`):
 
