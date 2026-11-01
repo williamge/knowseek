@@ -5,9 +5,6 @@ defmodule KnowseekWeb.SearchController do
 
   action_fallback KnowseekWeb.FallbackController
 
-  # A search embeds the query and may enqueue discovery: limited per client (ADR 0023).
-  plug KnowseekWeb.Plugs.RateLimit, bucket: :search
-
   @max_limit 50
   # About 68 years. Keeps DateTime arithmetic in range.
   @max_age_seconds 2_147_483_647

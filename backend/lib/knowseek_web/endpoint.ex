@@ -41,8 +41,17 @@ defmodule KnowseekWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Per-client limits of the anonymous endpoints (ADR 0023). Before the
+  # parsers: a client over its limit is answered without its body being read.
+  plug KnowseekWeb.Plugs.RateLimit
+
+  # `length` caps a request body at 1 MB (the default is 8 MB); a larger one is
+  # answered 413. The largest body the API takes is a manual document
+  # (`POST /api/documents`): a Wikipedia article is about 40 thousand
+  # characters, so 1 MB leaves room for far longer text.
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
+    length: 1_000_000,
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 

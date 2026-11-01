@@ -94,7 +94,7 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 | `VOYAGE_MODEL` | no | `voyage-3.5` | `voyage-3.5` |
 | `TRUSTED_PROXIES` | no | none: `X-Forwarded-For` is ignored | `10.0.0.0/8,fd00::/8` |
 
-Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod_<workspace>`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
+`TRUSTED_PROXIES` is also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod_<workspace>`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
 
 Notes:
 
@@ -114,7 +114,7 @@ Notes:
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. |
 
-**Rate limits.** `GET /api/cards`, `POST /api/search` and `POST /api/documents` are limited per client address, each with its own budget: a burst, then a steady rate (defaults: cards 120 then 2 a second, search and documents 30 then one every 2 s; `backend/config/config.exs`). Over the limit the answer is `429 Too Many Requests` with `{"errors": {"detail": "Too many requests"}}` and a `Retry-After` header in seconds, and nothing else happens: no search, no ingest, no job. `GET /api/health` and the reads of `/api/documents` are not limited. The client is the socket address. Behind a reverse proxy, set `TRUSTED_PROXIES` (see above); without it `X-Forwarded-For` is ignored, so a client cannot choose its own address. See [ADR 0023](docs/decisions/0023-rate-limiting-anonymous-endpoints.md).
+**Rate limits.** `GET /api/cards`, `POST /api/search` and `POST /api/documents` are limited per client address, each with its own budget: a burst, then a steady rate (defaults: cards 120 then 2 a second, search and documents 30 then one every 2 s; `backend/config/config.exs`). Over the limit the answer is `429 Too Many Requests` with `{"errors": {"detail": "Too many requests"}}` and a `Retry-After` header in seconds, and nothing else happens: no search, no ingest, no job. `GET /api/health` and the reads of `/api/documents` are not limited. The client is the socket address. Request bodies over 1 MB are answered `413`. Behind a reverse proxy, set `TRUSTED_PROXIES` (see above); without it `X-Forwarded-For` is ignored, so a client cannot choose its own address, and every client behind the proxy shares one budget. The same holds for `docker compose --profile app up`: the published Docker port hides the client address, so all clients share one budget until `TRUSTED_PROXIES` (read from `.env`) names the proxy. The limit also does not stop a flood from many addresses. See [ADR 0023](docs/decisions/0023-rate-limiting-anonymous-endpoints.md).
 
 ## License
 

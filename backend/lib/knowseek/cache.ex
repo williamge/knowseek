@@ -4,8 +4,8 @@ defmodule Knowseek.Cache do
   decision 4). Entity resolution (`Knowseek.Entities`) and the live fact cards
   (`Knowseek.Cards`) use it, each with its own instance.
 
-  `get/4` reads an ETS table and never calls the fetch function in the
-  caller's process. When the entry is missing or past its TTL, `get/4` asks
+  `get/4` reads an ETS table and never calls the fetch function (or the
+  cache process) in the caller's process. When the entry is missing or past its TTL, `get/4` asks
   the cache process to refresh it and returns at once. The refresh runs in a
   supervised task. Per key:
 
@@ -37,9 +37,19 @@ defmodule Knowseek.Cache do
           reserve_for_refresh` fetches run.
 
       So with the new-key share full of junk, the refresh of a key that has a
-      value still starts, and a real new key starts as soon as one fetch
-      finishes. The reserve does not tell a real new key from a junk one; per
-      client limits do (ADR 0023, `KnowseekWeb.Plugs.RateLimit`).
+      value still starts. The reserve protects those refreshes and nothing
+      else: a real *new* key competes with junk for the other slots, and
+      starts when one of them frees. The cache cannot tell a real new key from
+      a junk one; the per-client rate limit is what keeps junk from filling
+      the new-key share (ADR 0023, `KnowseekWeb.Plugs.RateLimit`). Values that
+      say "nothing" (`:empty_values`, for example `:none`) do not count as
+      holding a value: junk keys end up with them.
+    * **Eviction favors entries that were read.** Over `:max_entries`, the
+      entries with the fewest reads since they were first stored go first,
+      oldest first among equals. A key that is written once and never read
+      again (what a flood of junk keys leaves) goes before a key that was
+      read. `get/4` counts a read with one `:ets.update_counter/4` on a
+      separate public table, so it still does not call the cache process.
     * **Cache-wide rate-limit backoff.** A fetch that fails with
       `{:error, {:rate_limited, retry_after_ms}}` (the upstream said 429, or
       `maxlag`, with a `Retry-After`) stops *every* fetch of this cache until
@@ -89,6 +99,10 @@ defmodule Knowseek.Cache do
       recently written ones (10%, at least one) are dropped. Default `10_000`.
     * `:max_in_flight` - at most this many fetches run at once. Default
       `:infinity`. Caches whose keys come from user input set it.
+    * `:empty_values` - a list of stored values that count as "no value" for
+      `:reserve_for_refresh`: an entry holding one is a new key, not a
+      refresh. Default `[]`. The entity cache sets `[:none]`, which is what
+      a junk query resolves to.
     * `:reserve_for_refresh` - how many of the `:max_in_flight` slots only
       refreshes of keys with a value may use (see above). Default `0`: every
       fetch may use every slot. Must be less than `:max_in_flight` (a new key
@@ -148,14 +162,17 @@ defmodule Knowseek.Cache do
   """
   @spec get(cache(), key(), fetch_fun(), keyword()) :: result()
   def get(cache, key, fetch_fun, opts \\ []) when is_atom(cache) and is_function(fetch_fun, 0) do
-    now = now(cache)
+    %{clock: clock, reads: reads} = meta(cache)
+    now = clock.()
     entry = lookup(cache, key)
     blocked_until = blocked_until(cache)
 
     if blocked_until <= now and refresh_due?(entry, now),
       do: GenServer.cast(cache, {:refresh, key, fetch_fun, opts})
 
-    classify(entry, now, blocked_until)
+    result = classify(entry, now, blocked_until)
+    count_read(reads, key, result)
+    result
   rescue
     # The ETS table is gone while the cache process restarts.
     ArgumentError -> {:unavailable, :cache_not_running}
@@ -221,13 +238,19 @@ defmodule Knowseek.Cache do
     end
   end
 
-  defp now(cache) do
+  defp meta(cache) do
     case :ets.lookup(cache, :meta) do
-      [{:meta, %{clock: clock}}] -> clock.()
+      [{:meta, meta}] -> meta
       # The table exists but `init/1` has not stored the clock yet.
       [] -> raise ArgumentError, "cache #{inspect(cache)} is starting"
     end
   end
+
+  # A read of a stored value is one counter update; a miss is not counted.
+  defp count_read(reads, key, {status, _value, _as_of}) when status in [:fresh, :stale],
+    do: :ets.update_counter(reads, key, 1, {key, 0})
+
+  defp count_read(_reads, _key, _result), do: :ok
 
   defp blocked_until(cache) do
     case :ets.lookup(cache, :blocked_until) do
@@ -269,8 +292,11 @@ defmodule Knowseek.Cache do
     # the parent supervisor restarts both.
     {:ok, task_sup} = Task.Supervisor.start_link()
 
+    # Callers count their reads in a second, public table (key, reads), so a
+    # read never calls this process. The entries stay in a protected table.
+    reads = :ets.new(:cache_reads, [:public, write_concurrency: true])
     :ets.new(cache, [:named_table, :protected, read_concurrency: true])
-    :ets.insert(cache, {:meta, %{clock: clock}})
+    :ets.insert(cache, {:meta, %{clock: clock, reads: reads}})
 
     {:ok,
      %{
@@ -278,6 +304,8 @@ defmodule Knowseek.Cache do
        clock: clock,
        task_sup: task_sup,
        max_entries: Keyword.get(opts, :max_entries, @default_max_entries),
+       reads: reads,
+       empty_values: Keyword.get(opts, :empty_values, []),
        max_in_flight: max_in_flight,
        new_key_limit: new_key_limit(max_in_flight, reserve),
        blocked_until: 0,
@@ -321,8 +349,11 @@ defmodule Knowseek.Cache do
   # slots that are not reserved for refreshes.
   defp at_capacity?(%{max_in_flight: :infinity}, _entry), do: false
 
-  defp at_capacity?(state, %{result: {:ok, _}}),
-    do: map_size(state.in_flight) >= state.max_in_flight
+  defp at_capacity?(state, %{result: {:ok, value}}) do
+    if value in state.empty_values,
+      do: map_size(state.in_flight) >= state.new_key_limit,
+      else: map_size(state.in_flight) >= state.max_in_flight
+  end
 
   defp at_capacity?(state, _entry), do: map_size(state.in_flight) >= state.new_key_limit
 
@@ -502,21 +533,32 @@ defmodule Knowseek.Cache do
   defp entry_count(cache),
     do: :ets.select_count(cache, [{{{:entry, :_}, :_}, [], [true]}])
 
-  # Entries go in order of `seq`, a counter that never repeats, so equal clock
-  # readings cannot make the key that was just written the oldest. Keys that
-  # are being fetched stay.
-  defp evict(%{cache: cache, max_entries: max_entries} = state) do
+  # Entries go fewest reads first, then in order of `seq`, a counter that never
+  # repeats, so equal clock readings cannot make the key that was just written
+  # the oldest. Keys that are being fetched stay. The counters of the evicted
+  # keys, and any left over for keys that are gone, are deleted.
+  defp evict(%{cache: cache, reads: reads, max_entries: max_entries} = state) do
     if entry_count(cache) > max_entries do
       busy = Map.keys(state.in_flight)
+      counts = Map.new(:ets.tab2list(reads))
 
-      oldest =
-        cache
-        |> :ets.select([{{{:entry, :"$1"}, %{seq: :"$2"}}, [], [{{:"$2", :"$1"}}]}])
+      entries =
+        :ets.select(cache, [{{{:entry, :"$1"}, %{seq: :"$2"}}, [], [{{:"$2", :"$1"}}]}])
+
+      victims =
+        entries
         |> Enum.reject(fn {_seq, key} -> key in busy end)
+        |> Enum.map(fn {seq, key} -> {Map.get(counts, key, 0), seq, key} end)
         |> Enum.sort()
         |> Enum.take(max(div(max_entries, 10), 1))
+        |> Enum.map(fn {_reads, _seq, key} -> key end)
 
-      Enum.each(oldest, fn {_seq, key} -> :ets.delete(cache, {:entry, key}) end)
+      Enum.each(victims, &:ets.delete(cache, {:entry, &1}))
+
+      kept =
+        MapSet.new(entries, fn {_seq, key} -> key end) |> MapSet.difference(MapSet.new(victims))
+
+      for {key, _count} <- counts, not MapSet.member?(kept, key), do: :ets.delete(reads, key)
     end
 
     :ok

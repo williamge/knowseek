@@ -346,6 +346,86 @@ defmodule Knowseek.CacheTest do
     end
   end
 
+  describe "evicting entries that were read" do
+    defp read_counters(cache) do
+      [{:meta, %{reads: reads}}] = :ets.lookup(cache, :meta)
+      :ets.tab2list(reads)
+    end
+
+    test "a flood of distinct junk keys does not evict a key that was read after it was written",
+         %{clock: clock} do
+      name = start_small_cache(clock, 10)
+
+      fill(name, :real, {:ok, :value})
+      assert {:fresh, :value, _as_of} = Cache.get(name, :real, fetcher({:ok, :x}))
+
+      # Junk is written once and never read again, as a flood of made-up queries is.
+      for n <- 1..300 do
+        advance(clock, 1)
+        fill(name, {:junk, n}, {:ok, :none})
+      end
+
+      assert %{entries: entries} = Cache.stats(name)
+      assert entries <= 10
+      assert {:fresh, :value, _as_of} = Cache.get(name, :real, fetcher({:ok, :x}))
+      refute_receive {:fetching, _}, 20
+    end
+
+    test "fewer reads go first, then the oldest", %{clock: clock} do
+      name = start_small_cache(clock, 3)
+
+      fill(name, :a, {:ok, :a})
+      fill(name, :b, {:ok, :b})
+      fill(name, :c, {:ok, :c})
+      for _ <- 1..3, do: Cache.get(name, :a, fetcher({:ok, :x}))
+      Cache.get(name, :b, fetcher({:ok, :x}))
+
+      # `:c` was never read: it goes first, then each newer key that is never read.
+      fill(name, :d, {:ok, :d})
+      assert Cache.get(name, :c, fetcher({:ok, :x})) == :pending
+      assert_receive {:fetching, _}
+      :ok = Cache.await(name, :c)
+
+      # Fetching `:c` again pushed out `:d` (never read, older than `:c`); a
+      # fifth key pushes out `:c` in the same way. `:a` and `:b` stay.
+      fill(name, :e, {:ok, :e})
+      assert {:fresh, :a, _} = Cache.get(name, :a, fetcher({:ok, :x}))
+      assert {:fresh, :b, _} = Cache.get(name, :b, fetcher({:ok, :x}))
+      refute_receive {:fetching, _}, 20
+    end
+
+    test "the counters of evicted keys are deleted", %{clock: clock} do
+      name = start_small_cache(clock, 10)
+
+      for n <- 1..200 do
+        advance(clock, 1)
+        fill(name, n, {:ok, n})
+        Cache.get(name, n, fetcher({:ok, :x}))
+      end
+
+      assert length(read_counters(name)) <= 10
+    end
+
+    test "a read does not call the cache process", %{cache: cache} do
+      fill(cache, :k, {:ok, :v})
+
+      :sys.suspend(cache)
+      assert {:fresh, :v, _as_of} = Cache.get(cache, :k, fetcher({:ok, :x}))
+      assert {:fresh, :v, _as_of} = Cache.get(cache, :k, fetcher({:ok, :x}))
+      assert read_counters(cache) == [{:k, 2}]
+      :sys.resume(cache)
+    end
+
+    test "misses and failures are not reads", %{cache: cache} do
+      assert Cache.get(cache, :cold, blocked_fetcher({:ok, 1})) == :pending
+      assert_receive {:fetching, _}
+      fill(cache, :failed, {:error, :boom})
+      assert {:unavailable, :boom} = Cache.get(cache, :failed, fetcher({:ok, 1}))
+
+      assert read_counters(cache) == []
+    end
+  end
+
   describe "max_in_flight" do
     defp start_capped_cache(clock, max_in_flight) do
       name = :"cache_capped_#{System.unique_integer([:positive])}"
@@ -549,6 +629,34 @@ defmodule Knowseek.CacheTest do
 
       _ = :sys.get_state(cache)
       refute_receive {:fetching, :failed_again, _}, 20
+    end
+
+    test "an empty value (:empty_values) does not earn the reserve", %{clock: clock} do
+      name = :"cache_empty_#{System.unique_integer([:positive])}"
+
+      start_supervised!(
+        {Cache,
+         name: name,
+         max_in_flight: 4,
+         reserve_for_refresh: 1,
+         empty_values: [:none],
+         clock: fn -> Agent.get(clock, & &1) end}
+      )
+
+      fill(name, :nothing, {:ok, :none}, ttl: 1_000)
+      fill(name, :real, {:ok, 1}, ttl: 1_000)
+      advance(clock, 5_000)
+
+      _junk = flood(name, 10)
+      assert %{in_flight: 3} = Cache.stats(name)
+
+      # Expired, but it holds "nothing": a new key, dropped while the share is full.
+      assert {:stale, :none, _} = Cache.get(name, :nothing, keyed_fetcher(:nothing, {:ok, :none}))
+      _ = :sys.get_state(name)
+      refute_receive {:fetching, :nothing, _}, 20
+
+      assert {:stale, 1, _} = Cache.get(name, :real, keyed_fetcher(:real, {:ok, 2}))
+      assert_receive {:fetching, :real, _}
     end
 
     test "the reserve must leave a slot for new keys" do

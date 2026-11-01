@@ -64,9 +64,10 @@ config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikip
 # `cache`: start options of the entity cache. Its keys come from user queries,
 # so at most 4 Wikidata resolutions run at once and 5000 entries are kept.
 # One of the 4 slots is reserved for refreshing entries that hold a value, so
-# a flood of new keys cannot starve those refreshes (ADR 0023).
+# a flood of new keys cannot starve those refreshes (ADR 0023). `:none` (what
+# a junk query resolves to) does not count as a value for the reserve.
 config :knowseek, Knowseek.Entities,
-  cache: [max_entries: 5_000, max_in_flight: 4, reserve_for_refresh: 1],
+  cache: [max_entries: 5_000, max_in_flight: 4, reserve_for_refresh: 1, empty_values: [:none]],
   resolver: Knowseek.Entities.Wikidata,
   ttl: :timer.hours(24),
   backoff: :timer.minutes(1),

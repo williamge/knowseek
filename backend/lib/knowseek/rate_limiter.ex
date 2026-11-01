@@ -37,9 +37,14 @@ defmodule Knowseek.RateLimiter do
       but cannot grow memory. Dropping 10% at once keeps the cost per hit low.
 
   The state is lost on restart (the limits then start over), and nothing is
-  written to the database. If the limiter process cannot be reached, `hit/4`
-  allows the request and logs an error: a limiter outage must not take the API
-  down.
+  written to the database.
+
+  ## Failing open
+
+  `hit/4` waits at most 100 ms for the limiter. If the process is down, busy
+  or stuck, it allows the request: a limiter outage must not take the API
+  down, and a slow limiter must not add its timeout to every request. The
+  error is logged at most once every ten seconds per limiter.
 
   ## Options of `start_link/1`
 
@@ -56,6 +61,8 @@ defmodule Knowseek.RateLimiter do
 
   @default_max_buckets 50_000
   @default_sweep_interval :timer.minutes(1)
+  @call_timeout 100
+  @log_interval :timer.seconds(10)
 
   @type key :: term()
   @type server :: GenServer.server()
@@ -79,11 +86,37 @@ defmodule Knowseek.RateLimiter do
           :ok | {:error, retry_after_ms :: pos_integer()}
   def hit(server \\ __MODULE__, key, limit, window_ms)
       when is_integer(limit) and limit > 0 and is_integer(window_ms) and window_ms > 0 do
-    GenServer.call(server, {:hit, key, limit, window_ms})
+    GenServer.call(server, {:hit, key, limit, window_ms}, @call_timeout)
   catch
     :exit, reason ->
-      Logger.error("rate limiter unreachable, request allowed: #{inspect(reason)}")
+      log_unreachable(server, reason)
       :ok
+  end
+
+  # At most one error per limiter every `@log_interval`. The time of the last
+  # one is an atomic in `:persistent_term`, so callers need no process.
+  defp log_unreachable(server, reason) do
+    ref =
+      case :persistent_term.get({__MODULE__, :last_log, server}, nil) do
+        nil ->
+          ref = :atomics.new(1, signed: true)
+          :persistent_term.put({__MODULE__, :last_log, server}, ref)
+          ref
+
+        ref ->
+          ref
+      end
+
+    now = System.system_time(:millisecond)
+    last = :atomics.get(ref, 1)
+
+    if now - last >= @log_interval and :atomics.compare_exchange(ref, 1, last, now) == :ok do
+      Logger.error(
+        "rate limiter #{inspect(server)} unreachable, request allowed: #{inspect(reason)}"
+      )
+    end
+
+    :ok
   end
 
   @doc "Drops the buckets that have refilled completely. Returns how many."

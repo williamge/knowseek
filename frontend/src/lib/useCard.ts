@@ -55,8 +55,10 @@ export const DEFAULT_CARD_POLLING: CardPolling = {
  *     makes it stale finishes in a second, and the notice would flash on
  *     every refresh of a live game. A refresh that failed stays stale.
  *   - HTTP 429 (this client asked too often): the next request waits for the
- *     server's `Retry-After` (1-60 s). The card on screen stays, and nothing
- *     is shown: the retries and the stale mark below are for a source that is down.
+ *     server's `Retry-After` (1-60 s), also when the tab becomes visible or
+ *     the browser comes back online in the meantime. The card on screen stays,
+ *     and nothing is shown: the retries and the stale mark below are for a
+ *     source that is down.
  *   - `none`: stops at once. The server caches "no card for this" for a day, so
  *     asking again changes nothing.
  *   - `unavailable` and failed requests: retried after each of `retryDelaysMs`
@@ -90,12 +92,21 @@ export function useCard(
     let inFlight = false;
     let pendingSince: number | null = null;
     let failures = 0;
+    // After a 429, no request before this time, whatever wakes the poller.
+    let retryNotBefore = 0;
     let previous: CardResponse["status"] | null = null;
 
     const schedule = (ms: number) => {
       clearTimeout(timer);
       if (document.hidden) paused = true;
       else timer = setTimeout(wake, ms);
+    };
+
+    // A request now, unless a 429 said to wait: then when the wait is over.
+    const resume = () => {
+      const wait = retryNotBefore - Date.now();
+      if (wait > 0) schedule(wait);
+      else void poll();
     };
 
     // A timer can fire in a tab that became hidden without telling us.
@@ -139,8 +150,12 @@ export function useCard(
         const limitedMs = rateLimitDelayMs(error);
         // Too many requests is not a failure of the source: wait as long as
         // the server says, keep the card, and do not use up the retries.
-        if (limitedMs !== null) schedule(limitedMs);
-        else retryOrSlow(0);
+        if (limitedMs !== null) {
+          retryNotBefore = Date.now() + limitedMs;
+          schedule(limitedMs);
+        } else {
+          retryOrSlow(0);
+        }
       } finally {
         inFlight = false;
       }
@@ -191,14 +206,14 @@ export function useCard(
         clearTimeout(timer);
         paused = true;
       } else if (paused) {
-        void poll();
+        resume();
       }
     };
 
     const onOnline = () => {
       if (stopped || document.hidden || inFlight) return;
       clearTimeout(timer);
-      void poll();
+      resume();
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);

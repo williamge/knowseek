@@ -1,16 +1,24 @@
 defmodule KnowseekWeb.Plugs.RateLimit do
   @moduledoc """
-  Limits how often one client may call an endpoint (ADR 0023). Use it in a
-  controller, for the actions that take anonymous input:
+  Limits how often one client may call the endpoints that take anonymous input
+  (ADR 0023). It is a plug of `KnowseekWeb.Endpoint`, **before**
+  `Plug.Parsers`: a client over its limit is answered before the server reads
+  and decodes its request body.
 
-      plug KnowseekWeb.Plugs.RateLimit, [bucket: :search] when action == :create
+  Routes, and the budget (`bucket`) each one draws on, per client
+  (`KnowseekWeb.ClientIp`):
 
-  Every `bucket` has its own budget per client (`KnowseekWeb.ClientIp`):
-  `cards`, `search` and `documents`. A client over its budget gets
-  `429 Too Many Requests`, the usual error body (`{"errors": {"detail": ...}}`)
-  and a `Retry-After` header with the seconds until the next token, and the
-  request goes no further. Requests of another client, and of the other
-  buckets, are not affected. `GET /api/health` is not limited.
+    * `GET` and `HEAD /api/cards` - `cards` (`HEAD` runs the controller as a
+      `GET`, so it is limited too)
+    * `POST /api/search` - `search`
+    * `POST /api/documents` - `documents`
+
+  Nothing else is limited: `GET /api/health` (probes), the reads of
+  `/api/documents` (the UI polls them), and every other path. A client over
+  its budget gets `429 Too Many Requests`, the usual error body
+  (`{"errors": {"detail": ...}}`) and a `Retry-After` header with the seconds
+  until the next token, and the request goes no further. Requests of another
+  client, and of the other buckets, are not affected.
 
   Configuration (`config :knowseek, KnowseekWeb.RateLimit`, read per request):
 
@@ -33,26 +41,39 @@ defmodule KnowseekWeb.Plugs.RateLimit do
   @type bucket :: :cards | :search | :documents
 
   @impl true
-  def init(opts) do
-    bucket = Keyword.fetch!(opts, :bucket)
-    if is_atom(bucket), do: bucket, else: raise(ArgumentError, ":bucket must be an atom")
-  end
+  def init(opts), do: opts
 
   @impl true
-  def call(conn, bucket) do
-    config = Application.get_env(:knowseek, KnowseekWeb.RateLimit, [])
-
-    if Keyword.get(config, :enabled, true), do: limit(conn, bucket, config), else: conn
+  def call(conn, _opts) do
+    case bucket(conn) do
+      nil -> conn
+      bucket -> limit(conn, bucket, Application.get_env(:knowseek, KnowseekWeb.RateLimit, []))
+    end
   end
 
-  defp limit(conn, bucket, config) do
-    {limit, window_ms} = config |> Keyword.fetch!(:limits) |> Keyword.fetch!(bucket)
-    client = ClientIp.key(conn, Keyword.get(config, :trusted_proxies, []))
-    limiter = Keyword.get(config, :limiter, RateLimiter)
+  @doc "The bucket a request draws on, or `nil` when the route is not limited."
+  @spec bucket(Plug.Conn.t()) :: bucket() | nil
+  def bucket(%Plug.Conn{method: method, path_info: ["api", "cards"]})
+      when method in ["GET", "HEAD"],
+      do: :cards
 
-    case RateLimiter.hit(limiter, {bucket, client}, limit, window_ms) do
-      :ok -> conn
-      {:error, retry_after_ms} -> too_many_requests(conn, retry_after_ms)
+  def bucket(%Plug.Conn{method: "POST", path_info: ["api", "search"]}), do: :search
+  def bucket(%Plug.Conn{method: "POST", path_info: ["api", "documents"]}), do: :documents
+  def bucket(_conn), do: nil
+
+  defp limit(conn, bucket, config) do
+    if Keyword.get(config, :enabled, true) do
+      {limit, window_ms} = config |> Keyword.fetch!(:limits) |> Keyword.fetch!(bucket)
+      cidrs = config |> Keyword.get(:trusted_proxies, []) |> ClientIp.cidrs!()
+      client = ClientIp.key(conn, cidrs)
+      limiter = Keyword.get(config, :limiter, RateLimiter)
+
+      case RateLimiter.hit(limiter, {bucket, client}, limit, window_ms) do
+        :ok -> conn
+        {:error, retry_after_ms} -> too_many_requests(conn, retry_after_ms)
+      end
+    else
+      conn
     end
   end
 

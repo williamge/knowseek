@@ -96,7 +96,28 @@ defmodule Knowseek.RateLimiterTest do
           assert RateLimiter.hit(:no_such_limiter, :a, 1, 1_000) == :ok
         end)
 
-      assert log =~ "rate limiter unreachable"
+      assert log =~ "unreachable, request allowed"
+    end
+
+    test "a limiter that does not answer allows the request after 100 ms, and logs once per 10 s" do
+      name = :"stuck_limiter_#{System.unique_integer([:positive])}"
+      {:ok, _pid} = Agent.start_link(fn -> nil end, name: name)
+      :sys.suspend(name)
+
+      log =
+        capture_log(fn ->
+          {micros, result} = :timer.tc(fn -> RateLimiter.hit(name, :a, 1, 1_000) end)
+          assert result == :ok
+          # It waited for the timeout, and not for the five seconds of a default call.
+          assert micros >= 90_000
+          assert micros < 1_000_000
+
+          # Allowed again, and nothing more is logged within ten seconds.
+          assert RateLimiter.hit(name, :a, 1, 1_000) == :ok
+          assert RateLimiter.hit(name, :a, 1, 1_000) == :ok
+        end)
+
+      assert length(Regex.scan(~r/unreachable, request allowed/, log)) == 1
     end
   end
 

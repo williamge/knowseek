@@ -9,7 +9,12 @@ defmodule KnowseekWeb.ClientIp do
   right: each proxy appends the address it saw, so the entries on the left
   were written by the client and are worth nothing. The client is the
   rightmost entry that is not itself a trusted proxy. When the header is
-  missing or its rightmost entry is not an address, the client is the proxy.
+  missing or its rightmost entry is not a bare address (junk, or an address
+  with a port such as `203.0.113.9:4711`, which some proxies append), the
+  client is the proxy: every such request shares the proxy's bucket. That
+  fails closed (the limit is stricter, never looser), and the log does not
+  say so, so a proxy that adds ports needs to be set up to send plain
+  addresses.
 
   The key is the address, with two normalizations: an IPv4-mapped IPv6
   address (`::ffff:192.0.2.1`, what a dual-stack listener reports for an IPv4
@@ -24,13 +29,12 @@ defmodule KnowseekWeb.ClientIp do
   @type key :: :inet.ip4_address() | {:ip6_64, 0..65_535, 0..65_535, 0..65_535, 0..65_535}
 
   @doc """
-  The rate-limit key of `conn`. `trusted_proxies` are strings (`"10.0.0.0/8"`,
-  `"::1"`) or parsed CIDRs from `parse_cidrs!/1`.
+  The rate-limit key of `conn`. `cidrs` are the parsed trusted proxies from
+  `parse_cidrs!/1` or `cidrs!/1`.
   """
-  @spec key(Plug.Conn.t(), [String.t() | cidr()]) :: key()
-  def key(%Plug.Conn{remote_ip: remote_ip} = conn, trusted_proxies \\ []) do
+  @spec key(Plug.Conn.t(), [cidr()]) :: key()
+  def key(%Plug.Conn{remote_ip: remote_ip} = conn, cidrs \\ []) do
     remote = unmap(remote_ip)
-    cidrs = parse_cidrs!(trusted_proxies)
 
     client =
       if cidrs != [] and trusted?(remote, cidrs),
@@ -49,11 +53,29 @@ defmodule KnowseekWeb.ClientIp do
   @spec parse_cidrs!([String.t() | cidr()]) :: [cidr()]
   def parse_cidrs!(list), do: Enum.map(list, &parse_cidr!/1)
 
+  @doc """
+  `parse_cidrs!/1`, parsed once per distinct list: the result is kept in
+  `:persistent_term`, so a request does not parse the configuration again.
+  The application calls it at start, so an invalid entry stops the start.
+  """
+  @spec cidrs!([String.t() | cidr()]) :: [cidr()]
+  def cidrs!(list) do
+    case :persistent_term.get({__MODULE__, list}, nil) do
+      nil ->
+        cidrs = parse_cidrs!(list)
+        :persistent_term.put({__MODULE__, list}, cidrs)
+        cidrs
+
+      cidrs ->
+        cidrs
+    end
+  end
+
   defp parse_cidr!({ip, bits} = cidr) when is_tuple(ip) and is_integer(bits), do: cidr
 
   defp parse_cidr!(text) when is_binary(text) do
     {address, bits} =
-      case String.split(String.trim(text), "/") do
+      case String.split(text, "/") do
         [address] -> {address, nil}
         [address, bits] -> {address, bits}
         _ -> invalid!(text)
@@ -79,12 +101,14 @@ defmodule KnowseekWeb.ClientIp do
   defp network_cidr(ip, bits, text) do
     max_bits = if tuple_size(ip) == 4, do: 32, else: 128
 
-    case Integer.parse(bits) do
-      {n, ""} when n in 0..128 and n <= max_bits ->
-        if unmap(ip) == ip, do: {ip, n}, else: invalid!(text)
-
-      _ ->
-        invalid!(text)
+    # Canonical decimal only: `8`, not `+8`, `08` or ` 8`.
+    with true <- Regex.match?(~r/\A(0|[1-9][0-9]{0,2})\z/, bits),
+         n = String.to_integer(bits),
+         true <- n <= max_bits,
+         true <- unmap(ip) == ip do
+      {ip, n}
+    else
+      _ -> invalid!(text)
     end
   end
 

@@ -21,9 +21,6 @@ defmodule KnowseekWeb.CardController do
 
   action_fallback KnowseekWeb.FallbackController
 
-  # Anonymous input starts Wikidata lookups: limited per client (ADR 0023).
-  plug KnowseekWeb.Plugs.RateLimit, bucket: :cards
-
   # A query longer than this is no entity name; it is not even parsed.
   @max_query_bytes 1_000
   @pending_poll_ms 700

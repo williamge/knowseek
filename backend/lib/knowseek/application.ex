@@ -41,7 +41,7 @@ defmodule Knowseek.Application do
     :knowseek
     |> Application.get_env(KnowseekWeb.RateLimit, [])
     |> Keyword.get(:trusted_proxies, [])
-    |> KnowseekWeb.ClientIp.parse_cidrs!()
+    |> KnowseekWeb.ClientIp.cidrs!()
 
     :ok
   end

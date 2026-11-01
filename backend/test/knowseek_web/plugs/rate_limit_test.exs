@@ -4,7 +4,7 @@ defmodule KnowseekWeb.Plugs.RateLimitTest do
   use KnowseekWeb.ConnCase, async: false
 
   alias Knowseek.{Cache, RateLimiter}
-  alias Knowseek.Entities.FakeResolver
+  alias Knowseek.Entities.{BlockingResolver, FakeResolver}
 
   @start_ms 1_000_000
   @client_a {203, 0, 113, 1}
@@ -139,6 +139,38 @@ defmodule KnowseekWeb.Plugs.RateLimitTest do
     end
   end
 
+  test "a flood from one client does not keep another client's query pending (capped cache, blocking resolver)",
+       %{conn: conn} do
+    configure(limits: [cards: {2, 60_000}, search: {3, 60_000}, documents: {3, 60_000}])
+    BlockingResolver.register()
+    capped = :"rate_limit_test_capped_#{System.unique_integer([:positive])}"
+    start_supervised!({Cache, name: capped, max_in_flight: 4, reserve_for_refresh: 1})
+
+    Application.put_env(:knowseek, KnowseekWeb.CardController,
+      entities: [cache: capped, resolver: BlockingResolver]
+    )
+
+    # Client A floods with 50 distinct junk queries: 2 get through and block in
+    # the resolver, 48 are answered 429 and start nothing.
+    statuses = for n <- 1..50, do: card_status(conn, @client_a, "junk #{n}")
+    assert Enum.count(statuses, &(&1 == 200)) == 2
+    assert Enum.count(statuses, &(&1 == 429)) == 48
+    assert_receive {:resolving, junk_one, "junk 1"}
+    assert_receive {:resolving, junk_two, "junk 2"}
+    refute_receive {:resolving, _, _}, 20
+    assert %{in_flight: 2} = Cache.stats(capped)
+
+    # Client B's query starts at once, with both junk resolutions still blocked.
+    assert card_status(conn, @client_b, "real query") == 200
+    assert_receive {:resolving, real, "real query"}
+
+    for pid <- [junk_one, junk_two, real], do: send(pid, :release)
+    :ok = Knowseek.Entities.await("real query", cache: capped, resolver: BlockingResolver)
+
+    assert :none ==
+             Knowseek.Entities.resolve("real query", cache: capped, resolver: BlockingResolver)
+  end
+
   describe "POST /api/search" do
     test "answers 429 with Retry-After over the limit and enqueues nothing", %{
       conn: conn,
@@ -226,6 +258,81 @@ defmodule KnowseekWeb.Plugs.RateLimitTest do
     test "enabled: false turns the limit off", %{conn: conn} do
       configure(enabled: false)
       assert for(_ <- 1..10, do: card_status(conn, @client_a)) == List.duplicate(200, 10)
+    end
+  end
+
+  describe "before the body is read" do
+    defp json_post(conn, ip, path, body) do
+      conn |> from(ip) |> put_req_header("content-type", "application/json") |> post(path, body)
+    end
+
+    test "a client over its limit is answered 429 without its body being parsed", %{conn: conn} do
+      for _ <- 1..3, do: assert(search_status(conn, @client_a) == 200)
+
+      # A body that is not JSON would raise in `Plug.Parsers`; one over the length
+      # limit would be a 413. Neither is looked at.
+      limited = json_post(conn, @client_a, ~p"/api/search", "{ this is not json")
+      assert json_response(limited, 429) == %{"errors" => %{"detail" => "Too many requests"}}
+
+      limited = json_post(conn, @client_a, ~p"/api/search", String.duplicate("a", 2_000_000))
+      assert limited.status == 429
+      assert get_resp_header(limited, "retry-after") == ["20"]
+    end
+
+    test "a request under its limit still has its body parsed", %{conn: conn} do
+      assert_raise Plug.Parsers.ParseError, fn ->
+        json_post(conn, @client_a, ~p"/api/search", "{ this is not json")
+      end
+    end
+
+    test "a body over the 1 MB limit is a 413, for a client under its limit", %{conn: conn} do
+      assert_error_sent 413, fn ->
+        json_post(conn, @client_a, ~p"/api/documents", String.duplicate("a", 1_000_001))
+      end
+    end
+
+    test "a document of 900 thousand characters is accepted", %{conn: conn} do
+      body = %{
+        document: %{body: String.duplicate("kelp forests grow along cold coasts. ", 24_000)}
+      }
+
+      assert conn |> from(@client_a) |> post(~p"/api/documents", body) |> Map.fetch!(:status) ==
+               201
+    end
+
+    test "HEAD /api/cards runs the controller as a GET, so it draws on the cards budget", %{
+      conn: conn
+    } do
+      statuses =
+        for _ <- 1..5,
+            do: conn |> from(@client_a) |> head(~p"/api/cards?q=fake") |> Map.fetch!(:status)
+
+      assert statuses == [200, 200, 200, 429, 429]
+      assert card_status(conn, @client_a) == 429
+    end
+
+    test "bucket/1 names the limited routes and nothing else" do
+      bucket = fn method, path ->
+        %{Plug.Test.conn(method, path) | path_info: String.split(path, "/", trim: true)}
+        |> KnowseekWeb.Plugs.RateLimit.bucket()
+      end
+
+      assert bucket.("GET", "/api/cards") == :cards
+      assert bucket.("HEAD", "/api/cards") == :cards
+      assert bucket.("POST", "/api/search") == :search
+      assert bucket.("POST", "/api/documents") == :documents
+
+      for {method, path} <- [
+            {"POST", "/api/cards"},
+            {"GET", "/api/search"},
+            {"GET", "/api/documents"},
+            {"GET", "/api/documents/1"},
+            {"POST", "/api/documents/1"},
+            {"GET", "/api/health"},
+            {"GET", "/"}
+          ] do
+        assert bucket.(method, path) == nil, "#{method} #{path}"
+      end
     end
   end
 

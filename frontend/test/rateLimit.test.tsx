@@ -159,6 +159,57 @@ describe("useCard: 429", () => {
     expect(count(calls, KNICKS)).toBe(5);
   });
 
+  it("does not ask before Retry-After when the tab is shown again or the browser is online again", async () => {
+    const { calls } = setup(limited("20"), cardResponse());
+    const setHidden = (hidden: boolean) => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+
+    await tick(0);
+    expect(count(calls, KNICKS)).toBe(1);
+
+    // Hidden and shown again after 5 s: the wait is not over.
+    await tick(5_000);
+    act(() => setHidden(true));
+    act(() => setHidden(false));
+    await tick(0);
+    expect(count(calls, KNICKS)).toBe(1);
+
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await tick(10_000);
+    expect(count(calls, KNICKS)).toBe(1);
+
+    // The wait ends 20 s after the 429, and the request is made then, once.
+    await tick(4_999);
+    expect(count(calls, KNICKS)).toBe(1);
+    await tick(1);
+    expect(count(calls, KNICKS)).toBe(2);
+
+    Reflect.deleteProperty(document, "hidden");
+  });
+
+  it("asks at once when the tab is shown after the Retry-After has passed", async () => {
+    const { calls } = setup(limited("20"), cardResponse());
+    const setHidden = (hidden: boolean) => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+
+    await tick(0);
+    act(() => setHidden(true));
+    await tick(60_000);
+    expect(count(calls, KNICKS)).toBe(1);
+
+    act(() => setHidden(false));
+    await tick(0);
+    expect(count(calls, KNICKS)).toBe(2);
+
+    Reflect.deleteProperty(document, "hidden");
+  });
+
   it("shows nothing: no error, no message", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     mockApi({
