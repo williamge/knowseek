@@ -56,7 +56,7 @@ Each sits behind a swappable source behaviour with its module chosen by config
 - **Public company** ("nvda"): a Yahoo-style chart endpoint. Unofficial, needs
   a browser User-Agent, and was rate limited (HTTP 429) in the verification
   probes. A keyed provider such as Finnhub or Alpha Vantage is the documented
-  fallback.
+  fallback. (Task 032 re-probed it: ADR [0021](0021-company-card-source.md).)
 - **Place and weather** ("weather in tokyo"): Open-Meteo. No key; the free tier
   is non-commercial.
 
@@ -121,7 +121,7 @@ refresh. Rules 2 and 3 are untouched: cards never go through
 amendment is in `AGENTS.md` and `docs/ARCHITECTURE.md`. Entity resolution and
 the cache behind it (`Knowseek.Entities`, `Knowseek.Cache`, task 030) and the
 card framework with the NBA team card (`Knowseek.Cards`, task 031) are built;
-the company and weather cards (tasks 032-034) are not.
+the company card (task 032, ADR 0021) is built too; the weather card (task 033) is not.
 
 ## Consequences
 

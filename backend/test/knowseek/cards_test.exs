@@ -7,6 +7,7 @@ defmodule Knowseek.CardsTest do
 
   alias Knowseek.Cache
   alias Knowseek.Cards
+  alias Knowseek.Cards.Providers.EspnNba
   alias Knowseek.Entities.{Entity, Wikidata}
 
   setup :set_req_test_from_context
@@ -307,7 +308,7 @@ defmodule Knowseek.CardsTest do
 
       # A G League team, a company and a place.
       assert Cards.get(westchester, opts) == :none
-      assert Cards.get(nvidia, opts) == :none
+      assert Cards.get(nvidia, Keyword.put(opts, :providers, [EspnNba])) == :none
       assert Cards.get(tokyo, opts) == :none
 
       assert Cards.await(westchester, opts) == :ok

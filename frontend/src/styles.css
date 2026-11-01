@@ -435,6 +435,57 @@ kbd {
   color: var(--muted);
 }
 
+/* Company (price) card */
+
+.market-state {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--none-soft);
+}
+
+.market-state--open {
+  color: var(--good);
+  background: var(--good-soft);
+}
+
+.quote {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.quote__price {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.quote__change {
+  font-weight: 600;
+}
+
+.quote__change--up {
+  color: var(--good);
+}
+
+.quote__change--down {
+  color: var(--accent);
+}
+
+.quote__change--flat {
+  color: var(--muted);
+}
+
+.quote__delayed {
+  color: var(--partial);
+}
+
 .fact-card__stale {
   color: var(--partial);
 }

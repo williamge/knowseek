@@ -71,6 +71,12 @@ if config_env() != :test do
     other ->
       raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
   end
+
+  # Company price cards (task 032, ADR 0021). Optional: with no key the
+  # provider handles nothing and a company query gets no card.
+  if key = env.("TWELVEDATA_API_KEY") do
+    config :knowseek, Knowseek.Cards.TwelveData, api_key: key
+  end
 end
 
 if config_env() == :prod do
