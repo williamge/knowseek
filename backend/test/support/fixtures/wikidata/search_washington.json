@@ -1,0 +1,45 @@
+{
+  "success": 1,
+  "search": [
+    {
+      "id": "Q1223",
+      "label": "Washington",
+      "description": "state of the United States of America"
+    },
+    {
+      "id": "Q2550388",
+      "label": "Washington",
+      "description": "family name"
+    },
+    {
+      "id": "Q18107476",
+      "label": "Washington",
+      "description": "male given name"
+    },
+    {
+      "id": "Q1026008",
+      "label": "Washington",
+      "description": "city in Beaufort County, North Carolina, United States of America"
+    },
+    {
+      "id": "Q61",
+      "label": "Washington, D.C.",
+      "description": "capital city of the United States of America"
+    },
+    {
+      "id": "Q1018557",
+      "label": "Washington",
+      "description": "village and civil parish in the Horsham District of West Sussex, England, UK"
+    },
+    {
+      "id": "Q777403",
+      "label": "Washington University in St.\u00a0Louis",
+      "description": "private research university in St.\u00a0Louis, Missouri, United States"
+    },
+    {
+      "id": "Q2446223",
+      "label": "Washington",
+      "description": "town in Litchfield County, Connecticut, United States"
+    }
+  ]
+}

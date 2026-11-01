@@ -23,7 +23,8 @@ defmodule Knowseek.Fixtures do
   A recorded Wikidata API answer, decoded. `name` is a file in
   `test/support/fixtures/wikidata` without `.json`: `search_<query>` (a
   `wbsearchentities` answer for `knicks`, `nvidia`, `nvda`, `tokyo`, `texas`,
-  `japan` or `apple`) or `entities_<query>` (the `wbgetentities` answer for the
+  `japan`, `apple`, `new york`, `washington`, `london`, `georgia` or `cambridge`; the
+  file names use `_` for a space) or `entities_<query>` (the `wbgetentities` answer for the
   ids of that search). Recorded from wikidata.org, trimmed to the fields the
   resolver reads. Sitelinks are trimmed too: the `enwiki` entry is real, the
   others are empty placeholders (`x12`) that keep the count the resolver reads.
@@ -38,7 +39,7 @@ defmodule Knowseek.Fixtures do
   `"Q182477"` (Nvidia). Tests change it to build a variant.
   """
   def wikidata_item(id) do
-    ~w(knicks nvidia nvda tokyo texas japan apple)
+    ~w(knicks nvidia nvda tokyo texas japan apple new_york washington london georgia cambridge)
     |> Enum.map(&wikidata_fixture("entities_#{&1}"))
     |> Enum.find_value(&get_in(&1, ["entities", id]))
   end
@@ -57,7 +58,7 @@ defmodule Knowseek.Fixtures do
     test_pid = self()
 
     items =
-      ~w(knicks nvidia nvda tokyo texas japan apple)
+      ~w(knicks nvidia nvda tokyo texas japan apple new_york washington london georgia cambridge)
       |> Enum.map(&wikidata_fixture("entities_#{&1}")["entities"])
       |> Enum.reduce(%{}, &Map.merge/2)
 
@@ -72,7 +73,7 @@ defmodule Knowseek.Fixtures do
   end
 
   defp wikidata_answer(%{"action" => "wbsearchentities", "search" => search}, _items) do
-    fixture = "search_#{String.downcase(search)}"
+    fixture = "search_#{search |> String.downcase() |> String.replace(" ", "_")}"
 
     if File.exists?(Path.join(@wikidata_fixtures, "#{fixture}.json")) do
       wikidata_fixture(fixture)
@@ -153,6 +154,39 @@ defmodule Knowseek.Fixtures do
       case Map.fetch(bodies, path) do
         {:ok, body} -> Req.Test.json(conn, body)
         :error -> conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"code" => 404})
+      end
+    end)
+  end
+
+  @open_meteo_fixtures Path.expand("fixtures/open_meteo", __DIR__)
+
+  @doc """
+  A recorded Open-Meteo forecast, decoded: `forecast_tokyo` (five days, recorded
+  on 2026-11-01). See that directory's README.
+  """
+  def open_meteo_fixture(name) do
+    @open_meteo_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
+  end
+
+  @doc """
+  Stubs `Knowseek.Cards.OpenMeteo` HTTP calls (`Req.Test`) with `body` (default:
+  the recorded Tokyo forecast; a function receives the conn and answers it). Each
+  request sends `{:open_meteo_request, query_params, user_agent}` to the calling
+  process. The stub runs in the cache's fetch task: shared mode (non-async test,
+  `setup :set_req_test_from_context`).
+  """
+  def stub_open_meteo(body \\ nil) do
+    test_pid = self()
+
+    Req.Test.stub(Knowseek.Cards.OpenMeteo, fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      user_agent = Plug.Conn.get_req_header(conn, "user-agent")
+      send(test_pid, {:open_meteo_request, conn.query_params, user_agent})
+
+      case body do
+        nil -> Req.Test.json(conn, open_meteo_fixture("forecast_tokyo"))
+        fun when is_function(fun, 1) -> fun.(conn)
+        body -> Req.Test.json(conn, body)
       end
     end)
   end
