@@ -132,7 +132,7 @@ defmodule KnowseekWeb.Plugs.RateLimitTest do
       :ok = Knowseek.Entities.await("fake", options)
       assert card_status(conn, @client_b, "fake") == 200
       {:ok, %{entity: entity}} = Knowseek.Entities.resolve("fake", options)
-      :ok = Knowseek.Cards.await(entity, cache: cards)
+      :ok = Knowseek.Cards.await(entity, cache: cards, providers: [Knowseek.Cards.StaticProvider])
 
       data = conn |> from(@client_b) |> get(~p"/api/cards", q: "fake") |> json_response(200)
       assert %{"status" => "fresh", "entity" => %{"label" => "Fake Team"}} = data["data"]
