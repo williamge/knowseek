@@ -5,6 +5,7 @@ import type {
   KnowseekDocument,
   SearchResult,
   SportsTeamFacts,
+  WeatherFacts,
 } from "../src/types";
 
 export const knicksEntity: CardEntity = {
@@ -41,6 +42,77 @@ export function teamFacts(overrides: Partial<SportsTeamFacts> = {}): SportsTeamF
     injuries: [{ player: "Jose Alvarado", status: "Out" }],
     ...overrides,
   };
+}
+
+export const tokyoEntity: CardEntity = {
+  id: "Q1490",
+  label: "Tokyo",
+  description: "capital and largest city of Japan",
+  kind: "place",
+  wikipedia_title: "Tokyo",
+};
+
+/** Tokyo on 2026-11-01 as the backend sends it (metric), from the recorded Open-Meteo answer. */
+export function weatherFacts(overrides: Partial<WeatherFacts> = {}): WeatherFacts {
+  const day = (
+    date: string,
+    high: number,
+    low: number,
+    chance: number,
+    code: number,
+    icon: string,
+    condition: string,
+  ) => ({
+    date,
+    high_c: high,
+    low_c: low,
+    precipitation_probability_percent: chance,
+    weather_code: code,
+    condition,
+    icon,
+    sunrise: `${date}T06:02`,
+    sunset: `${date}T16:46`,
+  });
+
+  return {
+    source: "Open-Meteo.com",
+    source_url: "https://open-meteo.com/",
+    timezone: "Asia/Tokyo",
+    utc_offset_seconds: 32_400,
+    observed_at: "2026-11-01T01:00:00Z",
+    current: {
+      temperature_c: 17,
+      apparent_temperature_c: 15.7,
+      humidity_percent: 55,
+      precipitation_mm: 0,
+      wind_speed_kmh: 4.7,
+      wind_direction_deg: 351,
+      is_day: true,
+      weather_code: 0,
+      condition: "Clear sky",
+      icon: "☀️",
+    },
+    daily: [
+      day("2026-11-01", 19.9, 11.7, 0, 3, "☁️", "Overcast"),
+      day("2026-11-02", 22, 12.6, 84, 53, "🌦️", "Drizzle"),
+      day("2026-11-03", 19.4, 11.7, 5, 51, "🌦️", "Light drizzle"),
+      day("2026-11-04", 15.4, 12.2, 42, 51, "🌦️", "Light drizzle"),
+      day("2026-11-05", 17.3, 11.5, 80, 81, "🌧️", "Rain showers"),
+    ],
+    ...overrides,
+  };
+}
+
+/** A fresh weather card for Tokyo. */
+export function weatherResponse(overrides: Partial<CardResponse> = {}): CardResponse {
+  return cardResponse({
+    entity: tokyoEntity,
+    alternatives: [],
+    card: { type: "weather", title: "Tokyo", facts: weatherFacts() },
+    as_of: "2026-11-01T01:00:20Z",
+    refresh_after_ms: 60_000,
+    ...overrides,
+  });
 }
 
 /** A response of `GET /api/cards`. The default is a fresh Knicks card. */

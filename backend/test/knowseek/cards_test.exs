@@ -318,6 +318,67 @@ defmodule Knowseek.CardsTest do
       assert Cards.get(knicks(), [providers: []] ++ opts) == :none
     end
 
+    test "a place has a weather card only for the weather intent (ADR 0022)", %{opts: opts} do
+      stub_wikidata()
+      stub_open_meteo()
+      {:ok, [tokyo | _]} = Wikidata.search("tokyo", [])
+
+      assert Cards.get(tokyo, opts) == :none
+      assert Cards.get(tokyo, [intent: nil] ++ opts) == :none
+      assert Cards.await(tokyo, opts) == :ok
+      refute_received {:open_meteo_request, _, _}
+
+      assert %{status: :pending} = Cards.get(tokyo, [intent: :weather] ++ opts)
+      :ok = Cards.await(tokyo, [intent: :weather] ++ opts)
+
+      assert %{status: :fresh, type: "weather", title: "Tokyo", as_of: as_of} =
+               Cards.get(tokyo, [intent: :weather] ++ opts)
+
+      assert as_of == DateTime.from_unix!(@start_ms, :millisecond)
+      assert_received {:open_meteo_request, %{"latitude" => "35.68944444444445"}, _}
+
+      # The card is cached for the place, but a plain query still does not show it.
+      assert Cards.get(tokyo, opts) == :none
+    end
+
+    test "the weather card is cached for 10 minutes", %{opts: opts, clock: clock} do
+      stub_wikidata()
+      stub_open_meteo()
+      {:ok, [tokyo | _]} = Wikidata.search("tokyo", [])
+      opts = [intent: :weather] ++ opts
+
+      Cards.get(tokyo, opts)
+      :ok = Cards.await(tokyo, opts)
+      assert %{status: :fresh, refresh_after_ms: ms} = Cards.get(tokyo, opts)
+      assert ms == 60_000
+
+      advance(clock, :timer.minutes(10) - 1)
+      assert %{status: :fresh} = Cards.get(tokyo, opts)
+      advance(clock, 2)
+      assert %{status: :stale} = Cards.get(tokyo, opts)
+    end
+
+    test "a provider without an intent handles the entity whatever the query said", %{opts: opts} do
+      for intent <- [nil, :weather] do
+        opts = [providers: [Knowseek.Cards.StaticProvider], intent: intent] ++ opts
+        assert %{status: status} = Cards.get(knicks(), opts)
+        assert status in [:pending, :fresh]
+        :ok = Cards.await(knicks(), opts)
+        assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+      end
+    end
+
+    test "a team with the weather intent keeps the team card, not weather", %{opts: opts} do
+      stub_espn()
+      stub_open_meteo()
+      opts = [intent: :weather] ++ opts
+
+      assert %{status: :pending} = Cards.get(knicks(), opts)
+      :ok = Cards.await(knicks(), opts)
+      assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+      refute_received {:open_meteo_request, _, _}
+    end
+
     test "a provider that returns a malformed card is a failure, not a crash", %{opts: opts} do
       opts = [providers: [Knowseek.Cards.BadProvider]] ++ opts
 

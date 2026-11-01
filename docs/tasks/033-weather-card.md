@@ -1,6 +1,6 @@
 # 033. Weather card
 
-- Status: open
+- Status: done
 - Area: `Knowseek.Cards` (new provider), web card rendering
 - Depends on: 031
 
@@ -36,3 +36,21 @@ Show current weather for "weather in tokyo".
 ## Out of scope
 
 Forecasts beyond current conditions, bare "weather" ([034](034-weather-location-context.md)).
+
+## Outcome
+
+Built ([ADR 0022](../decisions/0022-weather-card-terms-and-intent.md)):
+
+- `Knowseek.Cards.Providers.OpenMeteo` (client `Knowseek.Cards.OpenMeteo`): one forecast request per place with Wikidata coordinates, `current` + 5 `daily` days, `timezone=auto`; metric facts, `observed_at` in UTC, the WMO code table (text + emoji, every code tested), TTL two thirds of `current.interval` (10 min, clamped 5-15 min). 429 is a rate limit; a malformed answer or HTTP error is `unavailable`/`stale` like the other cards.
+- The intent rule: optional `Provider.intent/0`; `Cards.get/2`/`await/2` take `:intent`, which `CardController` passes. A place has weather only for the weather intent; `tokyo` is `none`; a team with the weather words keeps the team card.
+- Web: `WeatherFacts.tsx` (conditions, high/low, wind, humidity, a 5-day strip, "as of" in the place's time zone, the Open-Meteo credit link), `lib/weather.ts` (US locale: °F/mph/in; others metric), tests for both.
+- Fixture `fixtures/open_meteo/forecast_tokyo.json` recorded from the live API, README, ADR with the quoted terms.
+
+Left out:
+
+- The Open-Meteo geocoding fallback of the original scope: place kinds already require P625 coordinates, and `timezone=auto` replaces the geocoder's time zone.
+- Configurable unit (Fahrenheit or Celsius): the UI picks it by locale; a user setting comes with accounts or [034](034-weather-location-context.md).
+- Hourly forecast, alerts, air quality, sunrise/sunset in the UI (the card carries them).
+- Bare "weather" ([034](034-weather-location-context.md)).
+
+Follow-ups: none needed beyond 034. A commercial deployment needs Open-Meteo's paid plan and an API key setting (ADR 0022).

@@ -1,5 +1,6 @@
 import { clockTime, gameTime, versus } from "../lib/format";
 import type { CardResponse, FactCard as FactCardData, SportsTeamFacts } from "../types";
+import { WeatherCredit, WeatherFacts } from "./WeatherFacts";
 
 interface Props {
   data: CardResponse;
@@ -22,18 +23,23 @@ export function FactCard({ data, onSearch }: Props) {
 
   return (
     <section className="fact-card" aria-label={`Live facts: ${data.card.title}`}>
-      <CardBody card={data.card} />
+      <CardBody card={data.card} description={data.entity?.description ?? null} />
 
       <footer className="fact-card__foot">
-        {data.card.facts.source && <span>{data.card.facts.source}</span>}
-        {data.as_of && (
-          <span>
-            as of{" "}
-            <time dateTime={data.as_of}>
-              {clockTime(data.as_of, data.card.facts.live !== null)}
-            </time>
-          </span>
+        {data.card.type === "sports_team" && (
+          <>
+            <span>{data.card.facts.source}</span>
+            {data.as_of && (
+              <span>
+                as of{" "}
+                <time dateTime={data.as_of}>
+                  {clockTime(data.as_of, data.card.facts.live !== null)}
+                </time>
+              </span>
+            )}
+          </>
         )}
+        {data.card.type === "weather" && <WeatherCredit facts={data.card.facts} />}
         {stale && (
           <span className="fact-card__stale" role="status">
             may be out of date
@@ -45,7 +51,15 @@ export function FactCard({ data, onSearch }: Props) {
         <div className="fact-card__also">
           <span>also:</span>
           {alternatives.map(({ id, label }) => (
-            <button key={id} type="button" className="chip" onClick={() => onSearch(label)}>
+            <button
+              key={id}
+              type="button"
+              className="chip"
+              // "weather in New York City": a weather card's alternative is another place's weather.
+              onClick={() =>
+                onSearch(data.card?.type === "weather" ? `weather in ${label}` : label)
+              }
+            >
               {label}
             </button>
           ))}
@@ -55,10 +69,12 @@ export function FactCard({ data, onSearch }: Props) {
   );
 }
 
-function CardBody({ card }: { card: FactCardData }) {
+function CardBody({ card, description }: { card: FactCardData; description: string | null }) {
   switch (card.type) {
     case "sports_team":
       return <TeamBody title={card.title} facts={card.facts} />;
+    case "weather":
+      return <WeatherFacts title={card.title} description={description} facts={card.facts} />;
   }
 }
 

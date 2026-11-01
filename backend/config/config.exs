@@ -121,7 +121,7 @@ config :knowseek, Knowseek.Entities.Wikidata,
 # most) is killed after 12 s. `cache` holds the start options of the cards
 # cache.
 config :knowseek, Knowseek.Cards,
-  providers: [Knowseek.Cards.Providers.EspnNba],
+  providers: [Knowseek.Cards.Providers.EspnNba, Knowseek.Cards.Providers.OpenMeteo],
   backoff: :timer.seconds(10),
   timeout: :timer.seconds(12),
   cache: [max_entries: 1_000, max_in_flight: 8]
@@ -129,6 +129,14 @@ config :knowseek, Knowseek.Cards,
 # ESPN's public site API. `receive_timeout` is per request.
 config :knowseek, Knowseek.Cards.Espn,
   base_url: "https://site.api.espn.com/apis/site/v2/sports",
+  user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  receive_timeout: 4_000,
+  req_options: []
+
+# Open-Meteo's forecast API (task 033, ADR 0022): no key; free for non-commercial
+# use only, with attribution. `receive_timeout` is per request.
+config :knowseek, Knowseek.Cards.OpenMeteo,
+  base_url: "https://api.open-meteo.com/v1/forecast",
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
   receive_timeout: 4_000,
   req_options: []

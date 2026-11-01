@@ -157,6 +157,39 @@ defmodule Knowseek.Fixtures do
     end)
   end
 
+  @open_meteo_fixtures Path.expand("fixtures/open_meteo", __DIR__)
+
+  @doc """
+  A recorded Open-Meteo forecast, decoded: `forecast_tokyo` (five days, recorded
+  on 2026-11-01). See that directory's README.
+  """
+  def open_meteo_fixture(name) do
+    @open_meteo_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
+  end
+
+  @doc """
+  Stubs `Knowseek.Cards.OpenMeteo` HTTP calls (`Req.Test`) with `body` (default:
+  the recorded Tokyo forecast; a function receives the conn and answers it). Each
+  request sends `{:open_meteo_request, query_params, user_agent}` to the calling
+  process. The stub runs in the cache's fetch task: shared mode (non-async test,
+  `setup :set_req_test_from_context`).
+  """
+  def stub_open_meteo(body \\ nil) do
+    test_pid = self()
+
+    Req.Test.stub(Knowseek.Cards.OpenMeteo, fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      user_agent = Plug.Conn.get_req_header(conn, "user-agent")
+      send(test_pid, {:open_meteo_request, conn.query_params, user_agent})
+
+      case body do
+        nil -> Req.Test.json(conn, open_meteo_fixture("forecast_tokyo"))
+        fun when is_function(fun, 1) -> fun.(conn)
+        body -> Req.Test.json(conn, body)
+      end
+    end)
+  end
+
   @doc """
   Empties the application's cache of the ESPN team list (a day's TTL), so
   that a test sees the `/teams` request itself.

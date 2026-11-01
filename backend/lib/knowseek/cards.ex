@@ -13,7 +13,10 @@ defmodule Knowseek.Cards do
 
   Which provider handles an entity is config (`:providers`, in order, the
   first whose `c:Knowseek.Cards.Provider.handles?/1` is true wins). Providers
-  implement `Knowseek.Cards.Provider`.
+  implement `Knowseek.Cards.Provider`. A provider that defines
+  `c:Knowseek.Cards.Provider.intent/0` (the weather provider) is skipped unless
+  the query carried that intent (`:intent` option, from
+  `Knowseek.Entities.resolve/2`); the others ignore the intent (ADR 0022).
 
   ## Result
 
@@ -62,8 +65,9 @@ defmodule Knowseek.Cards do
 
   @doc """
   The card for `entity`, or `:none`. Options (for tests): `:cache` (a started
-  `Knowseek.Cache` name), `:providers`, and `:clock` (a function returning the
-  time in milliseconds, the one the cache uses).
+  `Knowseek.Cache` name), `:providers`, `:clock` (a function returning the
+  time in milliseconds, the one the cache uses), and `:intent` (the intent of
+  the query, `nil` when it had none).
   """
   @spec get(Entity.t(), keyword()) :: t() | :none
   def get(%Entity{} = entity, opts \\ []) do
@@ -93,7 +97,14 @@ defmodule Knowseek.Cards do
     end
   end
 
-  defp provider(entity, config), do: Enum.find(config.providers, & &1.handles?(entity))
+  defp provider(entity, config) do
+    Enum.find(config.providers, &(intent_matches?(&1, config.intent) and &1.handles?(entity)))
+  end
+
+  defp intent_matches?(provider, intent) do
+    not (Code.ensure_loaded?(provider) and function_exported?(provider, :intent, 0)) or
+      provider.intent() == intent
+  end
 
   defp key(provider, entity), do: {provider, entity.id}
 
@@ -159,6 +170,7 @@ defmodule Knowseek.Cards do
       providers: Keyword.get(opts, :providers, Keyword.fetch!(env, :providers)),
       backoff: Keyword.fetch!(env, :backoff),
       timeout: Keyword.fetch!(env, :timeout),
+      intent: Keyword.get(opts, :intent),
       clock: Keyword.get(opts, :clock, fn -> System.system_time(:millisecond) end)
     }
   end
