@@ -70,6 +70,9 @@ config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
 config :knowseek, Knowseek.Entities.Wikidata,
   req_options: [plug: {Req.Test, Knowseek.Entities.Wikidata}, retry: false]
 
+# Tests of the limit turn it on and inject a limiter with a fake clock.
+config :knowseek, KnowseekWeb.RateLimit, enabled: false
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

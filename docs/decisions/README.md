@@ -27,3 +27,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0018](0018-ranking-prior.md) | Ranking prior: bounded log of Wikipedia page views, taken at ingest, applied after fusion |
 | [0019](0019-license-agpl-3.md) | License: AGPL-3.0-only |
 | [0020](0020-ci-hardening.md) | CI hardening: audits fail the build, migrations must roll back, separate jobs |
+| [0023](0023-rate-limiting-anonymous-endpoints.md) | Rate limiting for anonymous endpoints (per-client token bucket) and a fairness rule in the cache |

@@ -57,6 +57,10 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       VOYAGE_MODEL: ${VOYAGE_MODEL:-}
+      # Reverse proxies whose X-Forwarded-For is believed by the rate limit
+      # (CIDRs, comma-separated). Empty: none, so every client that reaches the
+      # published port has the same address (ADR 0023).
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
 volumes:
   pgdata:
