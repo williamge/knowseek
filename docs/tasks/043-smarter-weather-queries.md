@@ -32,8 +32,8 @@ What exists:
   coordinates. A place alone ("tokyo") gives no weather card.
 - When nothing resolves, the card endpoint answers `none` and the web UI
   shows only the ordinary search results.
-- The weather card is task [033](033-weather-card.md) (GitHub PR #32). It is
-  not on `main` at the time of writing. Only the sports-team card is.
+- The weather card is task [033](033-weather-card.md) (GitHub PR #32), merged
+  on `main`, next to the sports-team card.
 - Task [034](034-weather-location-context.md) plans browser-location context
   for a bare `weather`. It overlaps this task: decisions about where the
   user's location comes from should be made together.
@@ -65,18 +65,30 @@ none). Wikidata results can change over time.
 | `temperature in tokyo` | none | `temperature in tokyo` | 0 | none | no card |
 | `tokyo forecast` | none | `tokyo forecast` | 0 (one run: API error `cirrussearch-too-busy-error`) | none | no card |
 | `forecast for the weekend` | none | `forecast for the weekend` | 0 | none | no card |
-| `weather in nyc` | weather | `nyc` | 20: New York City (place), Nyctereutes procyonoides, Nyctemera (none) | New York City (place) | weather card for New York City (once 033 is merged) |
+| `weather in nyc` | weather | `nyc` | 20: New York City (place), Nyctereutes procyonoides, Nyctemera (none) | New York City (place) | weather card for New York City (per the code path, not probed) |
 | `wether in tokyo` | none | `wether in tokyo` | 0 | none | no card |
 | `weather in tokyo and osaka` | weather | `tokyo and osaka` | 0 | none | no card |
-| `weather in tokyo` (control) | weather | `tokyo` | 20: Tokyo (place), Tokyo (place), Sony Group (company) | Tokyo (place) | weather card for Tokyo (once 033 is merged) |
+| `weather in tokyo` (control) | weather | `tokyo` | 20: Tokyo (place), Tokyo (place), Sony Group (company) | Tokyo (place) | weather card for Tokyo (per the code path, not probed) |
 | `tokyo` (control) | none | `tokyo` | same as above | Tokyo (place) | place resolves but no intent, so no weather card |
 
-"App shows" is derived from the code path, not observed in a browser: the
-weather card is not on `main`, so no query could be run through it. On `main`
-every row shows no card. I did not run the card endpoint or the web UI. The
-last column says what the 033 design implies: a card needs the intent
-`weather` and a `place` with coordinates, and `none` gives only the search
-results.
+The Intent and Wikidata probes ran on `main` at `94db439`, before the
+weather card merged (`Intent` has not changed since; `wikidata.ex` and
+`entity.ex` have). "App shows" is derived from the code path: a card needs the
+intent `weather` and a `place` with coordinates, and `none` gives only the
+search results. Afterwards, with the card on `main`, I ran the real card
+endpoint (`GET /api/cards?q=...`, a local server, read-only, polled until it
+was no longer `pending`):
+
+| Query | Card endpoint status | Entity | Card |
+| --- | --- | --- | --- |
+| `weather in my city` | `none` | none | none |
+| `weather here` | `none` | none | none |
+| `weather in tokyo` (control) | `fresh` | Tokyo (Q1490, place) | weather card |
+| `weather in nyc` | `pending` at the one read after 8 s (entity New York City, Q60, place); I did not poll further | New York City | not seen yet |
+
+So the two owner-style queries get `none`, as predicted, and the control gets
+a weather card. The other rows of the first table were not run through the
+endpoint.
 
 What `weather in my city` does: Intent matches the first shape and extracts
 the place text `my city`. Wikidata returns 20 candidates, the first three
@@ -85,8 +97,8 @@ coordinates), so no candidate is chosen, the resolution is `none`, and the page 
 results. The query reached the weather path, and the phrase "my city" is
 treated as a name, not as the user's location.
 
-Not probed: the weather card itself, the card endpoint, the web UI, Open-Meteo
-(geocoding or forecast), browser geolocation, and any LLM planner. Queries
+Not probed: the web UI, Open-Meteo (geocoding or forecast) on its own, the
+endpoint for the other 12 queries, browser geolocation, and any LLM planner. Queries
 other than the 14 above (other spellings, other languages, other places) were
 not tried. The two `cirrussearch-too-busy-error` answers are Wikidata being
 busy, not an answer about the query; re-running those two queries returned 0
