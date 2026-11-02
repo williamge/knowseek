@@ -5,11 +5,12 @@
 # Any finding fails the build (`exit: "low"` = exit 1 on low confidence and up).
 # To accept a finding, add an inline `# sobelow_skip ["Module.Check"]` above the
 # code, or the check name to `ignore:` below. Either way, add a one-line reason
-# next to it. Currently nothing is skipped.
+# next to it. `skip: true` makes Sobelow honor the inline marks. Skipped:
+# `DOS.ModuleConcat` in `Knowseek.Cards.cache_name/1` (provider modules from config).
 [
   verbose: false,
   private: false,
-  skip: false,
+  skip: true,
   exit: "low",
   threshold: "low",
   format: "txt",

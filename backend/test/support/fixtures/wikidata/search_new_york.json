@@ -1,0 +1,45 @@
+{
+  "success": 1,
+  "search": [
+    {
+      "id": "Q1384",
+      "label": "New York",
+      "description": "state of the United States of America"
+    },
+    {
+      "id": "Q60",
+      "label": "New York City",
+      "description": "most populous city in the United States"
+    },
+    {
+      "id": "Q1507987",
+      "label": "New York",
+      "description": "American magazine on life, culture, politics, and style, focusing on New York City"
+    },
+    {
+      "id": "Q49210",
+      "label": "New York University",
+      "description": "private university in New York City"
+    },
+    {
+      "id": "Q13677",
+      "label": "New York Stock Exchange",
+      "description": "American stock exchange"
+    },
+    {
+      "id": "Q1059456",
+      "label": "New York Historical",
+      "description": "American history museum and library located in New York City"
+    },
+    {
+      "id": "Q2720168",
+      "label": "New York",
+      "description": "album by Lou Reed"
+    },
+    {
+      "id": "Q188984",
+      "label": "New York Rangers",
+      "description": "hockey team of the National Hockey League"
+    }
+  ]
+}

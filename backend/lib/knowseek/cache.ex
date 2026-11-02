@@ -101,8 +101,8 @@ defmodule Knowseek.Cache do
       `:infinity`. Caches whose keys come from user input set it.
     * `:empty_values` - a list of stored values that count as "no value" for
       `:reserve_for_refresh`: an entry holding one is a new key, not a
-      refresh. Default `[]`. The entity cache sets `[:none]`, which is what
-      a junk query resolves to.
+      refresh. Default `[]`. The entity cache sets `[[]]`: it holds the
+      candidates of a text, and a junk query has none.
     * `:reserve_for_refresh` - how many of the `:max_in_flight` slots only
       refreshes of keys with a value may use (see above). Default `0`: every
       fetch may use every slot. Must be less than `:max_in_flight` (a new key

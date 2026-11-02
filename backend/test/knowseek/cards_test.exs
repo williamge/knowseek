@@ -296,6 +296,106 @@ defmodule Knowseek.CardsTest do
     end
   end
 
+  describe "one cache per provider" do
+    alias Knowseek.Cards.Providers.{EspnNba, OpenMeteo}
+
+    setup %{now: now} do
+      espn = :"cards_espn_#{System.unique_integer([:positive])}"
+      weather = :"cards_weather_#{System.unique_integer([:positive])}"
+      start_supervised!({Cache, name: espn, clock: now}, id: espn)
+      start_supervised!({Cache, name: weather, clock: now}, id: weather)
+
+      {:ok, opts: [cache: %{EspnNba => espn, OpenMeteo => weather}, clock: now]}
+    end
+
+    defp tokyo do
+      %Entity{
+        id: "Q1490",
+        label: "Tokyo",
+        types: ["Q1549591"],
+        coordinates: %{latitude: 35.7, longitude: 139.7}
+      }
+    end
+
+    defp fresh_cards(opts) do
+      stub_espn()
+      stub_open_meteo()
+      weather = [intent: :weather] ++ opts
+
+      Cards.get(knicks(), opts)
+      Cards.get(tokyo(), weather)
+      :ok = Cards.await(knicks(), opts)
+      :ok = Cards.await(tokyo(), weather)
+
+      assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+      assert %{status: :fresh, type: "weather"} = Cards.get(tokyo(), weather)
+      weather
+    end
+
+    test "a 429 from Open-Meteo does not stop ESPN, and the other way round", %{
+      opts: opts,
+      clock: clock
+    } do
+      weather = fresh_cards(opts)
+      advance(clock, :timer.hours(7))
+
+      # Open-Meteo limits us; ESPN is fine: the Lakers card still loads.
+      stub_open_meteo(&Plug.Conn.send_resp(&1, 429, ""))
+      assert %{status: :stale} = Cards.get(tokyo(), weather)
+      :ok = Cards.await(tokyo(), weather)
+      assert %{status: :stale} = Cards.get(tokyo(), weather)
+
+      stub_espn()
+      assert %{status: :pending} = Cards.get(lakers(), opts)
+      :ok = Cards.await(lakers(), opts)
+      assert %{status: :fresh, type: "sports_team"} = Cards.get(lakers(), opts)
+
+      # Now ESPN limits us; weather is still allowed to refresh.
+      advance(clock, :timer.hours(7))
+      Req.Test.stub(Knowseek.Cards.Espn, &Plug.Conn.send_resp(&1, 429, ""))
+      stub_open_meteo()
+
+      assert %{status: :stale} = Cards.get(knicks(), opts)
+      :ok = Cards.await(knicks(), opts)
+
+      # Open-Meteo's own cache was not stopped by ESPN's 429: it refreshes.
+      assert %{status: :stale} = Cards.get(tokyo(), weather)
+      :ok = Cards.await(tokyo(), weather)
+      assert %{status: :fresh, type: "weather"} = Cards.get(tokyo(), weather)
+    end
+
+    test "an Open-Meteo 429 with nothing cached leaves a team card fresh", %{opts: opts} do
+      stub_espn()
+      stub_open_meteo(&Plug.Conn.send_resp(&1, 429, ""))
+      weather = [intent: :weather] ++ opts
+
+      Cards.get(tokyo(), weather)
+      :ok = Cards.await(tokyo(), weather)
+      assert %{status: :unavailable} = Cards.get(tokyo(), weather)
+
+      Cards.get(knicks(), opts)
+      :ok = Cards.await(knicks(), opts)
+      assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+    end
+
+    test "every configured provider has a running cache with its options" do
+      for provider <- Application.fetch_env!(:knowseek, Cards)[:providers] do
+        assert is_pid(Process.whereis(Cards.cache_name(provider)))
+      end
+
+      assert Cards.cache_name(EspnNba) == Knowseek.Cards.Cache.EspnNba
+      assert Cards.cache_name(OpenMeteo) == Knowseek.Cards.Cache.OpenMeteo
+      assert Cards.cache_options(OpenMeteo)[:max_in_flight] == 4
+      assert Cards.cache_options(EspnNba)[:max_in_flight] == 8
+    end
+
+    test "the cache of a provider is the default when :cache is not given" do
+      stub_espn()
+      assert %{status: :pending} = Cards.get(knicks(), [])
+      assert Cards.await(knicks(), []) == :ok
+    end
+  end
+
   describe "get/2: which entities have a card" do
     test "an entity no provider handles is :none, and nothing is fetched", %{opts: opts} do
       stub_wikidata()
@@ -316,6 +416,67 @@ defmodule Knowseek.CardsTest do
 
     test "providers come from the options (config in the application)", %{opts: opts} do
       assert Cards.get(knicks(), [providers: []] ++ opts) == :none
+    end
+
+    test "a place has a weather card only for the weather intent (ADR 0022)", %{opts: opts} do
+      stub_wikidata()
+      stub_open_meteo()
+      {:ok, [tokyo | _]} = Wikidata.search("tokyo", [])
+
+      assert Cards.get(tokyo, opts) == :none
+      assert Cards.get(tokyo, [intent: nil] ++ opts) == :none
+      assert Cards.await(tokyo, opts) == :ok
+      refute_received {:open_meteo_request, _, _}
+
+      assert %{status: :pending} = Cards.get(tokyo, [intent: :weather] ++ opts)
+      :ok = Cards.await(tokyo, [intent: :weather] ++ opts)
+
+      assert %{status: :fresh, type: "weather", title: "Tokyo", as_of: as_of} =
+               Cards.get(tokyo, [intent: :weather] ++ opts)
+
+      assert as_of == DateTime.from_unix!(@start_ms, :millisecond)
+      assert_received {:open_meteo_request, %{"latitude" => "35.68944444444445"}, _}
+
+      # The card is cached for the place, but a plain query still does not show it.
+      assert Cards.get(tokyo, opts) == :none
+    end
+
+    test "the weather card is cached for 10 minutes", %{opts: opts, clock: clock} do
+      stub_wikidata()
+      stub_open_meteo()
+      {:ok, [tokyo | _]} = Wikidata.search("tokyo", [])
+      opts = [intent: :weather] ++ opts
+
+      Cards.get(tokyo, opts)
+      :ok = Cards.await(tokyo, opts)
+      assert %{status: :fresh, refresh_after_ms: ms} = Cards.get(tokyo, opts)
+      assert ms == 60_000
+
+      advance(clock, :timer.minutes(10) - 1)
+      assert %{status: :fresh} = Cards.get(tokyo, opts)
+      advance(clock, 2)
+      assert %{status: :stale} = Cards.get(tokyo, opts)
+    end
+
+    test "a provider without an intent handles the entity whatever the query said", %{opts: opts} do
+      for intent <- [nil, :weather] do
+        opts = [providers: [Knowseek.Cards.StaticProvider], intent: intent] ++ opts
+        assert %{status: status} = Cards.get(knicks(), opts)
+        assert status in [:pending, :fresh]
+        :ok = Cards.await(knicks(), opts)
+        assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+      end
+    end
+
+    test "a team with the weather intent keeps the team card, not weather", %{opts: opts} do
+      stub_espn()
+      stub_open_meteo()
+      opts = [intent: :weather] ++ opts
+
+      assert %{status: :pending} = Cards.get(knicks(), opts)
+      :ok = Cards.await(knicks(), opts)
+      assert %{status: :fresh, type: "sports_team"} = Cards.get(knicks(), opts)
+      refute_received {:open_meteo_request, _, _}
     end
 
     test "a provider that returns a malformed card is a failure, not a crash", %{opts: opts} do

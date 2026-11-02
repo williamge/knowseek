@@ -1,0 +1,45 @@
+{
+  "success": 1,
+  "search": [
+    {
+      "id": "Q1428",
+      "label": "Georgia",
+      "description": "state of the United States of America"
+    },
+    {
+      "id": "Q378694",
+      "label": "Georgia",
+      "description": "female given name"
+    },
+    {
+      "id": "Q230",
+      "label": "Georgia",
+      "description": "country in the Caucasus region of Europe and Asia"
+    },
+    {
+      "id": "Q785035",
+      "label": "Province of Georgia",
+      "description": "former British province in North America"
+    },
+    {
+      "id": "Q761534",
+      "label": "University of Georgia",
+      "description": "public university located in Athens, Georgia, United States"
+    },
+    {
+      "id": "Q17317566",
+      "label": "Georgia",
+      "description": "genus of plants"
+    },
+    {
+      "id": "Q864855",
+      "label": "Georgia Tech",
+      "description": "public research university in Atlanta, Georgia, United States"
+    },
+    {
+      "id": "Q8108",
+      "label": "Georgian",
+      "description": "Kartvelian language"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "success": 1,
+  "search": [
+    {
+      "id": "Q49111",
+      "label": "Cambridge",
+      "description": "city in Middlesex County, Massachusetts, United States of America"
+    },
+    {
+      "id": "Q350",
+      "label": "Cambridge",
+      "description": "city in Cambridgeshire, England"
+    },
+    {
+      "id": "Q35794",
+      "label": "University of Cambridge",
+      "description": "collegiate public research university in Cambridge, England, United Kingdom"
+    },
+    {
+      "id": "Q30612390",
+      "label": "Cambridgeshire",
+      "description": "historic county of England"
+    },
+    {
+      "id": "Q37059326",
+      "label": "Cambridge",
+      "description": "family name"
+    },
+    {
+      "id": "Q1028267",
+      "label": "Cambridge",
+      "description": "suburb of Hobart, Tasmania, Australia"
+    },
+    {
+      "id": "Q912887",
+      "label": "Cambridge University Press",
+      "description": "publishing business of the University of Cambridge"
+    },
+    {
+      "id": "Q18509",
+      "label": "Cambridge United F.C.",
+      "description": "association football club in Cambridge, England"
+    }
+  ]
+}
