@@ -73,6 +73,26 @@ if config_env() != :test do
   end
 end
 
+# Reverse proxies whose X-Forwarded-For header is believed when rate limiting
+# (ADR 0023): a comma-separated list of CIDRs, for example
+# TRUSTED_PROXIES=10.0.0.0/8,fd00::/8. Unset or empty: no proxy is trusted, and
+# the client is the socket address. Only a request whose socket address is in
+# the list has its header read, and then from the right, so a client that
+# sends its own X-Forwarded-For through the proxy cannot choose its key. An
+# invalid entry stops the application at start.
+if config_env() != :test do
+  case System.get_env("TRUSTED_PROXIES") do
+    nil ->
+      :ok
+
+    value ->
+      proxies =
+        value |> String.split(",") |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == ""))
+
+      config :knowseek, KnowseekWeb.RateLimit, trusted_proxies: proxies
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

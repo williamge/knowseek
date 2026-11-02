@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, rateLimitDelayMs } from "../api";
 import type { DocumentSummary, SearchResult } from "../types";
 
 export interface WatchOptions {
@@ -13,9 +13,14 @@ export interface WatchOptions {
 
 export const DEFAULT_WATCH: WatchOptions = { intervalMs: 3000, timeoutMs: 90_000, quietChecks: 3 };
 
+/** A search that is answered with 429 is asked again this many times, then it fails. */
+export const MAX_RATE_LIMIT_RETRIES = 3;
+
 export type SearchState =
   | { status: "idle" }
   | { status: "loading"; query: string }
+  /** Too many requests: the search is asked again after `Retry-After` (not an error). */
+  | { status: "rate_limited"; query: string; retryAfterMs: number }
   | { status: "error"; query: string; error: string }
   | {
       status: "done";
@@ -56,6 +61,7 @@ export function useSearch(
     const controller = new AbortController();
     const { signal } = controller;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setState({ status: "loading", query });
 
     const update = (fn: (state: Extract<SearchState, { status: "done" }>) => SearchState) =>
@@ -69,11 +75,13 @@ export function useSearch(
       const deadline = Date.now() + timeoutMs;
       let discovered = 0;
       let quiet = 0;
+      let nextCheckMs = intervalMs;
 
       const check = async () => {
         try {
           const docs = await api.listDocuments(signal);
           const added = docs.filter((doc) => !known.has(doc.id));
+          nextCheckMs = intervalMs;
 
           if (added.length > 0) {
             // Mark the documents as seen only after the search worked. If it
@@ -91,9 +99,12 @@ export function useSearch(
           } else if (discovered > 0) {
             quiet += 1;
           }
-        } catch {
+        } catch (error) {
           if (signal.aborted) return;
-          // A failed check is not fatal. Try again on the next tick.
+          // A failed check is not fatal. Try again on the next tick, or, when
+          // the server said "too many requests", after its `Retry-After`. The
+          // results on screen stay.
+          nextCheckMs = rateLimitDelayMs(error) ?? intervalMs;
         }
 
         if (signal.aborted) return;
@@ -101,41 +112,56 @@ export function useSearch(
           update((s) => ({ ...s, watching: false }));
           return;
         }
-        timer = setTimeout(check, intervalMs);
+        timer = setTimeout(check, nextCheckMs);
       };
 
       timer = setTimeout(check, intervalMs);
     };
 
     (async () => {
-      try {
-        // Read the baseline before the search starts, so a document that
-        // arrives while the search runs still counts as new.
-        const baseline = await api.listDocuments(signal).catch(() => null);
-        const result = await api.search(query, { signal });
-        const watching = result.discovery.status === "enqueued" && baseline !== null;
-        setState({
-          status: "done",
-          query,
-          result,
-          watching,
-          discovered: 0,
-          freshDocumentIds: new Set(),
-        });
-        if (watching) watchDiscovery(result, baseline);
-      } catch (error) {
-        if (signal.aborted) return;
-        setState({
-          status: "error",
-          query,
-          error: error instanceof Error ? error.message : String(error),
-        });
+      // Read the baseline before the search starts, so a document that
+      // arrives while the search runs still counts as new.
+      const baseline = await api.listDocuments(signal).catch(() => null);
+
+      for (let rateLimited = 0; ; rateLimited += 1) {
+        try {
+          const result = await api.search(query, { signal });
+          const watching = result.discovery.status === "enqueued" && baseline !== null;
+          setState({
+            status: "done",
+            query,
+            result,
+            watching,
+            discovered: 0,
+            freshDocumentIds: new Set(),
+          });
+          if (watching) watchDiscovery(result, baseline);
+          return;
+        } catch (error) {
+          if (signal.aborted) return;
+          const retryAfterMs = rateLimitDelayMs(error);
+          if (retryAfterMs === null || rateLimited >= MAX_RATE_LIMIT_RETRIES) {
+            setState({
+              status: "error",
+              query,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return;
+          }
+          // Not an error yet: say so quietly, wait as the server asked, ask again.
+          setState({ status: "rate_limited", query, retryAfterMs });
+          await new Promise<void>((resolve) => {
+            retryTimer = setTimeout(resolve, retryAfterMs);
+          });
+          if (signal.aborted) return;
+        }
       }
     })();
 
     return () => {
       controller.abort();
       clearTimeout(timer);
+      clearTimeout(retryTimer);
     };
   }, [query, refreshKey, intervalMs, timeoutMs, quietChecks]);
 

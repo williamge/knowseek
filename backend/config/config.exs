@@ -63,8 +63,11 @@ config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikip
 # in the probes of tasks 028 and 030; the others were checked by label.
 # `cache`: start options of the entity cache. Its keys come from user queries,
 # so at most 4 Wikidata resolutions run at once and 5000 entries are kept.
+# One of the 4 slots is reserved for refreshing entries that hold a value, so
+# a flood of new keys cannot starve those refreshes (ADR 0023). `:none` (what
+# a junk query resolves to) does not count as a value for the reserve.
 config :knowseek, Knowseek.Entities,
-  cache: [max_entries: 5_000, max_in_flight: 4],
+  cache: [max_entries: 5_000, max_in_flight: 4, reserve_for_refresh: 1, empty_values: [:none]],
   resolver: Knowseek.Entities.Wikidata,
   ttl: :timer.hours(24),
   backoff: :timer.minutes(1),
@@ -124,7 +127,7 @@ config :knowseek, Knowseek.Cards,
   providers: [Knowseek.Cards.Providers.EspnNba],
   backoff: :timer.seconds(10),
   timeout: :timer.seconds(12),
-  cache: [max_entries: 1_000, max_in_flight: 8]
+  cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2]
 
 # ESPN's public site API. `receive_timeout` is per request.
 config :knowseek, Knowseek.Cards.Espn,
@@ -132,6 +135,26 @@ config :knowseek, Knowseek.Cards.Espn,
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
   receive_timeout: 4_000,
   req_options: []
+
+# Per-client rate limit of the anonymous endpoints (ADR 0023, task 039). A
+# bucket's `{limit, window_ms}` is a burst of `limit` requests that refills
+# `limit` per `window_ms`: `cards` allows 120 requests, then 2 a second (the
+# card poller asks every 0.7 s while a query is pending), `search` and
+# `documents` 30, then one every 2 s. A client over its limit gets a 429 with
+# `Retry-After`. The client is the socket address. `trusted_proxies` lists the
+# CIDRs of reverse proxies whose `X-Forwarded-For` is believed; it is empty by
+# default, so the header cannot be spoofed (config/runtime.exs reads
+# TRUSTED_PROXIES). `enabled: false` turns the limit off.
+config :knowseek, KnowseekWeb.RateLimit,
+  enabled: true,
+  limits: [cards: {120, 60_000}, search: {30, 60_000}, documents: {30, 60_000}],
+  trusted_proxies: []
+
+# The limiter's table is bounded: at most `max_buckets` (one per client and
+# endpoint), swept every `sweep_interval` milliseconds.
+config :knowseek, Knowseek.RateLimiter,
+  max_buckets: 50_000,
+  sweep_interval: :timer.minutes(1)
 
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,
