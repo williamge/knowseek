@@ -42,8 +42,9 @@ defmodule KnowseekWeb.CardController do
     options = Application.get_env(:knowseek, __MODULE__, [])
 
     case Entities.resolve(query, Keyword.get(options, :entities, [])) do
-      {:ok, %{entity: entity, alternatives: alternatives}} ->
-        entity_card(entity, alternatives, Keyword.get(options, :cards, []))
+      {:ok, %{intent: intent, entity: entity, alternatives: alternatives}} ->
+        card_options = Keyword.put(Keyword.get(options, :cards, []), :intent, intent)
+        entity_card(entity, alternatives, card_options)
 
       {:pending, _query} ->
         base(:pending, @pending_poll_ms)

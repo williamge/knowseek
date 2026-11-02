@@ -141,6 +141,77 @@ defmodule Knowseek.EntitiesTest do
     end
   end
 
+  describe "resolve/2 places and the weather intent" do
+    # Expected choices, and why (ADR 0022): see "Places and the weather intent"
+    # in Knowseek.Entities.
+    @choices [
+      # The state (247 sitelinks) is ranked first; the city has 325.
+      {"new york", "Q60", "Q1384"},
+      # The state (223) is ranked first; Washington, D.C. has 299.
+      {"washington", "Q61", "Q1223"},
+      # No city of that name comes close: the region stays.
+      {"texas", "Q1439", "Q1439"},
+      {"japan", "Q17", "Q17"},
+      # The first settlement stays; the one in Ontario is far less known.
+      {"london", "Q84", "Q84"},
+      # Two regions: the country (350) has more sitelinks than the state (233).
+      {"georgia", "Q230", "Q1428"},
+      # The English Cambridge (147) is not 1.5 times better known than the one
+      # in Massachusetts (103), so the first candidate stays.
+      {"cambridge", "Q49111", "Q49111"},
+      {"tokyo", "Q1490", "Q1490"}
+    ]
+
+    for {text, weather_id, plain_id} <- @choices do
+      test "#{text}: #{weather_id} for the weather intent, #{plain_id} otherwise", %{cache: cache} do
+        assert {:ok, %{intent: :weather, entity: entity}} =
+                 resolve_when_ready("weather in #{unquote(text)}", cache: cache)
+
+        assert entity.id == unquote(weather_id)
+
+        assert {:ok, %{intent: nil, entity: plain}} =
+                 Entities.resolve(unquote(text), cache: cache)
+
+        assert plain.id == unquote(plain_id)
+      end
+    end
+
+    test "the other word order picks the same place", %{cache: cache} do
+      assert {:ok, %{intent: :weather, entity: %{id: "Q60"}}} =
+               resolve_when_ready("new york weather", cache: cache)
+    end
+
+    test "the places that lose are the alternatives", %{cache: cache} do
+      assert {:ok, %{entity: %{id: "Q60"}, alternatives: alternatives}} =
+               resolve_when_ready("weather in new york", cache: cache)
+
+      assert "Q1384" in ids(alternatives)
+      refute "Q60" in ids(alternatives)
+    end
+
+    test "a query and its weather form share one resolution: two Wikidata calls in all", %{
+      cache: cache
+    } do
+      assert {:ok, _} = resolve_when_ready("tokyo", cache: cache)
+      assert {:ok, %{intent: :weather}} = Entities.resolve("weather in tokyo", cache: cache)
+      assert {:ok, %{intent: :weather}} = Entities.resolve("tokyo weather", cache: cache)
+
+      assert [{"wbsearchentities", _}, {"wbgetentities", _}] = drain_requests()
+    end
+
+    test "a team keeps the first candidate, whatever the intent", %{cache: cache} do
+      assert {:ok, %{intent: :weather, entity: %{id: "Q131364"}}} =
+               resolve_when_ready("knicks weather", cache: cache)
+    end
+
+    test "a place found by an alias (its label does not start with the text) is kept", %{
+      cache: cache
+    } do
+      assert {:ok, %{intent: :weather, entity: %{id: "Q-nyc"}}} =
+               resolve_when_ready("weather in nyc", cache: cache, resolver: FakeResolver)
+    end
+  end
+
   describe "resolve/2 caching" do
     test "a cold call returns {:pending, query} without calling Wikidata itself", %{cache: cache} do
       test = self()

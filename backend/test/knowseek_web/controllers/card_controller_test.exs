@@ -33,6 +33,7 @@ defmodule KnowseekWeb.CardControllerTest do
 
     stub_wikidata()
     stub_espn()
+    stub_open_meteo()
 
     {:ok, clock: clock, entities: entity_options, cards: card_options}
   end
@@ -45,8 +46,8 @@ defmodule KnowseekWeb.CardControllerTest do
   defp settle(q, %{entities: entities, cards: cards}) do
     :ok = Entities.await(q, entities)
 
-    with {:ok, %{entity: entity}} <- Entities.resolve(q, entities) do
-      :ok = Cards.await(entity, cards)
+    with {:ok, %{entity: entity, intent: intent}} <- Entities.resolve(q, entities) do
+      :ok = Cards.await(entity, [intent: intent] ++ cards)
     end
 
     :ok
@@ -248,6 +249,131 @@ defmodule KnowseekWeb.CardControllerTest do
     end
   end
 
+  describe "GET /api/cards: weather" do
+    # The entity is fetched by the first request, the card by the second.
+    defp settled_card(conn, q, context) do
+      card(conn, q)
+      settle(q, context)
+      card(conn, q)
+      settle(q, context)
+      card(conn, q)
+    end
+
+    test "weather in tokyo: pending, then a fresh weather card with the place",
+         %{conn: conn} =
+           context do
+      assert %{"status" => "pending", "entity" => nil} = card(conn, "weather in tokyo")
+      settle("weather in tokyo", context)
+
+      assert %{"status" => "pending", "card" => nil, "entity" => %{"id" => "Q1490"}} =
+               card(conn, "weather in tokyo")
+
+      settle("weather in tokyo", context)
+
+      assert %{
+               "status" => "fresh",
+               "entity" => %{"id" => "Q1490", "label" => "Tokyo", "kind" => "place"},
+               "card" => %{"type" => "weather", "title" => "Tokyo", "facts" => facts},
+               "as_of" => as_of,
+               "refresh_after_ms" => refresh_after_ms
+             } = card(conn, "weather in tokyo")
+
+      assert {:ok, _datetime, 0} = DateTime.from_iso8601(as_of)
+      assert refresh_after_ms in 2_000..60_000
+
+      assert %{
+               "source" => "Open-Meteo.com",
+               "timezone" => "Asia/Tokyo",
+               "utc_offset_seconds" => 32_400,
+               "observed_at" => "2026-11-01T01:00:00Z",
+               "current" => %{
+                 "temperature_c" => 17.0,
+                 "apparent_temperature_c" => 15.7,
+                 "condition" => "Clear sky",
+                 "wind_speed_kmh" => 4.7
+               },
+               "daily" => [%{"date" => "2026-11-01", "high_c" => 19.9} | _]
+             } = facts
+
+      assert_received {:open_meteo_request, %{"latitude" => "35.68944444444445"} = params, _}
+      assert params["longitude"] == "139.69166666666666"
+    end
+
+    test "tokyo weather is the same card, from the same entity", %{conn: conn} = context do
+      assert %{"status" => "fresh", "card" => %{"type" => "weather", "title" => "Tokyo"}} =
+               settled_card(conn, "tokyo weather", context)
+
+      # One entity lookup and one forecast serve both shapes of the query.
+      assert %{"status" => "fresh", "card" => %{"type" => "weather"}} =
+               card(conn, "Weather in  TOKYO")
+    end
+
+    test "weather in texas: a state is a place with one point", %{conn: conn} = context do
+      assert %{
+               "status" => "fresh",
+               "entity" => %{"id" => "Q1439", "kind" => "place"},
+               "card" => %{"type" => "weather", "title" => "Texas"}
+             } = settled_card(conn, "weather in texas", context)
+
+      assert_received {:open_meteo_request, %{"latitude" => "31", "longitude" => "-100"}, _}
+    end
+
+    test "a team with the weather intent gets its team card, not weather",
+         %{conn: conn} =
+           context do
+      assert %{
+               "status" => "fresh",
+               "entity" => %{"id" => "Q131364", "kind" => "sports_team"},
+               "card" => %{"type" => "sports_team", "title" => "New York Knicks"}
+             } = settled_card(conn, "knicks weather", context)
+
+      refute_received {:open_meteo_request, _, _}
+    end
+
+    test "a company with the weather intent has no card", %{conn: conn} = context do
+      card(conn, "weather in nvda")
+      settle("weather in nvda", context)
+
+      assert %{"status" => "none", "card" => nil} = card(conn, "weather in nvda")
+      refute_received {:open_meteo_request, _, _}
+    end
+
+    test "an Open-Meteo rate limit with nothing cached is unavailable", %{conn: conn} = context do
+      stub_open_meteo(&Plug.Conn.send_resp(&1, 429, ""))
+
+      assert %{"status" => "unavailable", "entity" => %{"id" => "Q1490"}, "card" => nil} =
+               settled_card(conn, "weather in tokyo", context)
+    end
+
+    test "a malformed Open-Meteo answer with nothing cached is unavailable",
+         %{conn: conn} = context do
+      stub_open_meteo(%{"current" => "rain"})
+
+      assert %{"status" => "unavailable", "card" => nil, "refresh_after_ms" => 30_000} =
+               settled_card(conn, "weather in tokyo", context)
+    end
+
+    test "past its TTL with Open-Meteo down, the weather card is stale",
+         %{
+           conn: conn,
+           clock: clock
+         } = context do
+      assert %{"status" => "fresh", "as_of" => as_of} =
+               settled_card(conn, "weather in tokyo", context)
+
+      stub_open_meteo(&Plug.Conn.send_resp(&1, 500, ""))
+      Agent.update(clock, &(&1 + :timer.minutes(11)))
+
+      assert %{"status" => "stale", "as_of" => ^as_of, "card" => %{"type" => "weather"}} =
+               card(conn, "weather in tokyo")
+
+      settle("weather in tokyo", context)
+
+      assert %{"status" => "stale", "as_of" => ^as_of, "refresh_after_ms" => 2_000} =
+               card(conn, "weather in tokyo")
+    end
+  end
+
   describe "GET /api/cards: none" do
     test "the Westchester Knicks have no card (NBA G League)", %{conn: conn} = context do
       stub_westchester_first()
@@ -270,11 +396,13 @@ defmodule KnowseekWeb.CardControllerTest do
       refute_received {:espn_request, _, _}
     end
 
-    test "weather in tokyo has no card yet", %{conn: conn} = context do
-      card(conn, "weather in tokyo")
-      settle("weather in tokyo", context)
+    test "a place alone is a search, not a weather question: no card, no weather call",
+         %{conn: conn} = context do
+      card(conn, "tokyo")
+      settle("tokyo", context)
 
-      assert %{"status" => "none", "card" => nil} = card(conn, "weather in tokyo")
+      assert %{"status" => "none", "entity" => nil, "card" => nil} = card(conn, "tokyo")
+      refute_received {:open_meteo_request, _, _}
     end
 
     test "a query that names nothing is none", %{conn: conn} = context do

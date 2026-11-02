@@ -33,4 +33,14 @@ defmodule Knowseek.Cards.Provider do
   is `{:rate_limited, retry_after_ms}` (see `Knowseek.Cache.rate_limited/1`).
   """
   @callback fetch(Entity.t()) :: {:ok, card(), ttl_ms :: non_neg_integer()} | {:error, term()}
+
+  @doc """
+  The intent the query must carry (`Knowseek.Entities.Intent`, for example `:weather`)
+  for this provider to make a card. Optional: a provider that does not define it
+  handles the entity whatever the query said. The weather provider defines it, so
+  that `tokyo` (a search) has no card and `weather in tokyo` has (ADR 0022).
+  """
+  @callback intent() :: Knowseek.Entities.intent()
+
+  @optional_callbacks intent: 0
 end

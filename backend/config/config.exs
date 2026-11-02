@@ -64,16 +64,21 @@ config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikip
 # `cache`: start options of the entity cache. Its keys come from user queries,
 # so at most 4 Wikidata resolutions run at once and 5000 entries are kept.
 # One of the 4 slots is reserved for refreshing entries that hold a value, so
-# a flood of new keys cannot starve those refreshes (ADR 0023). `:none` (what
-# a junk query resolves to) does not count as a value for the reserve.
+# a flood of new keys cannot starve those refreshes (ADR 0023). The cache holds
+# the candidates of a text (ADR 0022); `[]` (what a junk query resolves to) does
+# not count as a value for the reserve.
 config :knowseek, Knowseek.Entities,
-  cache: [max_entries: 5_000, max_in_flight: 4, reserve_for_refresh: 1, empty_values: [:none]],
+  cache: [max_entries: 5_000, max_in_flight: 4, reserve_for_refresh: 1, empty_values: [[]]],
   resolver: Knowseek.Entities.Wikidata,
   ttl: :timer.hours(24),
   backoff: :timer.minutes(1),
   timeout: :timer.seconds(15),
   max_alternatives: 5,
   max_query_length: 100,
+  # `weather in <place>` prefers a city to a state or country of that name
+  # (ADR 0022): these `instance of` ids are the regions. Q35657 U.S. state,
+  # Q6256 country, Q3624078 sovereign state, Q112099 island country.
+  region_types: ["Q35657", "Q6256", "Q3624078", "Q112099"],
   supported_types: [
     # Q13393265 basketball team (seen: New York Knicks, Westchester Knicks),
     # Q12973014 sports team, Q847017 sports club, Q476028 association
@@ -121,13 +126,21 @@ config :knowseek, Knowseek.Entities.Wikidata,
 # Knowseek.Cards.Provider and are tried in order. `backoff` and `timeout`
 # (milliseconds) go to Knowseek.Cache: a failed ESPN fetch is not retried for
 # 10 s (ESPN caches for 3 s), and a fetch (two parallel requests of 4 s at
-# most) is killed after 12 s. `cache` holds the start options of the cards
-# cache.
+# most) is killed after 12 s. Every provider has its own cache (a rate limit
+# stops all fetches of a cache): `cache` holds the start options of each, and
+# `caches` the options of one provider, merged over them. Weather keys are one
+# per place a user asks for, so its cache is bigger and its in-flight cap is
+# the one that bounds the calls to Open-Meteo.
 config :knowseek, Knowseek.Cards,
-  providers: [Knowseek.Cards.Providers.EspnNba],
+  providers: [Knowseek.Cards.Providers.EspnNba, Knowseek.Cards.Providers.OpenMeteo],
   backoff: :timer.seconds(10),
   timeout: :timer.seconds(12),
-  cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2]
+  cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2],
+  caches: [
+    {Knowseek.Cards.Providers.EspnNba, [max_entries: 100]},
+    {Knowseek.Cards.Providers.OpenMeteo,
+     [max_entries: 2_000, max_in_flight: 4, reserve_for_refresh: 1]}
+  ]
 
 # ESPN's public site API. `receive_timeout` is per request.
 config :knowseek, Knowseek.Cards.Espn,
@@ -155,6 +168,14 @@ config :knowseek, KnowseekWeb.RateLimit,
 config :knowseek, Knowseek.RateLimiter,
   max_buckets: 50_000,
   sweep_interval: :timer.minutes(1)
+
+# Open-Meteo's forecast API (task 033, ADR 0022): no key; free for non-commercial
+# use only, with attribution. `receive_timeout` is per request.
+config :knowseek, Knowseek.Cards.OpenMeteo,
+  base_url: "https://api.open-meteo.com/v1/forecast",
+  user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
+  receive_timeout: 4_000,
+  req_options: []
 
 # Configure the endpoint
 config :knowseek, KnowseekWeb.Endpoint,

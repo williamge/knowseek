@@ -424,6 +424,53 @@ kbd {
   color: var(--accent);
 }
 
+.weather__now {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.7rem;
+  margin: 0.2rem 0 0.4rem;
+}
+
+.weather__icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.weather__temp {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.weather__days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.weather__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 4rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.weather__day-name {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.weather__day-icon {
+  font-size: 1.3rem;
+}
+
 .fact-card__foot {
   display: flex;
   flex-wrap: wrap;

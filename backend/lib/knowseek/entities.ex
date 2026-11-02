@@ -31,6 +31,36 @@ defmodule Knowseek.Entities do
   at most `:max_alternatives`, in search order, are the `alternatives` (for
   example the Westchester Knicks). No candidate with a kind is `:none`.
 
+  The entity cache holds the *candidates* of a text, not the chosen entity, and
+  the choice is made when the answer is read, because it depends on the intent
+  (below). `tokyo` and `weather in tokyo` share one entry and cost one Wikidata
+  resolution.
+
+  ### Places and the weather intent (ADR 0022)
+
+  Wikidata ranks `New York` the state before `New York City`, and `Washington`
+  the state before `Washington, D.C.`; someone who asks for the weather there
+  means the city. For the intent `:weather`, when the top entity is a place,
+  the choice is made again among the *place* candidates whose label starts with
+  the text (`new york` keeps `New York` and `New York City` and drops
+  `Seattle`, a spurious match):
+
+    1. A *settlement* (a place that is not a state or a country, see
+       `:region_types` in config) wins over a region, unless the best region
+       has more than twice the sitelinks of the best settlement. Texas and
+       Japan have no settlement of that name that comes close, so the region
+       stays; New York City (325 sitelinks) beats the state (247).
+    2. Among settlements the first candidate (Wikidata's order) is kept,
+       unless another one has at least 1.5 times its sitelinks. `London`
+       stays London (357) over London, Ontario (86); `Cambridge` stays the
+       first, Massachusetts (103), because the English one (147) is not that
+       much better known.
+    3. Among regions the one with the most sitelinks wins (ties: the first):
+       `Georgia` is the country (350), not the state (233).
+
+  Any other intent, no intent, and every kind other than a place keep the
+  first candidate with a kind.
+
   ## Supported types
 
   A card provider handles a kind of entity. The kinds and the Wikidata
@@ -106,9 +136,14 @@ defmodule Knowseek.Entities do
 
   defp read(key, text, intent, query, config) do
     case Cache.get(config.cache, key, fn -> fetch(text, config) end, cache_options(config)) do
-      {status, value, _as_of} when status in [:fresh, :stale] -> present(value, intent)
-      :pending -> {:pending, query}
-      {:unavailable, reason} -> {:error, reason}
+      {status, candidates, _as_of} when status in [:fresh, :stale] ->
+        present(candidates, intent, normalize(text), config)
+
+      :pending ->
+        {:pending, query}
+
+      {:unavailable, reason} ->
+        {:error, reason}
     end
   end
 
@@ -135,14 +170,19 @@ defmodule Knowseek.Entities do
   """
   @spec choose([Entity.t()]) ::
           {:ok, %{entity: Entity.t(), alternatives: [Entity.t()]}} | :none
-  def choose(candidates) when is_list(candidates), do: choose(candidates, config([]))
+  def choose(candidates) when is_list(candidates), do: choose(candidates, nil, "", config([]))
 
-  defp choose(candidates, config) do
+  defp choose(candidates, intent, text, config) do
     case Enum.find_value(candidates, &top_with_kind(&1, config)) do
       nil ->
         :none
 
       {entity, kind} ->
+        entity =
+          if intent == :weather and kind == :place,
+            do: weather_place(entity, candidates, text, config),
+            else: entity
+
         alternatives =
           candidates
           |> Enum.reject(&(&1.id == entity.id))
@@ -174,21 +214,64 @@ defmodule Knowseek.Entities do
     if kind = kind(entity, config.supported_types), do: {entity, kind}
   end
 
-  # Runs in the cache's task, never in the caller.
+  # Runs in the cache's task, never in the caller. Only candidates that have a
+  # kind are kept: the others can never be chosen, and the cache holds up to
+  # `max_entries` of these lists.
   defp fetch(text, config) do
     with {:ok, candidates} <- config.resolver.search(text, []) do
-      case choose(candidates, config) do
-        {:ok, resolution} -> {:ok, resolution}
-        :none -> {:ok, :none}
-      end
+      {:ok, Enum.filter(candidates, &kind(&1, config.supported_types))}
     end
   end
 
-  defp present(:none, _intent), do: :none
+  defp present(candidates, intent, text, config) do
+    case choose(candidates, intent, text, config) do
+      {:ok, %{entity: entity, alternatives: alternatives}} ->
+        {:ok, %{intent: intent, entity: entity, alternatives: alternatives}}
 
-  defp present(%{entity: entity, alternatives: alternatives}, intent) do
-    {:ok, %{intent: intent, entity: entity, alternatives: alternatives}}
+      :none ->
+        :none
+    end
   end
+
+  # The place to use for `weather in <text>` (see "Places and the weather
+  # intent"). `top` is the first candidate with a kind, a place.
+  defp weather_place(top, candidates, text, config) do
+    places =
+      Enum.filter(candidates, fn candidate ->
+        kind(candidate, config.supported_types) == :place and label_starts_with?(candidate, text)
+      end)
+
+    {regions, settlements} =
+      Enum.split_with(places, fn place -> Enum.any?(place.types, &(&1 in config.region_types)) end)
+
+    best_settlement = pick_settlement(settlements)
+    best_region = Enum.max_by(regions, & &1.sitelinks, fn -> nil end)
+
+    cond do
+      best_settlement &&
+          (best_region == nil or best_settlement.sitelinks * 2 >= best_region.sitelinks) ->
+        best_settlement
+
+      best_region ->
+        best_region
+
+      true ->
+        top
+    end
+  end
+
+  # The first settlement, unless another one is clearly better known.
+  defp pick_settlement([]), do: nil
+
+  defp pick_settlement([first | _] = settlements) do
+    best = Enum.max_by(settlements, & &1.sitelinks)
+    if best.sitelinks * 2 >= first.sitelinks * 3, do: best, else: first
+  end
+
+  defp label_starts_with?(%Entity{label: label}, text) when is_binary(label) and text != "",
+    do: label |> normalize() |> String.starts_with?(text)
+
+  defp label_starts_with?(_entity, _text), do: false
 
   # Entities are resolved by normalized text: lowercase, Unicode compatibility
   # form (NFKC), single spaces. `Knicks`, `knicks` and `ｋｎｉｃｋｓ` share an
@@ -228,6 +311,7 @@ defmodule Knowseek.Entities do
       cache: Keyword.get(opts, :cache, @cache),
       resolver: Keyword.get(opts, :resolver, Keyword.fetch!(env, :resolver)),
       supported_types: Keyword.fetch!(env, :supported_types),
+      region_types: Keyword.fetch!(env, :region_types),
       max_alternatives: Keyword.fetch!(env, :max_alternatives),
       max_query_length: Keyword.fetch!(env, :max_query_length),
       cache_options: Keyword.take(env, [:ttl, :backoff, :timeout])

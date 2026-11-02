@@ -110,8 +110,55 @@ export interface SportsTeamFacts {
   injuries: TeamInjury[];
 }
 
+/** Metric values (°C, km/h, mm); the UI converts them to the reader's units. A number is null when the source lacks it. */
+export interface WeatherCurrent {
+  temperature_c: number | null;
+  apparent_temperature_c: number | null;
+  humidity_percent: number | null;
+  precipitation_mm: number | null;
+  wind_speed_kmh: number | null;
+  wind_direction_deg: number | null;
+  is_day: boolean;
+  /** WMO weather code. */
+  weather_code: number | null;
+  /** Short text for the code ("Light rain"), from the backend's table. */
+  condition: string;
+  /** An emoji for the code. */
+  icon: string;
+}
+
+export interface WeatherDay {
+  /** The place's local date, "2026-11-01". */
+  date: string;
+  high_c: number | null;
+  low_c: number | null;
+  precipitation_probability_percent: number | null;
+  weather_code: number | null;
+  condition: string;
+  icon: string;
+  /** The place's local time without offset, "2026-11-01T06:02". */
+  sunrise: string | null;
+  sunset: string | null;
+}
+
+export interface WeatherFacts {
+  /** The credit Open-Meteo's license requires (CC BY 4.0), and its URL. */
+  source: string;
+  source_url: string;
+  /** IANA time zone of the place, for example "Asia/Tokyo". */
+  timezone: string;
+  utc_offset_seconds: number;
+  /** When the current conditions are from (ISO 8601, UTC). */
+  observed_at: string;
+  current: WeatherCurrent;
+  /** Today first, then the next days. */
+  daily: WeatherDay[];
+}
+
 /** A card of live facts. `type` says which shape `facts` has. */
-export type FactCard = { type: "sports_team"; title: string; facts: SportsTeamFacts };
+export type FactCard =
+  | { type: "sports_team"; title: string; facts: SportsTeamFacts }
+  | { type: "weather"; title: string; facts: WeatherFacts };
 
 export interface CardResponse {
   status: CardStatus;
