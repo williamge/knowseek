@@ -116,6 +116,17 @@ defmodule Knowseek.Entities.WikidataTest do
       assert nvidia.id == "Q182477"
     end
 
+    test "nvidia and apple have a CIK in the recorded answers, a screen reader has none" do
+      assert {:ok, [nvidia | _rest]} = search("nvidia")
+      assert nvidia.cik == "0001045810"
+
+      assert {:ok, [apple | _rest]} = search("apple")
+      assert apple.cik == "0000320193"
+
+      assert {:ok, [screen_reader | _rest]} = search("nvda")
+      assert screen_reader.cik == nil
+    end
+
     test "tokyo: coordinates from P625" do
       assert {:ok, [tokyo | _rest]} = search("tokyo")
 
@@ -212,6 +223,28 @@ defmodule Knowseek.Entities.WikidataTest do
 
       assert {:ok, [entity]} = search("x")
       assert entity.leagues == ["Q155223"]
+    end
+
+    test "reads the SEC Central Index Key (P5531): the first usable ten-digit value" do
+      string = fn value -> %{"type" => "string", "value" => value} end
+
+      stub_api([%{"id" => "Q1"}], %{
+        "Q1" =>
+          item(%{
+            "claims" => %{
+              "P5531" => [
+                claim("P5531", string.("0000000001"), %{"rank" => "deprecated"}),
+                claim("P5531", string.("1045810")),
+                %{"mainsnak" => %{"snaktype" => "novalue"}, "rank" => "normal"},
+                claim("P5531", string.("0001045810")),
+                claim("P5531", string.("0000320193"))
+              ]
+            }
+          })
+      })
+
+      assert {:ok, [entity]} = search("x")
+      assert entity.cik == "0001045810"
     end
 
     test "a claim with several tickers lists each" do

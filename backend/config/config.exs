@@ -132,12 +132,18 @@ config :knowseek, Knowseek.Entities.Wikidata,
 # per place a user asks for, so its cache is bigger and its in-flight cap is
 # the one that bounds the calls to Open-Meteo.
 config :knowseek, Knowseek.Cards,
-  providers: [Knowseek.Cards.Providers.EspnNba, Knowseek.Cards.Providers.OpenMeteo],
+  providers: [
+    Knowseek.Cards.Providers.EspnNba,
+    Knowseek.Cards.Providers.OpenMeteo,
+    Knowseek.Cards.Providers.Company
+  ],
   backoff: :timer.seconds(10),
   timeout: :timer.seconds(12),
   cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2],
   caches: [
     {Knowseek.Cards.Providers.EspnNba, [max_entries: 100]},
+    {Knowseek.Cards.Providers.Company,
+     [max_entries: 500, max_in_flight: 4, reserve_for_refresh: 1]},
     {Knowseek.Cards.Providers.OpenMeteo,
      [max_entries: 2_000, max_in_flight: 4, reserve_for_refresh: 1]}
   ]
@@ -175,6 +181,16 @@ config :knowseek, Knowseek.Cards.OpenMeteo,
   base_url: "https://api.open-meteo.com/v1/forecast",
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
   receive_timeout: 4_000,
+  req_options: []
+
+# SEC EDGAR for the company card (task 032, ADR 0021): no key. The SEC asks for
+# a declared User-Agent with a contact and can block an undeclared tool (HTTP
+# 403); the default is accepted today, and runtime.exs reads SEC_USER_AGENT
+# (for example "My Company admin@example.com"). `receive_timeout` is per request.
+config :knowseek, Knowseek.Cards.Edgar,
+  base_url: "https://data.sec.gov",
+  user_agent: "Knowseek/0.1 (self-hosted instance)",
+  receive_timeout: 5_000,
   req_options: []
 
 # Configure the endpoint

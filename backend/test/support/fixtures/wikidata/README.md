@@ -11,6 +11,8 @@ Recorded responses of the Wikidata API (`https://www.wikidata.org/w/api.php`, `f
 
 `search_{new_york,washington,london,georgia,cambridge}.json` and `entities_*` of the same names were recorded on 2026-11-01 (task 033, the choice of place for the weather intent): read-only `wbsearchentities` (`limit=20`, first 8 hits kept) and one `wbgetentities` per search, 2 s apart, with a descriptive User-Agent. The claims are trimmed to `P31` and `P625`; sitelinks are trimmed like the others (the `enwiki` entry is real, the rest are empty placeholders that keep the count). `entities_new_york.json` holds, for example, New York state (247 sitelinks) and New York City (325): the sitelink counts are what the weather rule compares.
 
+`entities_nvda.json`, `entities_nvidia.json` (Nvidia, `Q182477`) and `entities_apple.json` (Apple, `Q312`) have one hand-added claim, copied from the live API on 2026-11-02 (task 032, which reads `P5531`, the SEC Central Index Key): `0001045810` and `0000320193`. The claim is trimmed to the fields the resolver reads (no references).
+
 ## License
 
 Wikidata structured data is available under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication). Attribution is not required. The files are kept as recorded, except for the claims named above.

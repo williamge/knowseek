@@ -482,6 +482,23 @@ kbd {
   color: var(--muted);
 }
 
+/* Company (SEC facts) card */
+
+.company__legal {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+}
+
+.company__filings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.company__filings li {
+  padding: 0.1rem 0;
+}
+
 .fact-card__stale {
   color: var(--partial);
 }

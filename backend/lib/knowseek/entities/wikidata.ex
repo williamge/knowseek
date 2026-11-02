@@ -122,6 +122,7 @@ defmodule Knowseek.Entities.Wikidata do
       wikipedia_title: get_in(sitelinks, ["enwiki", "title"]),
       coordinates: coordinates(Map.get(claims, "P625", [])),
       exchange_tickers: exchange_tickers(Map.get(claims, "P414", [])),
+      cik: cik(Map.get(claims, "P5531", [])),
       leagues: leagues(Map.get(claims, "P118", []))
     }
   end
@@ -162,6 +163,22 @@ defmodule Knowseek.Entities.Wikidata do
         ticker <- tickers(claim["qualifiers"] || %{}) do
       %{exchange: exchange, ticker: ticker}
     end
+  end
+
+  # The SEC Central Index Key: ten digits, with leading zeros. The first usable
+  # claim wins; a value of another shape is not a key.
+  defp cik(claims) do
+    Enum.find_value(claims, fn
+      %{"rank" => "deprecated"} ->
+        nil
+
+      %{"mainsnak" => %{"snaktype" => "value", "datavalue" => %{"value" => value}}}
+      when is_binary(value) ->
+        if value =~ ~r/\A\d{10}\z/, do: value
+
+      _other ->
+        nil
+    end)
   end
 
   defp leagues(claims) do

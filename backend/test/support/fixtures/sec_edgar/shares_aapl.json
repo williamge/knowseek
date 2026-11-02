@@ -1,0 +1,52 @@
+{
+  "cik": 320193,
+  "taxonomy": "dei",
+  "tag": "EntityCommonStockSharesOutstanding",
+  "label": "Entity Common Stock, Shares Outstanding",
+  "description": "Indicate number of shares or other units outstanding of each of registrant's classes of capital or common stock or other ownership interests, if and as stated on cover of related periodic report. Where multiple classes or units exist define each class/interest by adding class of stock items such as Common Class A [Member], Common Class B [Member] or Partnership Interest [Member] onto the Instrument [Domain] of the Entity Listings, Instrument.",
+  "entityName": "Apple Inc.",
+  "units": {
+    "shares": [
+      {
+        "end": "2025-10-17",
+        "val": 14776353000,
+        "accn": "0000320193-25-000079",
+        "fy": 2025,
+        "fp": "FY",
+        "form": "10-K",
+        "filed": "2025-10-31",
+        "frame": "CY2025Q3I"
+      },
+      {
+        "end": "2026-01-16",
+        "val": 14681140000,
+        "accn": "0000320193-26-000006",
+        "fy": 2026,
+        "fp": "Q1",
+        "form": "10-Q",
+        "filed": "2026-01-30",
+        "frame": "CY2025Q4I"
+      },
+      {
+        "end": "2026-04-17",
+        "val": 14687356000,
+        "accn": "0000320193-26-000013",
+        "fy": 2026,
+        "fp": "Q2",
+        "form": "10-Q",
+        "filed": "2026-05-01",
+        "frame": "CY2026Q1I"
+      },
+      {
+        "end": "2026-07-17",
+        "val": 14594180000,
+        "accn": "0000320193-26-000020",
+        "fy": 2026,
+        "fp": "Q3",
+        "form": "10-Q",
+        "filed": "2026-07-31",
+        "frame": "CY2026Q2I"
+      }
+    ]
+  }
+}
