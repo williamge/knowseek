@@ -58,6 +58,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [039](039-rate-limit-anonymous-endpoints.md) | Rate-limit anonymous endpoints (per-client limit, cache fairness) (done, [ADR 0023](../decisions/0023-rate-limiting-anonymous-endpoints.md)) | none |
 | [040](040-company-price-card.md) | Company price card (parked: no source of quotes that may be used) | 032 |
 | [041](041-card-by-entity-id.md) | Ask for the card of a chosen entity (a card by entity id, so that alternatives with one label are reachable) | 033 |
+| [043](043-smarter-weather-queries.md) | Smarter weather queries (design session) | 034, 033 |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
