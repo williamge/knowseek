@@ -138,7 +138,8 @@ config :knowseek, Knowseek.Cards,
   cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2],
   caches: [
     {Knowseek.Cards.Providers.EspnNba, [max_entries: 100]},
-    {Knowseek.Cards.Providers.OpenMeteo, [max_entries: 2_000, max_in_flight: 4, reserve_for_refresh: 1]}
+    {Knowseek.Cards.Providers.OpenMeteo,
+     [max_entries: 2_000, max_in_flight: 4, reserve_for_refresh: 1]}
   ]
 
 # ESPN's public site API. `receive_timeout` is per request.
