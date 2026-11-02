@@ -405,9 +405,9 @@ defmodule Knowseek.CardsTest do
       {:ok, [nvidia | _]} = Wikidata.search("nvidia", [])
       {:ok, [tokyo | _]} = Wikidata.search("tokyo", [])
 
-      # A G League team, a company and a place.
+      # A G League team, a company with no SEC key and a place.
       assert Cards.get(westchester, opts) == :none
-      assert Cards.get(nvidia, opts) == :none
+      assert Cards.get(%{nvidia | cik: nil}, opts) == :none
       assert Cards.get(tokyo, opts) == :none
 
       assert Cards.await(westchester, opts) == :ok

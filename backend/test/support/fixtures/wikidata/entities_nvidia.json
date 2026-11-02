@@ -5,6 +5,7 @@
    "id": "Q182477",
    "type": "item",
    "claims": {
+   "P5531": [{"mainsnak": {"snaktype": "value", "property": "P5531", "datavalue": {"value": "0001045810", "type": "string"}, "datatype": "external-id"}, "type": "statement", "rank": "normal"}],
     "P414": [
      {
       "mainsnak": {

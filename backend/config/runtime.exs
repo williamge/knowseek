@@ -71,6 +71,13 @@ if config_env() != :test do
     other ->
       raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
   end
+
+  # Company cards (task 032, ADR 0021). The SEC asks for a User-Agent with a
+  # name and a contact address: SEC_USER_AGENT, for example
+  # "My Company admin@example.com". Unset: the default in config.exs.
+  if user_agent = env.("SEC_USER_AGENT") do
+    config :knowseek, Knowseek.Cards.Edgar, user_agent: user_agent
+  end
 end
 
 # Reverse proxies whose X-Forwarded-For header is believed when rate limiting

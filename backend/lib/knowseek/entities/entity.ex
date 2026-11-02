@@ -15,6 +15,8 @@ defmodule Knowseek.Entities.Entity do
     * `exchange_tickers` - one `%{exchange: "Q82059", ticker: "NVDA"}` per
       stock exchange claim (P414) with a ticker symbol qualifier (P249).
       `exchange` is the Wikidata id of the exchange. Empty for most items.
+    * `cik` - the SEC Central Index Key (P5531), a 10-digit string such as
+      `"0001045810"`, or `nil`. Companies that file with the SEC have one.
     * `leagues` - ids of the leagues a sports team plays in now (P118,
       without deprecated claims and claims with an end time), for example
       `["Q155223"]` for the NBA. Empty for most items.
@@ -28,6 +30,7 @@ defmodule Knowseek.Entities.Entity do
             wikipedia_title: nil,
             coordinates: nil,
             exchange_tickers: [],
+            cik: nil,
             leagues: []
 
   @type coordinates :: %{latitude: float(), longitude: float()}
@@ -42,6 +45,7 @@ defmodule Knowseek.Entities.Entity do
           wikipedia_title: String.t() | nil,
           coordinates: coordinates() | nil,
           exchange_tickers: [exchange_ticker()],
+          cik: String.t() | nil,
           leagues: [String.t()]
         }
 end

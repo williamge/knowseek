@@ -155,10 +155,43 @@ export interface WeatherFacts {
   daily: WeatherDay[];
 }
 
+/** A 10-K, 10-Q, 8-K (or foreign filer's 20-F, 40-F, 6-K) on sec.gov. Dates are calendar dates, "2026-09-03". */
+export interface CompanyFiling {
+  form: string;
+  filed: string;
+  report_date: string | null;
+  /** 8-K item numbers, for example ["2.02", "9.01"]. */
+  items: string[];
+  description: string | null;
+  url: string;
+}
+
+/** What the SEC's EDGAR says about a company (`Knowseek.Cards.Providers.Company`). No price. */
+export interface CompanyFacts {
+  /** "SEC EDGAR". */
+  source: string;
+  /** The company's EDGAR page. */
+  source_url: string;
+  legal_name: string;
+  /** The SEC Central Index Key, ten digits. */
+  cik: string;
+  /** From the SEC; `exchange` is null when it names none. */
+  listings: { ticker: string; exchange: string | null }[];
+  /** SIC description. */
+  industry: string | null;
+  /** Filer category, for example "Large accelerated filer". */
+  category: string | null;
+  fiscal_year_end: { month: number; day: number } | null;
+  /** From the cover of the latest periodic report; `as_of` is a calendar date. */
+  shares_outstanding: { value: number; as_of: string } | null;
+  filings: CompanyFiling[];
+}
+
 /** A card of live facts. `type` says which shape `facts` has. */
 export type FactCard =
   | { type: "sports_team"; title: string; facts: SportsTeamFacts }
-  | { type: "weather"; title: string; facts: WeatherFacts };
+  | { type: "weather"; title: string; facts: WeatherFacts }
+  | { type: "company"; title: string; facts: CompanyFacts };
 
 export interface CardResponse {
   status: CardStatus;

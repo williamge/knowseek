@@ -1,0 +1,110 @@
+{
+  "cik": "0001046179",
+  "name": "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+  "tickers": [
+    "TSM",
+    "TSMWF"
+  ],
+  "exchanges": [
+    "NYSE",
+    "OTC"
+  ],
+  "sicDescription": "Semiconductors & Related Devices",
+  "fiscalYearEnd": "1231",
+  "category": "Large accelerated filer",
+  "filings": {
+    "recent": {
+      "accessionNumber": [
+        "0002012383-26-003352",
+        "0001046179-26-000728",
+        "0001046179-26-000726",
+        "0001046179-26-000724",
+        "0001046179-26-000723",
+        "0001046179-26-000680",
+        "0001046179-26-000660",
+        "0001046179-26-000658",
+        "0001046179-26-000552",
+        "0001046179-26-000545",
+        "0001046179-26-000541"
+      ],
+      "filingDate": [
+        "2026-10-27",
+        "2026-10-22",
+        "2026-10-15",
+        "2026-10-08",
+        "2026-10-08",
+        "2026-10-08",
+        "2026-09-24",
+        "2026-09-10",
+        "2026-09-01",
+        "2026-08-25",
+        "2026-08-14"
+      ],
+      "reportDate": [
+        "",
+        "2026-09-30",
+        "2026-09-30",
+        "2026-10-07",
+        "2026-10-07",
+        "2026-09-30",
+        "2026-08-31",
+        "2026-08-31",
+        "2026-09-01",
+        "2026-07-31",
+        "2026-06-30"
+      ],
+      "form": [
+        "SCHEDULE 13G",
+        "6-K",
+        "6-K",
+        "4",
+        "4",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K"
+      ],
+      "items": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "primaryDocument": [
+        "xslSCHEDULE_13G_X02/primary_doc.xml",
+        "tsm-monthend6kx20261022.htm",
+        "tsm-20261015x6k.htm",
+        "xslF345X06/wk-form4_1791455755.xml",
+        "xslF345X06/wk-form4_1791455750.xml",
+        "tsm-revenue20261008.htm",
+        "tsm-monthend6kx20260924.htm",
+        "tsm-revenue20260910.htm",
+        "tsm-dividendadjustmentx202.htm",
+        "tsm-monthend6kx20260825.htm",
+        "tsm-fsx20260814x6k.htm"
+      ],
+      "primaryDocDescription": [
+        "",
+        "6-K",
+        "6-K",
+        "FORM 4",
+        "FORM 4",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K",
+        "6-K"
+      ]
+    }
+  }
+}

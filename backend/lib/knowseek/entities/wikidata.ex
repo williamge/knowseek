@@ -136,6 +136,7 @@ defmodule Knowseek.Entities.Wikidata do
       wikipedia_title: get_in(sitelinks, ["enwiki", "title"]),
       coordinates: coordinates(Map.get(claims, "P625", [])),
       exchange_tickers: exchange_tickers(Map.get(claims, "P414", [])),
+      cik: cik(Map.get(claims, "P5531", [])),
       leagues: leagues(Map.get(claims, "P118", []))
     }
   end
@@ -175,6 +176,27 @@ defmodule Knowseek.Entities.Wikidata do
         [exchange] <- [item_ids(claim)],
         ticker <- tickers(claim["qualifiers"] || %{}) do
       %{exchange: exchange, ticker: ticker}
+    end
+  end
+
+  # The SEC Central Index Key: ten digits, with leading zeros. A deprecated
+  # claim and a value of another shape are not a key; a preferred claim wins
+  # over a normal one, then the first.
+  defp cik(claims) do
+    keys =
+      for %{
+            "rank" => rank,
+            "mainsnak" => %{"snaktype" => "value", "datavalue" => %{"value" => v}}
+          } <-
+            claims,
+          rank != "deprecated",
+          is_binary(v) and v =~ ~r/\A\d{10}\z/ do
+        {rank, v}
+      end
+
+    case Enum.find(keys, &match?({"preferred", _}, &1)) || List.first(keys) do
+      {_rank, key} -> key
+      nil -> nil
     end
   end
 

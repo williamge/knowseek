@@ -201,6 +201,91 @@ defmodule Knowseek.Fixtures do
     :ok
   end
 
+  @sec_fixtures Path.expand("fixtures/sec_edgar", __DIR__)
+
+  @doc """
+  A decoded body from `test/support/fixtures/sec_edgar` without `.json`:
+  `submissions_<nvda|aapl|googl|tsm>` and `shares_<nvda|aapl|tsm>`. See that
+  directory's README for how they were recorded and trimmed.
+  """
+  def sec_fixture(name) do
+    @sec_fixtures |> Path.join("#{name}.json") |> File.read!() |> Jason.decode!()
+  end
+
+  @sec_ciks %{
+    "0001045810" => "nvda",
+    "0000320193" => "aapl",
+    "0001652044" => "googl",
+    "0001046179" => "tsm"
+  }
+
+  @doc """
+  Stubs `Knowseek.Cards.Edgar` HTTP calls (`Req.Test`) with the recorded
+  answers: the submissions of Nvidia, Apple, Alphabet and TSMC (by CIK), the
+  shares-outstanding concept of Nvidia, Apple and TSMC, and the recorded 404
+  (XML) for the concept of Alphabet (which has none). Any other path is a 404.
+
+  Options: `submissions: body` (for every company) and `shares: body` replace
+  a body; `status: 403` (with `body:`, `headers:`) answers every request with
+  that status instead.
+
+  Each request sends `{:edgar_request, path, user_agent}` to the calling
+  process. The stub runs in the cache's fetch task, so the test must use
+  shared mode (`setup :set_req_test_from_context`, non-async).
+  """
+  def stub_edgar(overrides \\ []) do
+    test_pid = self()
+
+    Req.Test.stub(Knowseek.Cards.Edgar, fn conn ->
+      user_agent = Plug.Conn.get_req_header(conn, "user-agent")
+      send(test_pid, {:edgar_request, conn.request_path, user_agent})
+
+      conn =
+        Enum.reduce(Keyword.get(overrides, :headers, []), conn, fn {name, value}, conn ->
+          Plug.Conn.put_resp_header(conn, name, value)
+        end)
+
+      case {Keyword.get(overrides, :status), edgar_body(conn.request_path, overrides)} do
+        {nil, {:ok, body}} ->
+          Req.Test.json(conn, body)
+
+        {nil, :not_found} ->
+          conn
+          |> Plug.Conn.put_resp_content_type("application/xml")
+          |> Plug.Conn.send_resp(
+            404,
+            File.read!(Path.join(@sec_fixtures, "concept_not_found.xml"))
+          )
+
+        {status, _body} ->
+          conn
+          |> Plug.Conn.put_resp_content_type("text/html")
+          |> Plug.Conn.send_resp(status, Keyword.get(overrides, :body, "<html>blocked</html>"))
+      end
+    end)
+  end
+
+  defp edgar_body("/submissions/CIK" <> rest, overrides) do
+    with [cik, "json"] <- String.split(rest, ".", parts: 2),
+         {:ok, name} <- Map.fetch(@sec_ciks, cik) do
+      {:ok,
+       Keyword.get_lazy(overrides, :submissions, fn -> sec_fixture("submissions_#{name}") end)}
+    else
+      _no_company -> :not_found
+    end
+  end
+
+  defp edgar_body("/api/xbrl/companyconcept/CIK" <> rest, overrides) do
+    with [cik, "dei", "EntityCommonStockSharesOutstanding.json"] <- String.split(rest, "/"),
+         {:ok, name} when name in ["nvda", "aapl", "tsm"] <- Map.fetch(@sec_ciks, cik) do
+      {:ok, Keyword.get_lazy(overrides, :shares, fn -> sec_fixture("shares_#{name}") end)}
+    else
+      _no_concept -> :not_found
+    end
+  end
+
+  defp edgar_body(_path, _overrides), do: :not_found
+
   @doc """
   A body long enough to be merged by content hash (see
   `Knowseek.Documents.min_alias_body_length/0`). Different `tag`s give

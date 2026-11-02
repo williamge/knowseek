@@ -56,6 +56,9 @@ config :knowseek, Knowseek.Embeddings.Ollama,
 config :knowseek, Knowseek.Cards.Espn,
   req_options: [plug: {Req.Test, Knowseek.Cards.Espn}, retry: false]
 
+config :knowseek, Knowseek.Cards.Edgar,
+  req_options: [plug: {Req.Test, Knowseek.Cards.Edgar}, retry: false]
+
 config :knowseek, Knowseek.Cards.OpenMeteo,
   req_options: [plug: {Req.Test, Knowseek.Cards.OpenMeteo}, retry: false]
 

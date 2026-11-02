@@ -1,5 +1,6 @@
 import { clockTime, gameTime, versus } from "../lib/format";
 import type { CardResponse, FactCard as FactCardData, SportsTeamFacts } from "../types";
+import { CompanyBody, CompanyCredit } from "./CompanyFacts";
 import { WeatherCredit, WeatherFacts } from "./WeatherFacts";
 
 interface Props {
@@ -40,6 +41,9 @@ export function FactCard({ data, onSearch }: Props) {
           </>
         )}
         {data.card.type === "weather" && <WeatherCredit facts={data.card.facts} />}
+        {data.card.type === "company" && (
+          <CompanyCredit facts={data.card.facts} asOf={data.as_of} />
+        )}
         {stale && (
           <span className="fact-card__stale" role="status">
             may be out of date
@@ -76,6 +80,8 @@ function CardBody({ card, description }: { card: FactCardData; description: stri
       return <TeamBody title={card.title} facts={card.facts} />;
     case "weather":
       return <WeatherFacts title={card.title} description={description} facts={card.facts} />;
+    case "company":
+      return <CompanyBody title={card.title} facts={card.facts} />;
   }
 }
 
