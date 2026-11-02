@@ -36,3 +36,9 @@ location is context for the request, not an entity.
 ## Out of scope
 
 Location for any other query type, IP geolocation, user accounts.
+
+## See also
+
+Task [043](043-smarter-weather-queries.md) covers the broader query
+understanding for weather ("weather in my city", "weather near me", questions).
+Decide where the location comes from together with it.
