@@ -24,14 +24,25 @@ defmodule Knowseek.Entities.Wikidata do
       so a defunct team that once played in the NBA has none.
     * `sitelinks` into the sitelink count and the English Wikipedia title.
 
-  Requests send `maxlag` and a descriptive User-Agent (Wikimedia policy), and
-  never retry: Wikidata rate limits, and the retry is the next refresh after
-  the backoff of `Knowseek.Cache`. A non-200 answer is
+  Requests send a descriptive User-Agent (Wikimedia policy) and no `maxlag`,
+  and never retry: Wikidata rate limits, and the retry is the next refresh
+  after the backoff of `Knowseek.Cache`. A non-200 answer is
   `{:error, {:http_status, status}}`, an API error body is
   `{:error, {:api_error, code}}`, and a timeout is the transport exception.
-  HTTP 429 and the `maxlag` API error (the replicas are behind; both come
-  with `Retry-After`) are `{:error, {:rate_limited, retry_after_ms}}`, which
-  makes `Knowseek.Cache` stop all Wikidata fetches for that long.
+  HTTP 429 and a `maxlag` API error (both come with `Retry-After`) are
+  `{:error, {:rate_limited, retry_after_ms}}`, which makes `Knowseek.Cache`
+  stop all Wikidata fetches for that long; for `maxlag` the time is clamped
+  to 1 to 300 seconds.
+
+  Why no `maxlag`: MediaWiki says "Interactive tasks (where a user is waiting
+  for the result) may omit the maxlag parameter. Noninteractive tasks should
+  always use it" (Manual:Maxlag_parameter). A card lookup is interactive, and
+  it is cached. Wikidata's `maxlag` also counts the lag of the Query Service
+  (wdqs, the SPARQL backend), which `wbsearchentities` and `wbgetentities`
+  do not use: on 2026-11-02 wdqs lag (7 to 8 s) made every request with
+  `maxlag=5` fail with HTTP 200 and `error.code: "maxlag"` while the same
+  requests without it worked. Our own cache, single flight, concurrency cap
+  and rate-limit backoff are the courtesy instead.
 
   Configuration (all optional):
 
@@ -46,6 +57,9 @@ defmodule Knowseek.Entities.Wikidata do
   alias Knowseek.Entities.Entity
 
   require Logger
+
+  @min_maxlag_backoff 1_000
+  @max_maxlag_backoff 300_000
 
   @defaults [
     base_url: "https://www.wikidata.org/w/api.php",
@@ -187,7 +201,7 @@ defmodule Knowseek.Entities.Wikidata do
     request =
       Req.new(
         url: config[:base_url],
-        params: [format: "json", maxlag: 5] ++ params,
+        params: [format: "json"] ++ params,
         headers: [user_agent: config[:user_agent]],
         receive_timeout: 10_000,
         retry: false
@@ -196,7 +210,8 @@ defmodule Knowseek.Entities.Wikidata do
 
     case Req.get(request) do
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => "maxlag"}}} = response} ->
-        {:error, Knowseek.Cache.rate_limited(response)}
+        {:rate_limited, ms} = Knowseek.Cache.rate_limited(response)
+        {:error, {:rate_limited, ms |> max(@min_maxlag_backoff) |> min(@max_maxlag_backoff)}}
 
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => code}}}} ->
         {:error, {:api_error, code}}

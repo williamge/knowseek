@@ -128,6 +128,8 @@ The NBA team card (`Cards.Providers.EspnNba`) handles an entity that is a sports
 
 Two limits protect the upstreams from user input (the query is user input). The entity cache normalizes its key (lowercase, NFKC, single spaces), drops text that is not a printable name before any fetch, keeps at most 5000 entries, and runs at most 4 Wikidata resolutions at once (a refresh over the cap is dropped, the key stays `pending`, the next poll asks again). A 429 or `maxlag` from Wikidata or ESPN, with its `Retry-After`, stops every fetch of that cache until the time is up. Drops over the cap are counted (`Cache.stats/1`) and logged as a warning, at most once every 10 seconds.
 
+`Entities.Wikidata` does not send `maxlag` (an interactive read behind a cache; MediaWiki says interactive tasks "may omit" it). Wikidata counts the lag of its Query Service (wdqs) in `maxlag`, which these two read actions do not use, so with `maxlag=5` every lookup failed whenever wdqs lagged (observed 2026-11-02). A `maxlag` error that still arrives waits for `Retry-After`, clamped to 1 to 300 s. The Wikipedia source keeps its `maxlag` (background job, replica lag).
+
 ### Limits on anonymous input (ADR 0023)
 
 The query is user input, and there is no authentication yet (task 009), so three layers protect the upstreams and the other clients:
