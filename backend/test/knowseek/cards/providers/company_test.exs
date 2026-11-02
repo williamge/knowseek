@@ -281,6 +281,93 @@ defmodule Knowseek.Cards.Providers.CompanyTest do
       end
     end
 
+    test "a submissions body without the optional arrays still has its filings" do
+      recent = %{
+        "form" => ["8-K", "10-Q"],
+        "accessionNumber" => ["0000000001-26-000002", "0000000001-26-000001"],
+        "primaryDocument" => ["a.htm", "q.htm"],
+        "filingDate" => ["2026-01-03", "2026-01-02"]
+      }
+
+      assert {:ok, %{filings: [first, second]}} =
+               Company.parse_facts(
+                 %{"name" => "X", "filings" => %{"recent" => recent}},
+                 nil,
+                 "0000000001"
+               )
+
+      assert %{form: "8-K", report_date: nil, items: [], description: nil} = first
+      assert second.url == "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/q.htm"
+    end
+
+    test "optional arrays are read by position when they are there" do
+      recent = %{
+        "form" => ["4", "8-K"],
+        "accessionNumber" => ["0000000001-26-000003", "0000000001-26-000002"],
+        "primaryDocument" => ["f4.xml", "a.htm"],
+        "filingDate" => ["2026-01-04", "2026-01-03"],
+        "items" => ["", "2.02,9.01"],
+        "reportDate" => ["2026-01-04", "2026-01-02"]
+      }
+
+      assert {:ok,
+              %{filings: [%{form: "8-K", items: ["2.02", "9.01"], report_date: "2026-01-02"}]}} =
+               Company.parse_facts(
+                 %{"name" => "X", "filings" => %{"recent" => recent}},
+                 nil,
+                 "0000000001"
+               )
+    end
+
+    test "a filing with no filing date, or one that is not a date, is dropped" do
+      recent = %{
+        "form" => ["8-K", "8-K", "8-K", "10-Q"],
+        "accessionNumber" => for(n <- 4..1//-1, do: "0000000001-26-00000#{n}"),
+        "primaryDocument" => ["a.htm", "b.htm", "c.htm", "q.htm"],
+        "filingDate" => [nil, "", "yesterday", "2026-01-01"]
+      }
+
+      assert {:ok, %{filings: [%{form: "10-Q", filed: "2026-01-01"}]}} =
+               Company.parse_facts(
+                 %{"name" => "X", "filings" => %{"recent" => recent}},
+                 nil,
+                 "0000000001"
+               )
+    end
+
+    test "a filing whose accession number or document would not make a safe link is dropped" do
+      recent = %{
+        "form" => List.duplicate("8-K", 6),
+        "accessionNumber" => [
+          "0000000001-26-000006",
+          "../../etc",
+          "0000000001-26-000004",
+          "0000000001-26-000003",
+          "0000000001-26-000002",
+          "0000000001-26-000001"
+        ],
+        "primaryDocument" => [
+          "a b.htm",
+          "ok.htm",
+          "x/../y.htm",
+          "?q=1#frag",
+          "<script>.htm",
+          "good-1_a.htm"
+        ],
+        "filingDate" => List.duplicate("2026-01-01", 6)
+      }
+
+      assert {:ok, %{filings: [filing]}} =
+               Company.parse_facts(
+                 %{"name" => "X", "filings" => %{"recent" => recent}},
+                 nil,
+                 "0000000001"
+               )
+
+      assert filing.url ==
+               "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/good-1_a.htm"
+    end
+
     test "a filing without an accession number or document is dropped" do
       recent = %{
         "form" => ["8-K", "8-K", "10-Q"],

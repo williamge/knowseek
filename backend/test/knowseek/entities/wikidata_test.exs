@@ -116,6 +116,26 @@ defmodule Knowseek.Entities.WikidataTest do
       assert nvidia.id == "Q182477"
     end
 
+    test "a preferred CIK claim wins over a normal one, a deprecated one never does" do
+      string = fn value -> %{"type" => "string", "value" => value} end
+
+      stub_api([%{"id" => "Q1"}], %{
+        "Q1" =>
+          item(%{
+            "claims" => %{
+              "P5531" => [
+                claim("P5531", string.("0000000001")),
+                claim("P5531", string.("0000000002"), %{"rank" => "preferred"}),
+                claim("P5531", string.("0000000003"), %{"rank" => "deprecated"})
+              ]
+            }
+          })
+      })
+
+      assert {:ok, [entity]} = search("x")
+      assert entity.cik == "0000000002"
+    end
+
     test "nvidia and apple have a CIK in the recorded answers, a screen reader has none" do
       assert {:ok, [nvidia | _rest]} = search("nvidia")
       assert nvidia.cik == "0001045810"

@@ -165,20 +165,25 @@ defmodule Knowseek.Entities.Wikidata do
     end
   end
 
-  # The SEC Central Index Key: ten digits, with leading zeros. The first usable
-  # claim wins; a value of another shape is not a key.
+  # The SEC Central Index Key: ten digits, with leading zeros. A deprecated
+  # claim and a value of another shape are not a key; a preferred claim wins
+  # over a normal one, then the first.
   defp cik(claims) do
-    Enum.find_value(claims, fn
-      %{"rank" => "deprecated"} ->
-        nil
+    keys =
+      for %{
+            "rank" => rank,
+            "mainsnak" => %{"snaktype" => "value", "datavalue" => %{"value" => v}}
+          } <-
+            claims,
+          rank != "deprecated",
+          is_binary(v) and v =~ ~r/\A\d{10}\z/ do
+        {rank, v}
+      end
 
-      %{"mainsnak" => %{"snaktype" => "value", "datavalue" => %{"value" => value}}}
-      when is_binary(value) ->
-        if value =~ ~r/\A\d{10}\z/, do: value
-
-      _other ->
-        nil
-    end)
+    case Enum.find(keys, &match?({"preferred", _}, &1)) || List.first(keys) do
+      {_rank, key} -> key
+      nil -> nil
+    end
   end
 
   defp leagues(claims) do

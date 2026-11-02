@@ -2,7 +2,8 @@ import { clockTime } from "../lib/format";
 import type { CompanyFacts as CompanyFactsData, CompanyFiling } from "../types";
 
 /** "Sep 3, 2026" from "2026-09-03". Calendar dates have no time zone, so read them as UTC. */
-function date(iso: string): string {
+function date(iso: string | null | undefined): string {
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "date unknown";
   return new Date(iso).toLocaleDateString("en", {
     month: "short",
     day: "numeric",

@@ -17,7 +17,9 @@ re-probe found no usable source of quotes ([ADR 0021](../decisions/0021-company-
 and the owner narrowed the task to a facts card; the price is task
 [040](040-company-price-card.md) (parked).
 
-- CIK from Wikidata property P5531, read into `Entity.cik`. No CIK: no card.
+- CIK from Wikidata property P5531, read into `Entity.cik`. No CIK: no card. The
+  entity must also be of kind `:company`, which needs an exchange ticker
+  (P414 with P249), so a CIK without a listed ticker gives `none` too.
 - Two keyless requests to `data.sec.gov` per card: submissions and shares
   outstanding (the second is optional).
 - Card facts: name, tickers and exchanges, industry, fiscal year end, filer

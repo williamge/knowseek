@@ -161,6 +161,22 @@ describe("company card", () => {
     expect(within(card).getByText("GOOGX")).toBeInTheDocument();
   });
 
+  it("shows a placeholder, not 1970, for a filing date that is missing or invalid", () => {
+    const base = facts().filings[0];
+    const card = show(
+      companyCard({
+        filings: [
+          { ...base, filed: null as unknown as string, url: "https://www.sec.gov/a" },
+          { ...base, filed: "not a date", report_date: "nope", url: "https://www.sec.gov/b" },
+        ],
+      }),
+    );
+
+    expect(card.textContent).not.toContain("1970");
+    expect(card.textContent).not.toContain("Invalid");
+    expect(within(card).getAllByText(/filed date unknown/)).toHaveLength(2);
+  });
+
   it("still marks a stale card", () => {
     show(companyCard({}, { status: "stale" }));
     expect(screen.getByRole("status")).toHaveTextContent("may be out of date");

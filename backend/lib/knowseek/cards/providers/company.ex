@@ -7,8 +7,10 @@ defmodule Knowseek.Cards.Providers.Company do
   ## Which entities
 
   An entity gets a card when it is a company (`Knowseek.Entities.kind/1`, which
-  needs a ticker on some exchange) and has an SEC Central Index Key (Wikidata
-  P5531, `Entity.cik`). Any other entity is not handled (`none`). The SEC is
+  needs a ticker on some exchange, Wikidata P414 with P249) and has an SEC
+  Central Index Key (Wikidata P5531, `Entity.cik`). An entity with a CIK but no
+  listed ticker is not of that kind, and any other entity is not handled
+  (`none`). The SEC is
   asked for the key, so the exchange does not matter: an ADR filer on the NYSE
   and a company on an exchange abroad that files with the SEC get a card, and
   the tickers and exchanges on the card are the SEC's own. No network call
@@ -44,7 +46,8 @@ defmodule Knowseek.Cards.Providers.Company do
   outstanding. `fetch/1` runs in the card cache's task, never in a request. A
   failed submissions request is an error (the card is `stale` or `unavailable`).
   HTTP 429 and HTTP 403 stop every fetch of this provider's cache (a 403 for ten
-  minutes), and a 403 logs one warning that tells the operator to set
+  minutes), and a 403 logs a warning (about once per block, that is, per backoff
+  window) that tells the operator to set
   `SEC_USER_AGENT` with a contact (the SEC blocks undeclared automated tools; see
   `Knowseek.Cards.Edgar`).
 
@@ -179,23 +182,33 @@ defmodule Knowseek.Cards.Providers.Company do
 
   defp shares_outstanding(_concept), do: nil
 
-  # `recent` holds parallel arrays, newest first.
+  # `recent` holds parallel arrays, newest first. Only the arrays a filing
+  # cannot do without are zipped (a zip stops at the shortest list); the others
+  # are read by position and may be missing. A filing with a value that does
+  # not look like the SEC's (it goes into a link and into the page) is dropped.
   defp filings(%{} = recent, cik) do
-    ~w(form filingDate reportDate items accessionNumber primaryDocument primaryDocDescription)
-    |> Enum.map(&List.wrap(recent[&1]))
+    column = fn key -> List.wrap(recent[key]) end
+
+    [
+      column.("form"),
+      column.("accessionNumber"),
+      column.("primaryDocument"),
+      column.("filingDate")
+    ]
     |> Enum.zip()
-    |> Stream.filter(fn {form, _filed, _report, _items, accession, document, _description} ->
-      form in @forms and is_binary(accession) and accession != "" and is_binary(document) and
-        document != ""
+    |> Stream.with_index()
+    |> Stream.filter(fn {{form, accession, document, filed}, _index} ->
+      form in @forms and valid?(accession, ~r/\A\d[\d-]*\z/) and
+        valid?(document, ~r/\A[\w.\-]+\z/) and valid?(filed, ~r/\A\d{4}-\d{2}-\d{2}\z/)
     end)
     |> Enum.take(@max_filings)
-    |> Enum.map(fn {form, filed, report, items, accession, document, description} ->
+    |> Enum.map(fn {{form, accession, document, filed}, index} ->
       %{
         form: form,
         filed: filed,
-        report_date: text(report),
-        items: items_list(items),
-        description: text(description),
+        report_date: text(column.("reportDate") |> Enum.at(index)),
+        items: column.("items") |> Enum.at(index) |> items_list(),
+        description: text(column.("primaryDocDescription") |> Enum.at(index)),
         url:
           "https://www.sec.gov/Archives/edgar/data/#{String.to_integer(cik)}/" <>
             "#{String.replace(accession, "-", "")}/#{document}"
@@ -204,6 +217,8 @@ defmodule Knowseek.Cards.Providers.Company do
   end
 
   defp filings(_recent, _cik), do: []
+
+  defp valid?(value, pattern), do: is_binary(value) and value =~ pattern
 
   defp items_list(items) when is_binary(items),
     do: items |> String.split(",", trim: true) |> Enum.map(&String.trim/1)

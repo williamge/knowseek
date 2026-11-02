@@ -72,7 +72,10 @@ stops at FY2022 for Nvidia).
 The SEC Central Index Key is Wikidata property P5531 on the company item
 (Nvidia `Q182477`: `0001045810`; Apple `Q312`: `0000320193`). `Knowseek.Entities.Wikidata`
 reads it into `Entity.cik` (a ten-digit string; a deprecated claim or another
-shape is ignored). An entity with no CIK has no card (`none`). The SEC's ticker
+shape is ignored). An entity with no CIK has no card (`none`). A company also still needs a
+Wikidata exchange ticker (P414 with the P249 qualifier) to be of kind
+`:company` (`Knowseek.Entities.kind/1`), in addition to the CIK, so an entity with
+a CIK but no listed ticker gets `none` too. The SEC's ticker
 file (`www.sec.gov/files/company_tickers.json`, 800 KB) is not used: it is on
 the host that answered 403 to our default User-Agent (below), and Wikidata
 already gives the key.
@@ -107,7 +110,7 @@ URL, no `github`), and `SEC_USER_AGENT` replaces it. The SEC asks for a name and
 a contact address, so an operator who serves other people should set it; the
 default works today and can stop working. When `data.sec.gov` answers 403 or
 429 the card goes `stale` (or `unavailable`), all company fetches stop (ten
-minutes for a 403, `Retry-After` for a 429) and the log has one warning that
+minutes for a 403, `Retry-After` for a 429) and the log has a warning (about once per block) that
 tells the operator to set `SEC_USER_AGENT` with a contact. No retries, no
 loops.
 
