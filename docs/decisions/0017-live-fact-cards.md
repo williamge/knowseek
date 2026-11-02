@@ -183,3 +183,19 @@ on 2026-10-29, and the 2026-27 season page an hour before the probe. What was
 true is that Wikipedia text does not carry yesterday's game, and that the
 search returned the 2025-26 season page instead of the current one. The
 decision itself is unchanged.
+
+## Update (2026-11-02): no `maxlag` on Wikidata reads
+
+`Knowseek.Entities.Wikidata` no longer sends `maxlag=5`. Wikidata includes the
+lag of its Query Service (wdqs, the SPARQL backend) in `maxlag`, and
+`wbsearchentities` and `wbgetentities` do not use wdqs. On 2026-11-02 wdqs lag
+of 7 to 8 s made every request with `maxlag=5` fail (HTTP 200, `error.code`
+`maxlag`, `Retry-After: 5`), so every card for a new entity was `unavailable`,
+while the same requests without `maxlag` succeeded. MediaWiki's manual says
+"Interactive tasks (where a user is waiting for the result) may omit the
+maxlag parameter. Noninteractive tasks should always use it." A card lookup is
+interactive and cached; our own single flight, concurrency cap, descriptive
+User-Agent and cache-wide backoff are the courtesy. A `maxlag` error that still
+arrives is a rate limit that waits for `Retry-After`, clamped to 1 to 300 s
+(60 s without the header). The Wikipedia source keeps `maxlag=5`: it is a
+background job and uses database replica lag.

@@ -148,11 +148,13 @@ defmodule Knowseek.Entities.WikidataTest do
                "language" => "en",
                "type" => "item",
                "limit" => "20",
-               "format" => "json",
-               "maxlag" => "5"
+               "format" => "json"
              } = params
 
+      refute Map.has_key?(params, "maxlag")
+
       assert_received {:wikidata_request, "wbgetentities", details, [^user_agent]}
+      refute Map.has_key?(details, "maxlag")
       ids = String.split(details["ids"], "|")
       assert length(ids) == 20
       assert hd(ids) == "Q131364"
@@ -355,6 +357,28 @@ defmodule Knowseek.Entities.WikidataTest do
       end)
 
       assert search("knicks") == {:error, {:rate_limited, 5_000}}
+    end
+
+    test "maxlag without Retry-After, or with an extreme one, is clamped to 1..300 s" do
+      Req.Test.stub(Wikidata, &Req.Test.json(&1, %{"error" => %{"code" => "maxlag"}}))
+      assert {:error, {:rate_limited, ms}} = search("knicks")
+      assert ms == 60_000
+
+      Req.Test.stub(Wikidata, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("retry-after", "0")
+        |> Req.Test.json(%{"error" => %{"code" => "maxlag"}})
+      end)
+
+      assert search("knicks") == {:error, {:rate_limited, 1_000}}
+
+      Req.Test.stub(Wikidata, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("retry-after", "9999")
+        |> Req.Test.json(%{"error" => %{"code" => "maxlag"}})
+      end)
+
+      assert search("knicks") == {:error, {:rate_limited, 300_000}}
     end
 
     test "another API error body is an error" do
