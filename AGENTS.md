@@ -89,7 +89,7 @@ These keep the code base coherent while many agents work in parallel. If a task 
 - Oban runs in `:manual` testing mode. Assert with `assert_enqueued/1`, and run jobs with `perform_job/2`.
 - Use the fixtures in `test/support/fixtures.ex`. Add new fixtures there.
 - Every new public function gets a test. Every bug fix gets a regression test.
-- Search tests that load many chunks (the 35-chunk documents in `test/knowseek/search_test.exs`) can bloat the HNSW index in a long-lived local test database. Unrelated search tests then fail on and off. Run `VACUUM FULL chunks; REINDEX TABLE chunks` against that database (`psql` into `knowseek_test_<workspace>`), or drop and recreate it with `make setup`. CI uses a fresh database and is not affected.
+- Tests read the vectors exactly. `config/test.exs` turns index scans off for the test database (`enable_indexscan: "off"`), so the vector query in `Knowseek.Search` is a sequential scan and sort, not an approximate HNSW scan. Reason: every test rolls back its inserts, but the chunks stay in the HNSW index as dead entries until a vacuum, and they bloat the table, so the planner picks the HNSW scan even when one row is live. A graph full of look-alike dead vectors (the 35-chunk documents, the repeated fixture texts) often has no path to a new, different vector and returns no row. Search tests then fail at random, on a fresh CI database too, once enough earlier tests have run. Do not turn index scans back on in tests, and do not write a test that needs the HNSW scan to find a row. The production query is unchanged; `with_ef_search/2` is tested by reading the setting.
 
 ## How to work on a task
 

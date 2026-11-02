@@ -97,6 +97,30 @@ defmodule Knowseek.SearchTest do
     end
   end
 
+  describe "search/2 on an index that earlier tests left full of dead entries" do
+    # Every test rolls back its inserts, but the chunks stay in the HNSW index as
+    # dead entries until a vacuum, and they bloat the table, so the planner picks
+    # the HNSW scan even when one row is live. A graph full of look-alike dead
+    # vectors then often has no path to a new, unlike vector, and the scan returns
+    # nothing. config/test.exs turns index scans off for the test database, so
+    # the vector list is exact. Without that setting this test failed in 19 of 20
+    # runs, each on a fresh database.
+    test "finds a document although the index holds hundreds of dead look-alike chunks" do
+      {:error, :rolled_back} =
+        Repo.transaction(fn ->
+          for i <- 1..10,
+              do: document_fixture(body: "Edition #{i}.\n\n" <> long_body("octopus", 35))
+
+          Repo.rollback(:rolled_back)
+        end)
+
+      match = document_fixture(body: "alpha beta gamma delta")
+
+      assert {:ok, %{hits: [hit]}} = Search.search("alpha beta gamma delta epsilon")
+      assert hit.document_id == match.id
+    end
+  end
+
   describe "search/2 groups chunks by document" do
     test "a document with many matching chunks is one hit, with the best chunk on top" do
       long = document_fixture(body: long_body("octopus", 6))
@@ -228,30 +252,52 @@ defmodule Knowseek.SearchTest do
     end
 
     test "a popular but clearly less relevant document does not outrank a relevant one" do
-      relevant = document_fixture(body: "Knicks basketball knicks basketball knicks.")
+      # "Clearly less relevant" has to hold in both ranked lists. The popular page
+      # has the two query words far apart, so its ts_rank_cd (0.02) is below the
+      # notes' (0.1) and it ranks last by keyword. With the words side by side it
+      # tied with the 20 notes, and where a tie landed depended on the order of
+      # the rows in the heap: the page could take keyword rank 2 and win. So the
+      # test also inserts the documents in several orders.
+      for order <- [:popular_first, :popular_in_the_middle, :popular_last] do
+        Repo.delete_all(Knowseek.Documents.Document)
 
-      # Twenty better-than-the-popular-one matches push it far down both lists.
-      for i <- 1..20, do: document_fixture(body: "Knicks basketball note #{i}.")
+        relevant = %{title: "Relevant", body: "Knicks basketball knicks basketball knicks."}
+        notes = for i <- 1..20, do: %{body: "Knicks basketball note #{i}."}
 
-      popular =
-        document_fixture(
+        popular = %{
           title: "Popular",
           body:
-            String.pad_trailing("A page about knicks basketball. ", 1_000, "Unrelated filler. "),
+            String.pad_trailing(
+              "A page about knicks and, much further on, basketball. ",
+              1_000,
+              "Unrelated filler. "
+            ),
           monthly_views: 1_000_000_000
-        )
+        }
 
-      assert {:ok, %{hits: [top | _] = hits}} = Search.search("knicks basketball", limit: 30)
-      assert top.document_id == relevant.id
+        {before_popular, after_popular} =
+          case order do
+            :popular_first -> {[], [relevant | notes]}
+            :popular_in_the_middle -> Enum.split([relevant | notes], 10)
+            :popular_last -> {[relevant | notes], []}
+          end
 
-      popular_rank = Enum.find_index(hits, &(&1.document_id == popular.id))
-      assert popular_rank > 0
+        docs = Enum.map(before_popular ++ [popular] ++ after_popular, &document_fixture/1)
+        relevant_id = Enum.find(docs, &(&1.title == "Relevant")).id
+        popular_id = Enum.find(docs, &(&1.title == "Popular")).id
 
-      # The bound is the weight: with a huge one the same popular page wins.
-      assert {:ok, %{hits: [top | _]}} =
-               Search.search("knicks basketball", limit: 30, prior_weight: 1_000)
+        assert {:ok, %{hits: [top | _] = hits}} = Search.search("knicks basketball", limit: 30),
+               "insertion order #{order}"
 
-      assert top.document_id == popular.id
+        assert top.document_id == relevant_id, "insertion order #{order}"
+        assert Enum.find_index(hits, &(&1.document_id == popular_id)) > 0
+
+        # The bound is the weight: with a huge one the same popular page wins.
+        assert {:ok, %{hits: [top | _]}} =
+                 Search.search("knicks basketball", limit: 30, prior_weight: 1_000)
+
+        assert top.document_id == popular_id
+      end
     end
   end
 

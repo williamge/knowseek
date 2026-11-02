@@ -14,6 +14,14 @@ db_suffix =
   end
 
 config :knowseek, Knowseek.Repo,
+  # Index scans are off, so the vector query in Knowseek.Search is an exact
+  # sequential scan and sort, never an approximate HNSW scan. Every test rolls
+  # back its inserts, but the rolled-back chunks stay in the HNSW index as dead
+  # entries until a vacuum, and they bloat the table, so the planner picks the
+  # HNSW scan even when one row is live. A graph full of look-alike dead vectors
+  # then often has no path to a new, different vector and returns no row, and
+  # the search tests fail at random (see AGENTS.md, "Testing rules").
+  parameters: [enable_indexscan: "off"],
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
   hostname: System.get_env("PGHOST", "localhost"),
