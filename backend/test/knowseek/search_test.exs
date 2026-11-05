@@ -357,6 +357,44 @@ defmodule Knowseek.SearchTest do
 
       assert [["400"]] = Search.with_ef_search(400, read)
     end
+
+    test "applies the iterative scan settings from the config, strict_order and 20,000 by default" do
+      assert [["strict_order", "20000"]] = Search.with_ef_search(400, &read_scan_settings/0)
+
+      put_search_config(max_scan_tuples: 5_000)
+      assert [["strict_order", "5000"]] = Search.with_ef_search(400, &read_scan_settings/0)
+    end
+
+    test "sets nothing for iterative_scan: :off, which keeps an older pgvector working" do
+      put_search_config(iterative_scan: :off, max_scan_tuples: 5_000)
+
+      # pgvector's own defaults.
+      assert [["off", "20000"]] = Search.with_ef_search(400, &read_scan_settings/0)
+    end
+
+    test "rejects an invalid iterative scan config instead of searching without it" do
+      put_search_config(iterative_scan: :sometimes)
+      assert_raise ArgumentError, ~r/iterative_scan must be one of/, fn -> Search.search("x") end
+
+      put_search_config(iterative_scan: :strict_order, max_scan_tuples: 0)
+      assert_raise ArgumentError, ~r/max_scan_tuples a positive integer/, fn -> Search.search("x") end
+    end
+  end
+
+  # Reads the settings as pgvector reports them. pgvector defines `hnsw.*` when
+  # it is loaded, so load it first (a bare `current_setting` fails before that).
+  defp read_scan_settings do
+    Repo.query!("SELECT '[0]'::vector")
+
+    Repo.query!(
+      "SELECT current_setting('hnsw.iterative_scan'), current_setting('hnsw.max_scan_tuples')"
+    ).rows
+  end
+
+  defp put_search_config(overrides) do
+    env = Application.fetch_env!(:knowseek, Search)
+    on_exit(fn -> Application.put_env(:knowseek, Search, env) end)
+    Application.put_env(:knowseek, Search, Keyword.merge(env, overrides))
   end
 
   describe "Coverage.assess/2" do

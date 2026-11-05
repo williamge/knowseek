@@ -1,6 +1,6 @@
 # 044. Semantic search can lose live chunks to dead HNSW entries
 
-- Status: open
+- Status: done
 - Area: `Knowseek.Search`, `Knowseek.Documents`, Postgres/pgvector config
 - Depends on: none
 
@@ -176,3 +176,35 @@ Not recommended now: forcing an exact scan, and periodic `REINDEX` (add it if th
 - Grouping hits by document in SQL (task 023) and changing `candidate_factor`.
 - Running `VACUUM` or `REINDEX` from the application.
 - A scheduler for periodic `REINDEX` (a follow-up task if the monitoring shows a need).
+
+## Outcome
+
+Built (ADR [0024](../decisions/0024-hnsw-iterative-scan.md)):
+
+- `Search.with_ef_search/2` sets `hnsw.iterative_scan` and `hnsw.max_scan_tuples` in the same `set_config` statement as `hnsw.ef_search`. Config `config :knowseek, Knowseek.Search`: `iterative_scan: :strict_order` (or `:off`) and `max_scan_tuples: 20_000`; any other value raises `ArgumentError`.
+- `strict_order`, not `relaxed_order`: the vector list's rank feeds RRF, and `relaxed_order` returned it out of order for every dense-vector query (and by up to 0.104 cosine distance with hashing vectors); `strict_order` was exact, with the same recall@10. `max_scan_tuples` stays at 20,000: 100,000 changed nothing in any run, and the cap bounds the worst-case time.
+- The minimum is pgvector 0.8. On 0.7.4 (the `pgvector/pgvector:0.7.4-pg17` image) the setting fails with `invalid configuration parameter name "hnsw.iterative_scan"`, so every search fails loudly. On a fresh connection Postgres only warns and drops an unknown `hnsw.*` setting until pgvector is loaded, so the statement selects `FROM (SELECT '[0]'::vector)` to load it first. `iterative_scan: :off` sends only `ef_search` and works on an older pgvector.
+- Guard test `test/knowseek/search_hnsw_test.exs` (tag `:hnsw_guard`): committed rows through `Documents.ingest/1`, 520 dead look-alike entries (a 20-chunk document ingested 26 times, then deleted), the index scan forced on its own connection pool only. It asserts that the exact scan finds the live document, that `iterative_scan: :off` (the old query) returns no hit, and that the default returns the live document with the exact scan's similarity. With the default config set to `:off` the test fails. The failure starts at about 400 dead entries (280 and 360 found the chunk, 400 and 420 did not). Runtime 3 to 8 s (11 s once, with a 120,000-chunk ingest running next to it). AGENTS.md "Testing rules" names it as the one exception and lists how it isolates itself. `config/test.exs` is unchanged.
+- Unit tests in `search_test.exs` for the settings, `:off`, and the invalid config.
+- `docs/ARCHITECTURE.md`: "Vector index health" (psql queries for dead tuples and index size, `VACUUM chunks`, `REINDEX INDEX CONCURRENTLY`, measured costs), the config keys, and the known limitation. `docs/DATA-AND-JOBS.md` does not exist on `origin/main`, so the note is only in ARCHITECTURE. ADR 0011's consequence line points to ADR 0024.
+
+Measured on this machine (pgvector 0.8.7, PostgreSQL 17.11, scratch databases, the real `Search.search/2`, committed data, autovacuum off for `chunks`):
+
+| | before (`:off`) | after (`strict_order`) |
+| --- | --- | --- |
+| 40,000 chunks, 450 dead look-alikes, planner's own Index Scan, query about the deleted document | 0 hits (0 in 20 of 20 queries) | 10 hits in 20 of 20 queries, similarities 0.757, 0.754, 0.754 as the exact scan; median 15.6 ms (exact scan: 259 ms) |
+| 30 queries about live documents at 40,000 chunks, same state | identical to the exact scan in 30 of 30 | identical in 30 of 30 |
+| clean index, 40,000 chunks, 120 searches in 3 interleaved rounds | median 18.2 ms, p90 30.6 | median 17.5 ms, p90 21.1 |
+| clean index, 120,000 chunks (451 dead rows, 1 vacuum earlier), same method | median 36.8 ms, p90 69.4 | median 31.4 ms, p90 51.3 |
+| 1,000 chunks re-ingested 20 times (about 20,000 dead entries), 60 queries | 18.9 of 400 rows, 7.0 ms | 400 rows, 78.8 ms |
+
+The section 2 and section 3 numbers of this task did not change except where the table says so. The clean-index latency is within noise of the old figure (about 60 ms at 120,000 in the first experiment; 31 to 37 ms on this run).
+
+Repair costs: `VACUUM chunks` 0.3 s for 450 dead entries among 40,000 chunks, 11 s for 5,000 dead entries among 1,000 chunks; `REINDEX INDEX CONCURRENTLY` 150 s for 40,000 chunks (313 MB, default `maintenance_work_mem`).
+
+Left out:
+
+- Autovacuum tuning for `chunks` (out of scope here, as the task says: it needs vacuum times on a real-size index) and a scheduled `REINDEX`. Neither is needed yet, and the monitoring note says when to act. No follow-up task file was added.
+- The iterative scan does not repair graph quality: recall of ranks 2 to 10 at 20 times as many dead as live entries is restored only by `VACUUM` or `REINDEX`.
+- Not measured: dead entries above 20,000 near one query (the `max_scan_tuples` cap), above 40,000 chunks, real Ollama embeddings, concurrent writers, long transactions that hold vacuum back.
+- The `Lookup` path (`[INFERENCE]` in Findings: an empty semantic list plus no keyword match asks for discovery) was not run.

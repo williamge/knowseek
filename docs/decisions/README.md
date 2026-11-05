@@ -30,3 +30,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0021](0021-company-card-source.md) | Company card: facts from SEC EDGAR, price out of scope (no usable source of quotes) |
 | [0022](0022-weather-card-terms-and-intent.md) | Weather card: Open-Meteo non-commercial terms and attribution, and a place has a weather card only for the weather intent |
 | [0023](0023-rate-limiting-anonymous-endpoints.md) | Rate limiting for anonymous endpoints (per-client token bucket) and a fairness rule in the cache |
+| [0024](0024-hnsw-iterative-scan.md) | Search: HNSW iterative scan (`strict_order`, `max_scan_tuples` 20,000) so dead index entries do not empty the vector list; pgvector 0.8 or later |

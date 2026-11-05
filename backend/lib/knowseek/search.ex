@@ -43,6 +43,10 @@ defmodule Knowseek.Search do
   # pgvector rejects `hnsw.ef_search` above 1000.
   @max_ef_search 1000
 
+  # Values of the `:iterative_scan` config. `:off` sets nothing (pgvector's own
+  # default, and the only value an older pgvector than 0.8 accepts).
+  @iterative_scan_modes [:off, :strict_order]
+
   @type result :: %{hits: [Hit.t()], coverage: Coverage.t()}
 
   @spec search(String.t(), keyword()) :: {:ok, result()} | {:error, term()}
@@ -91,6 +95,9 @@ defmodule Knowseek.Search do
   #
   # An HNSW index scan returns at most `hnsw.ef_search` rows (default 40), so
   # a larger `limit` would silently return 40. Raise it for this query only.
+  # The scan also drops entries whose chunk is gone, after it has counted them
+  # against `ef_search`; the iterative scan keeps walking the graph then, so
+  # dead entries cannot empty the list (ADR 0024).
   defp semantic_matches(embedding, limit) do
     with_ef_search(limit, fn ->
       Repo.all(
@@ -104,20 +111,53 @@ defmodule Knowseek.Search do
   end
 
   @doc false
-  # Runs `fun` in a transaction where `hnsw.ef_search` fits `candidates` rows.
+  # Runs `fun` in a transaction where the HNSW scan settings fit `candidates`
+  # rows: `hnsw.ef_search`, and unless `:iterative_scan` is `:off`,
+  # `hnsw.iterative_scan` and `hnsw.max_scan_tuples` (ADR 0024).
   # `set_config(..., true)` is local to the transaction.
+  #
+  # The iterative scan needs pgvector 0.8. An older one does not know the
+  # setting, and Postgres then rejects it with an error, but only on a
+  # connection that has already loaded pgvector; on a fresh one it only logs a
+  # warning and drops the setting. The `FROM (SELECT '[0]'::vector)` loads
+  # pgvector (the cast runs while the statement is parsed) before `set_config`
+  # runs, so that an old pgvector fails every search, the first one too.
   @spec with_ef_search(pos_integer(), (-> result)) :: result when result: term()
   def with_ef_search(candidates, fun) do
+    ef_search = Integer.to_string(ef_search(candidates))
+
     {:ok, result} =
       Repo.transaction(fn ->
-        Repo.query!("SELECT set_config('hnsw.ef_search', $1, true)", [
-          Integer.to_string(ef_search(candidates))
-        ])
-
+        scan_settings(config(:iterative_scan), config(:max_scan_tuples), ef_search)
         fun.()
       end)
 
     result
+  end
+
+  defp scan_settings(:off, _max_scan_tuples, ef_search) do
+    Repo.query!("SELECT set_config('hnsw.ef_search', $1, true)", [ef_search])
+  end
+
+  defp scan_settings(mode, max_scan_tuples, ef_search)
+       when mode in @iterative_scan_modes and is_integer(max_scan_tuples) and
+              max_scan_tuples > 0 do
+    Repo.query!(
+      """
+      SELECT set_config('hnsw.ef_search', $1, true),
+             set_config('hnsw.iterative_scan', $2, true),
+             set_config('hnsw.max_scan_tuples', $3, true)
+      FROM (SELECT '[0]'::vector) AS pgvector_loaded
+      """,
+      [ef_search, Atom.to_string(mode), Integer.to_string(max_scan_tuples)]
+    )
+  end
+
+  defp scan_settings(mode, max_scan_tuples, _ef_search) do
+    raise ArgumentError,
+          "invalid Knowseek.Search config: iterative_scan must be one of " <>
+            "#{inspect(@iterative_scan_modes)} and max_scan_tuples a positive integer, " <>
+            "got #{inspect(mode)} and #{inspect(max_scan_tuples)}"
   end
 
   @doc false
