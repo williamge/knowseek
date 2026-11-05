@@ -111,7 +111,9 @@ defmodule Knowseek.SearchHnswTest do
 
     for n <- 1..20 do
       words = for i <- 1..24, do: "filler#{n}x#{i}"
-      {:ok, _} = Documents.ingest(%{url: "https://hnsw.test/f#{n}", source: "hnsw", body: body(words)})
+
+      {:ok, _} =
+        Documents.ingest(%{url: "https://hnsw.test/f#{n}", source: "hnsw", body: body(words)})
     end
 
     match
@@ -165,8 +167,11 @@ defmodule Knowseek.SearchHnswTest do
     env = Application.fetch_env!(:knowseek, Search)
 
     case Keyword.fetch(opts, :iterative_scan) do
-      {:ok, mode} -> Application.put_env(:knowseek, Search, Keyword.put(env, :iterative_scan, mode))
-      :error -> :ok
+      {:ok, mode} ->
+        Application.put_env(:knowseek, Search, Keyword.put(env, :iterative_scan, mode))
+
+      :error ->
+        :ok
     end
 
     try do

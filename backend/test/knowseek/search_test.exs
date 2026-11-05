@@ -377,7 +377,10 @@ defmodule Knowseek.SearchTest do
       assert_raise ArgumentError, ~r/iterative_scan must be one of/, fn -> Search.search("x") end
 
       put_search_config(iterative_scan: :strict_order, max_scan_tuples: 0)
-      assert_raise ArgumentError, ~r/max_scan_tuples a positive integer/, fn -> Search.search("x") end
+
+      assert_raise ArgumentError, ~r/max_scan_tuples a positive integer/, fn ->
+        Search.search("x")
+      end
     end
   end
 
