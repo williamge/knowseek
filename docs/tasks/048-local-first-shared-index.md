@@ -915,6 +915,12 @@ they are on the safe side. Other things that would bite:
 8. Full text, pointers or a hybrid in records (question 11, decision 2).
 9. Is a delete path for retractions wanted, given architecture rule 2?
    (Question 12; it may need an ADR.)
+10. Do instances re-share only what they found themselves, or forward other
+    instances' original signed records unchanged? (Question 5; experiment A
+    showed that re-signing others' documents spreads `fetched_at` resets and
+    erased fields.)
+11. May full text against pointers be deferred? A record with an optional
+    `body` field allows both (question 11; experiment A's results).
 
 ## Suggested first experiments
 
@@ -929,13 +935,142 @@ they are on the safe side. Other things that would bite:
   `monthly_views` come out equal, what a tampered record does, and what a
   second import does (the `fetched_at` reset above). Settles much of
   questions 2, 3 (recompute side) and 4.
-  - Results: pending (a spike is running).
+  - Results: see "Results (spike, 2026-11-05)" below.
 - **B. The storage-engine spike.** Done once, as a throwaway: see "Spike
   results (SQLite)". It answered loading, vector speed, size, a ranking
   parity replica, Oban's SQLite engine, the cutover inventory and
   concurrency, and lists what it could not check (Linux, x86_64, parity at
   scale, multi-node sharing). A second round would cover those gaps if the
   owner wants to keep SQLite open.
+
+### Results (spike, 2026-11-05)
+
+These are **measured results from a throwaway spike** of experiment A. Two
+scratch databases stood in for two instances, A and B, on one M1 Pro laptop.
+The hashing adapter was used throughout except one Ollama run, taken at a
+load average of about 11, so **treat the Ollama timings as plus or minus 2
+times**. 19 to 21 documents. Nothing was committed and no repository file was
+changed. `[INFERENCE]` labels are the spike's own. **No decision is recorded
+here.**
+
+Setup: instance A held 14 Wikipedia articles fetched through the real
+`Sources.Wikipedia`, 2 manual documents (one with a URL, one
+`urn:knowseek:sha256:`), 1 alias (`?curid=974` with the Ada Lovelace body)
+and 3 seed documents: 19 documents, 347 chunks. Records were canonical JSON
+(sorted keys), `id` the SHA-256 of the record without `id` and `sig`, an
+Ed25519 signature from OTP `:crypto`, and `origin` = `ed25519:<public key>`.
+No record carried an embedding.
+
+**Verdict.** One import through `ingest/1` copies everything today's attrs
+carry: after the first import A and B were equal on every field and in chunk
+counts. But a second pass flips `fetched_at` to now; an older record rolls
+back a newer body; explicit nulls in a record erase stored values; and
+echoing re-signed records back spreads both problems.
+
+| Case | Observed | Implication |
+| --- | --- | --- |
+| First import | A and B equal on title, hash, `fetched_at`, `source_updated_at`, `published_at`, views, metadata, source, aliases, and chunk counts. | One import copies everything today's attrs carry. |
+| (a) Same file again | Counts and chunk ids unchanged (19 of 19), but **`fetched_at` moved to the import time for 18 of 19** (the alias case kept it). Re-importing one record 4 times flip-flopped: record value, now, record value, now. | A stored value equal to the given one is "no change" and resets to now. The import must always apply `fetched_at` and never lower it. |
+| (b) Older record after a newer one | Body rolled back, all 20 chunks rebuilt with new ids; `fetched_at`, `source_updated_at` and views went back too. | Needs "skip unless newer". |
+| (c) Newer record, changed body | Body replaced, chunk ids new, given `fetched_at`, newer `source_updated_at` and views kept. | Correct when the record really is newer. |
+| (d) Alias | B ends with A's canonical URL and alias. | Importing each alias URL after the main one works. |
+| (d2) B had found the mirror URL first | Same URL set, main URL and alias swapped between A and B. | Harmless for search; only a deterministic rule would make them equal. |
+| (e) Tampered and foreign records | Edited body: `id_mismatch`; hash and `id` recomputed: `bad_signature`; unpaired key: `unknown_origin`; unpaired key claiming A: `bad_signature`; wrong hash signed by A: `content_hash_mismatch`; untouched record passed. | Check in order: paired origin, `id`, signature, `content_hash` against `body`. `ingest/1` does none of these. |
+| (f) B's own newer copy of a URL | A's copy, fetched 2 days earlier, overwrote B's title, body and `fetched_at`. | "Newer wins" also protects what an instance found itself. |
+| (g) Record fields in `ingest/1` | `content_hash` recomputed, not checked; `origin`, `id`, `sig`, `v`, `aliases` dropped silently. **An explicit null erases** (views 2912 to nil, title to nil, metadata replaced by `%{}`); no `fetched_at` means now. | The import must drop null fields and check the hash itself. |
+| Echo (B's export back into A) | 20 of 21 unchanged documents got a new `fetched_at`; the nulls of (g) spread into A (one document lost title, views and metadata). | Forward the original signed record unchanged, or share only what you found yourself. |
+| Record ids across instances | 0 of 21 equal; 2 of 21 even ignoring `origin`, `id`, `sig` (the `fetched_at` resets). | A record id names one signed record; "same document" is (canonical URL, `content_hash`). |
+| Pointer check | 6 pages re-fetched through the real source about 5 minutes later: 6 of 6 equal hashes, same revision and views. | Extraction is repeatable for an unchanged revision. Not tested after a real edit. |
+
+Sizes and timings:
+
+| | Value |
+| --- | --- |
+| Export, 19 records | 336,751 B; gzip 123,615 B (36.7%); 30 ms |
+| Record size | min 671, median 8,377, mean 17,722 (17.7 KB), max 40,755 B; bodies are 96% of the file, the rest 521 to 965 B per record |
+| Index data in A | about 6.25 MB (14.69 MB database minus 8.44 MB empty); chunks 5.76 MB (HNSW 2.72 MB, text search 600 KB), about 17 KB per chunk |
+| Export against the database | 1/18.6 of the index data (1/51 gzipped); 1/44 of the whole database |
+| Signature check | mean 0.74 ms per record (0.16 to 2.3 ms) |
+| Import, hashing adapter | 19 documents, 347 chunks in 1.22 s: 64 ms per document, 3.5 ms per chunk |
+| Import, Ollama `bge-m3` | 3 documents, 122 chunks: mean 117 ms per chunk, about 93 ms per chunk after the first document (plus or minus 2 times) |
+| 1,000 documents re-embedded | about 36 to 45 minutes at 23 chunks per document `[INFERENCE]` |
+
+**Proposed record format v1** (the spike's proposal, not decided):
+
+```json
+{"v":1,"url":"<canonical>","aliases":["…sorted"],"title":"…","body":"…",
+ "content_hash":"<sha256 hex>","source":"wikipedia","published_at":"…","fetched_at":"…Z",
+ "source_updated_at":"…Z","monthly_views":116376,"metadata":{"pageid":974},
+ "origin":"ed25519:<pubkey b64url>","id":"<sha256 of canonical unsigned bytes>","sig":"<ed25519 b64url>"}
+```
+
+- Required: `v`, `url`, `content_hash`, `source`, `fetched_at`, `origin`,
+  `id`, `sig`.
+- Unknown values are omitted, never null.
+- Canonical form: RFC 8785 (JCS) if another language must ever produce
+  records; the spike's encoder is deterministic only for Jason.
+- Never in a record: UUIDs, `inserted_at`, chunks, vectors. Optional: a
+  sequence number per origin, for incremental sync.
+
+**Proposed import rules** (the spike's proposal, not decided):
+
+1. Reject the record unless all pass: a supported `v`, a paired `origin`,
+   `id` equal to the hash of the canonical bytes, a valid signature, and
+   `content_hash` equal to SHA-256 of `body`.
+2. Skip a record whose `id` is already applied.
+3. Find the local document by URL, then by alias; if none, ingest it.
+4. Same `content_hash`: do not re-chunk; set `fetched_at` to the later of the
+   two, never back.
+5. Different `content_hash`: apply only if the record is strictly newer, by
+   `source_updated_at` when both have one (the source's own clock), else by
+   `fetched_at`. A tie keeps the local copy. This blocks (b) and (f).
+6. Remove null fields before ingesting; `metadata` and the other fields are
+   replaced only when the record wins.
+7. Aliases: import each alias URL after the main one (union); accept a
+   different main URL as in (d2).
+8. Re-share only documents you found yourself, or forward the original signed
+   record unchanged.
+9. Never overwrite a local `manual` document (`[INFERENCE]`: a proposal, not
+   tested).
+
+**Changes `ingest/1` would need** (none made):
+
+- Preserve a given `fetched_at`: `put_default_fetched_at` defaults only when
+  the caller gives no value. This is also a latent bug today: re-ingesting
+  an unchanged page with the same `fetched_at` resets it to now.
+- A newer-wins option, or a new `Documents.import_record/1` that compares
+  versions in `dispatch/2`, where `locate/1` has already read the row. The
+  comparison must be atomic, for example a conditional
+  `UPDATE … WHERE fetched_at < $1`.
+- Never lower `fetched_at`, also on the alias and same-content paths
+  (`touch/2`, `adopt_url/2`).
+- Store provenance: an `origin` and record `id` per document, or a records
+  log table. A schema change, so it needs an ADR.
+- An export read in `Documents` that returns bodies and aliases
+  (`list_documents/1` returns no body).
+- Null stripping and the hash check can live in the importer, with no change
+  to `ingest/1`.
+
+**Full text against pointer** (question 11; not chosen):
+
+- *Full text.* Records average 17.7 KB. Self-contained, work offline, and
+  carry manual and `urn:` documents. The signature proves who sent the text,
+  not that the URL serves it.
+- *Pointer* (`url`, `content_hash`, dates; about 0.5 to 1 KB, about 25 times
+  smaller). The receiver re-fetches with the same source code and
+  `max_chars`; at Wikipedia's 1 request a second, 1,000 documents mean about
+  17 minutes of fetching. Re-fetch hashes matched 6 of 6 about 5 minutes
+  later; not tested after a real edit, where a hash check fails
+  (`[INFERENCE]`) and the pointer becomes a "go fetch this" hint. It cannot
+  carry manual or `urn:` documents. It proves the URL served the content,
+  which matters for open sharing later, and shares less private text.
+- A record with an optional `body` field allows both.
+
+**Not tested:** concurrent imports; more than 21 documents; Ollama timing on
+a quiet machine or on more than 3 documents; a cross-language canonical
+form; search-result parity between A and B; a pointer check after a real
+page edit; transport, deletions and tombstones, version skew, and
+private-document filtering.
 
 ## Out of scope
 
