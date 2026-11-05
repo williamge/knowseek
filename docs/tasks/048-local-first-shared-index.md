@@ -176,9 +176,9 @@ them in.
       `<=>` cosine distance, and per-transaction `set_config('hnsw.*')`
       (`backend/lib/knowseek/search.ex`). FTS5 ranking (`bm25`) is not
       `ts_rank_cd`, so full-text scores and the reciprocal-rank-fusion
-      results change. `sqlite-vec` has no HNSW index, so it is an exact scan
-      (`[INFERENCE]`: consistent with this index staying under the 25,000
-      chunk mark of task 044, but it needs a spike).
+      results change. `sqlite-vec` has no HNSW index in its stable release, so
+      search is an exact scan; measured in the spike, which also measured the
+      keyword and ranking differences.
     - **Migrations.** `backend/priv/repo/migrations/` uses
       `CREATE EXTENSION vector`, `vector` columns, a generated `tsvector`
       column, a GIN index and an HNSW index. All of them would be rewritten for
@@ -192,18 +192,35 @@ them in.
       engine.
     - **Dockerfile and compose.** `docker-compose.yml` has the `db` service and
       `DATABASE_URL`; the release container would need the SQLite NIF
-      (`[INFERENCE]`: `exqlite`, built in the `builder` stage of
-      `backend/Dockerfile`) and no `db` service.
+      (`exqlite`; not run on Linux by the spike), the arch-specific `vec0.so`
+      from the sqlite-vec GitHub release assets (the hex package is frozen),
+      checksummed in the `builder` stage of `backend/Dockerfile`, and no `db`
+      service.
     - **Architecture rule 7** (`vector(1024)` fixed by the schema) would be
       restated for a `sqlite-vec` column of 1024 floats.
     - **The pgvector boot check and the HNSW guard of task 044**
       (`Knowseek.Search.PgvectorCheck`, `search_hnsw_test.exs`, ADR 0024) have
       no equivalent and would be removed, since there is no HNSW graph and no
       dead entries.
-    - Concurrency: ingest uses `on_conflict` upserts and transactions for
-      concurrent writers (`Documents`); one SQLite writer at a time is a
-      different tradeoff (`[INFERENCE]`, not tested).
-  - A **feasibility spike is running**; its results will be added below.
+    - Concurrency: ingest transactions start with a write, which SQLite
+      handled (5 concurrent ingests, 40 of 40 OK); a transaction that reads
+      first failed 28 of 40 under the default mode unless
+      `default_transaction_mode: :immediate` is set, and Oban's unique-job
+      insertion is not atomic on SQLite (see "Spike results (SQLite)").
+  - A throwaway **spike has run**; its measured results are in "Spike results
+    (SQLite)" below. Its verdict is feasible with caveats, and a SQLite file
+    cannot be shared over a network. What each answer would change for the
+    topologies (no choice is made here):
+    - *If Postgres stays:* topologies A, B and C all remain possible. C (one
+      shared network database) is possible only on Postgres. A node needs
+      Postgres, so B is the heaviest to run.
+    - *If SQLite is chosen:* C is not possible. A works (the host has the
+      file). B works with one file per node and documents exchanged through
+      `ingest/1`, so the engine choice does not change the export format. A
+      node is lighter (no server) and search is an exact scan, measured at
+      about 35 to 173 ms for k=400 at 25,000 to 100,000 chunks. The
+      keyword half is rewritten, ranking shifts slightly, and the cutover is
+      the inventory in the spike results.
   - The export format does not depend on this choice: the export is
     documents, not engine files, so either engine can read it.
 - [ ] **2. Unit of sharing and the export format.**
@@ -351,10 +368,233 @@ them in.
 
 ## Spike results (SQLite)
 
-**Pending.** A feasibility spike of question 1 (SQLite with `sqlite-vec`,
-FTS5 and Oban's SQLite engine) is running. The parent will add its results
-here: what worked, what it measured, and what it could not do. Nothing in this
-section is a result yet.
+These are **measured results from a throwaway spike** of question 1, run on
+one M1 Pro laptop (macOS arm64, Elixir 1.20.4, OTP 28.5.0.6), in scratch
+projects and scratch databases that were deleted afterwards. No repository
+file was changed. Timings were taken at machine load 3 to 4; one
+run at load 30 to 50 gave 109 ms where the quiet run gave 139 ms, so **treat
+every number as plus or minus 2 times**. `[INFERENCE]` labels are the
+spike's own. **No decision is recorded here.**
+
+### Verdict
+
+**Feasible with caveats. Not a drop-in way to share ONE index across
+machines.** A SQLite file can be used from one host only: SQLite's own WAL
+documentation says "WAL does not work over a network filesystem". That rules
+out topology C (a shared network database) for SQLite, and a folder-sync tool
+on the live file stays unsafe (see "Why replication fits this code base"). It
+does **not** rule SQLite out for replicated nodes (topology B), where each
+node has its own file and the nodes exchange documents. For one local node
+it worked: sqlite-vec loads, exact search was fast enough up to about 100,000
+chunks, and Oban has a SQLite engine.
+
+### Versions and loading
+
+exqlite 0.43.0 (bundles SQLite 3.54.1), ecto_sqlite3 0.26.0, ecto 3.14.3,
+Oban 2.24.2. sqlite-vec is **v0.1.9** (stable, 2026-03-31) and
+**v0.1.10-alpha.4** (a GitHub prerelease, 2026-05-18). The project is
+pre-1.0, last pushed 2026-05-18, with 249 open issues; its licence is
+Apache-2.0 or MIT. The hex package `sqlite_vec` is frozen at 0.1.0 (November
+2024) and says it will not be published again, and upstream has no Elixir
+bindings, so the extension has to come from the GitHub release assets: the
+Dockerfile would fetch the architecture-specific `vec0.so`, checksummed, into
+`priv`.
+
+| Platform | Result |
+| --- | --- |
+| macOS arm64, raw exqlite | Worked (`enable_load_extension`, then `load_extension`; `vec_version()` returned `v0.1.9`). |
+| macOS arm64, ecto_sqlite3 | Worked with `load_extensions: [".../vec0"]`. KNN returned correct rows on 0.1.9 and on alpha.4. |
+| Linux arm64 and x86_64 (emulated), `debian:trixie-slim` (the release image's base) | Both `.so` builds load, run and need only libc. Tested with Debian's `sqlite3` CLI, **not exqlite**. |
+| exqlite NIFs on Linux (gnu x86_64 and aarch64) | Precompiled artifacts exist and import `dlopen`/`dlsym`. Not run on Linux: `[INFERENCE]` that they load the extension (the Dockerfile builder also has `build-essential`). |
+
+One thing failed: an Elixir binary passed through `Repo.query!` is bound as
+TEXT, and vec0 rejects it ("JSON array parsing error"). Vectors need
+`{:blob, bin}` or a custom Ecto type.
+
+### Vector speed
+
+1024-dimension float32, **random vectors** (iid Gaussian, normalised: latency
+only, not recall on real text), 50 queries, median ms. "Tuned" is a 64 MB
+cache plus 1 GB mmap; "default" is exqlite's 2 MB cache. sqlite-vec is an
+exact scan: its time is linear in the chunk count, about 1.4 to 2.1 ms per
+1,000 chunks on 0.1.9.
+
+k=30:
+
+| Chunks | sqlite-vec 0.1.9, default / tuned | sqlite-vec alpha.4, default / tuned | pgvector exact | pgvector HNSW (ef 100) |
+| --- | --- | --- | --- | --- |
+| 5,000 | 10.6 / 7.0 | 4.7 / 1.4 | 17.0 | 4.4 |
+| 25,000 | 52.8 / 35.0 | 24.5 / 6.9 | 110.7 | 9.8 |
+| 100,000 | 208.8 / 139.1 | 95.0 / 27.6 | 484.4 | 21.0 |
+
+k=400 (what the app asks for: `limit` 10 times `candidate_factor` 40):
+
+| Chunks | sqlite-vec 0.1.9, default / tuned | sqlite-vec alpha.4, default / tuned | pgvector exact | pgvector HNSW (ef 400, `strict_order`) |
+| --- | --- | --- | --- | --- |
+| 25,000 | 60.7 / 43.7 | 32.7 / 15.8 | 111.8 | 112.2 (the planner chose a sequential scan) |
+| 100,000 | 240 / 173 | 128 / 62 | 455 | 94 |
+
+- On random vectors the HNSW recall was 0.88, 0.55 and 0.32 at 5,000, 25,000
+  and 100,000 chunks (k=30). Random data is the worst case for an
+  approximate index and is not representative of real embeddings.
+- Brute force has no dead entries, so the ADR
+  [0024](../decisions/0024-hnsw-iterative-scan.md) problem does not exist on
+  SQLite.
+- `[INFERENCE]`: 1,000,000 chunks would take about 1.4 to 2.1 s per query.
+
+Size and build cost:
+
+| | 25,000 vectors | Build |
+| --- | --- | --- |
+| sqlite-vec `vec0` | 105.6 MB | 4.6 s insert, one transaction |
+| pgvector | 344.6 MB (139.8 MB table, mostly TOAST, plus 204.8 MB HNSW) | HNSW build 58.6 s at 25,000, 246 s at 100,000 |
+
+On the real corpus of the ranking replica (1,115 chunks, text, full-text
+index and vectors): **SQLite file 10.3 MB** (`vec0` 8.4, text 1.3, FTS5 0.5)
+against **Postgres 18.1 MB** (table 7.8, HNSW 9.1, GIN 1.1). `[INFERENCE]`:
+scaled to 25,000 chunks, about 230 MB against 406 MB.
+
+**Approximate indexes exist only in alpha builds.** Stable 0.1.9 has none
+(`indexed by rescore|ivf|diskann` does not parse). The `v0.1.10-alpha`
+prereleases (GitHub only) have `rescore` and DiskANN; IVF is compiled out.
+Measured at 25,000 chunks on synthetic clustered vectors (real bge-m3
+embeddings plus noise, so recall means something):
+
+| Index | Median ms | Recall@30 | Cost |
+| --- | --- | --- | --- |
+| none (exact) | 24.3 | 1.0 | |
+| rescore | 7.1 | 0.991 | file 119 MB |
+| DiskANN | 5.8 | 0.971 | 57.7 s build, file 372 MB |
+
+The alpha.2 release notes call DiskANN deletes "quite expensive", and the app
+deletes and re-inserts all of a document's chunks on every re-ingest that
+changes the body (`replace_chunks/2`).
+
+### Ranking parity (a replica, not the app)
+
+The replica uses the real `Chunker` and the real fusion, relevance and
+group-by-document logic (RRF k=60, `min_similarity` 0.5) on both stores, and
+omits the ranking prior and coverage. The corpus is 40 Wikipedia articles,
+1,115 chunks, embedded with `bge-m3` through Ollama (1,127 texts in total).
+The same code fuses each store's two lists, so any difference comes from the
+keyword half.
+
+| Check, 12 queries | Result |
+| --- | --- |
+| Vector lists (top 400) | Identical ids in 12 of 12; largest similarity difference 1.2e-6. |
+| Keyword hit sets | The same chunk set in all 7 queries that had keyword hits. Queries with no keyword hit: 5 of 12 in both stores (AND semantics), so vector-only. |
+| Keyword top-10 chunk overlap | 5 to 8 of 10, average 6.6. |
+| Top-5 document sets | Identical in 11 of 12. |
+| Top-5 order | Identical in 10 of 12. |
+| Best chunk (the snippet) | Differs for 8 of 51 shared documents. |
+
+The two differing queries were `new york knicks` (ranks 3 and 4 swapped) and
+`futures promises` (a tie at the rank 19 to 20 boundary changes the last
+hit). Where FTS5 differs from Postgres:
+
+- **Ranking function.** `bm25` weights rare terms and normalises for length;
+  `ts_rank_cd` does neither. On this corpus the document-level effect is
+  small because the vector half dominates. `[INFERENCE]`: it would grow with
+  a larger index and more keyword-driven queries (not tested).
+- **Stop words.** FTS5 has none. "why is the sky blue" matched 1 chunk with
+  the stop words kept, against 6 under Postgres's `english` list. A port
+  needs a stop list.
+- **Query syntax.** `what's new...` raised an FTS5 syntax error on the raw
+  string. Every query needs tokenising and quoting, and the
+  `websearch_to_tsquery` operators (`"phrase"`, `or`, `-`) need their own
+  translation.
+- **Tests.** `search_test.exs` asserts specific `ts_rank_cd` values and ties;
+  those tests would be rewritten.
+
+**Sample size: 12 queries, 40 documents.** It shows parity is plausible, not
+proven.
+
+### Jobs (Oban)
+
+Oban 2.24.2 ships `Oban.Engines.Lite`. In a scratch ExUnit project, with the
+real worker's options, these passed on it: `unique: [period: 3600, keys:
+[:query], states: :incomplete]` (extra args ignored; completed or older jobs
+do not conflict), `max_attempts: 3` with discard, a custom `backoff/1`, a
+`timeout/1` that produced `Oban.TimeoutError` and a retry, `assert_enqueued`,
+`refute_enqueued`, `perform_job`, and the Pruner plugin. A job ran about 11
+ms after insert. (`Discovery.SeekWorker` defines no `timeout/1` on main.)
+
+**Unique-job insertion is not atomic on the Lite engine.** 20 concurrent
+identical inserts, 5 rounds:
+
+| Setup | Jobs stored |
+| --- | --- |
+| Lite, plain | 19, 4, 4, 4, 3 |
+| Postgres, Basic engine | exactly 1 every round |
+| Lite, inside a `Repo.transaction` with `default_transaction_mode: :immediate` | exactly 1 every round |
+
+`[INFERENCE]`: the PG notifier works only inside one VM, and the isolated
+peer makes every node believe it leads, so several separate BEAM processes on
+one file would fall back to polling.
+
+### Cutover inventory
+
+Counts from `git ls-files`.
+
+| Area | Size | What is Postgres-specific |
+| --- | --- | --- |
+| `backend/lib` | 55 files, 5,852 lines; 14 files hit, about 7 need real change | `search.ex`: `websearch_to_tsquery`, `ts_rank_cd`, `<=>`, `set_config('hnsw.*')`, `'[0]'::vector`. `pgvector_check.ex` and `postgrex_types.ex`: deleted. `repo.ex`, `application.ex`: adapter and the check child. `documents.ex`: `Pgvector.new`, `on_conflict {:replace_all_except, ...}`, `returning`. `chunk.ex`: the vector field and the generated `search_vector`. UUID `binary_id` keys and the `:map` (jsonb) `metadata` need a decision. |
+| Migrations and seeds | 9 migrations; 5 touch | `CREATE EXTENSION vector`, `vector(1024)`, generated `tsvector`, GIN, HNSW, `binary_id`, jsonb, the Oban Postgres migration. |
+| `backend/config` | 4 of 5 files touch | Repo `types:`, `Oban.Engines.Basic`, the HNSW settings, `dimensions`, credentials, the test `enable_indexscan: "off"` and Sandbox, `DATABASE_URL`. |
+| `backend/test` | 15 of 96 files touch (519 tests in 32 files) | `search_hnsw_test.exs` and `pgvector_check_test.exs` deleted or rewritten; `search_test.exs` (28 vector references); `release_test.exs`, `documents_test.exs`, the Ollama and Voyage tests, `data_case.ex`. |
+| Dockerfile, `mix.exs`, `rel` | 4 files | Dependencies; the arch-specific `vec0.so` fetched with a checksum into `priv`; a volume for the file. |
+| `docker-compose.yml`, `Makefile` | 67 and 126 lines | The `db` service goes; `DATABASE_URL` becomes a path; 18 Makefile lines (`db-up`, `db-reset`, drop). |
+| `scripts/` | 3 to 4 of 9 files | `check-migration-roundtrip` assumes `ecto.create`/`ecto.drop` of a Postgres database. |
+| `.github/` | 4 files | Two `services: db: pgvector/pgvector:pg17` blocks in `ci.yml` (the `backend` and `migrations` jobs); the `docker-compose` ecosystem in `dependabot.yml`. |
+| Docs | 30 of 74 files mention Postgres, pgvector, HNSW or tsvector | 14 of them are ADRs, notably 0002, 0004, 0005, 0011, 0014, 0024, plus `ARCHITECTURE.md`, `AGENTS.md`, `README.md`. |
+
+No advisory locks in `lib`, and no `LISTEN`/`NOTIFY` outside Oban's own use.
+
+### Concurrency and operations
+
+Test: an Oban Lite `discovery: 5` queue ingesting the 40 documents (about 28
+chunks each) into a file preloaded with 25,000 vectors; WAL mode, pool of 10,
+two readers running KNN (k=400) plus an FTS5 query. The ingest was a port of
+`Documents.store` (upsert, delete old chunks, insert chunks and vectors, FTS5
+kept in sync by triggers).
+
+| Scenario | Result |
+| --- | --- |
+| 5 concurrent write-first transactions, no embed delay | 40 of 40 OK; wall 0.37 s; transaction median 13 ms, p95 52 ms, max 328 ms |
+| Same, 300 ms embed delay outside the transaction | 40 of 40 OK; median 12 ms, p95 54 ms |
+| Reads during writes | median 97 to 101 ms against 94 ms idle, no errors (WAL) |
+| A transaction that reads before its first write, default (deferred) mode | **28 of 40 failed** ("Database busy"); the busy timeout does not help |
+| The same with `default_transaction_mode: :immediate` | 40 of 40 OK |
+
+The real `store/3` and `add_alias` transactions start with a write, so today
+they are on the safe side. Other things that would bite:
+
+- **WAL file.** It stayed at 106 MB after bulk loads without
+  `journal_size_limit`.
+- **Backup.** `VACUUM INTO` copied a 414 MB, 100,000-vector database in 1.0
+  to 1.3 s and the copy passed `integrity_check` and served KNN. Copying only
+  the main `.db` file while the WAL held 1,000 uncheckpointed rows produced a
+  copy with none of them. A backup must be `VACUUM INTO` or the backup API.
+- **Row ids.** `vec0` and FTS5 key on `rowid`, and SQLite's documentation
+  says `VACUUM` may renumber rowids in a table without an explicit INTEGER
+  PRIMARY KEY. The app's UUID chunk ids would need an integer key beside
+  them.
+- **Tests.** ecto_sqlite3 documents that async Sandbox tests are unsupported;
+  14 of the 32 test files are `async: true`, 5 of them using the database.
+- **Search time.** The exact scan is linear in chunk count and one query uses
+  one core.
+
+### What the spike could not verify
+
+- exqlite itself running on Linux (only the NIF symbols were checked; the
+  extension was tested through Debian's CLI).
+- sqlite-vec speed on x86_64 and Linux.
+- Ranking parity at scale, on real topical clusters, or with the ranking
+  prior.
+- Postgres under 5 concurrent ingests (compared by reasoning only).
+- Any multi-node sharing: Litestream, LiteFS, rqlite, or any other layer that
+  copies or replicates a SQLite file.
+- ANN recall on real data beyond the 25,000-chunk synthetic-clustered test.
 
 ## Decisions needed from the owner
 
@@ -382,11 +622,12 @@ section is a result yet.
   aliases and `monthly_views` come out equal, and what a second import does
   (the `fetched_at` reset above). Settles questions 2, 3 (recompute side) and
   most of 4.
-- **B. The storage-engine spike.** SQLite with `sqlite-vec`, FTS5 and the
-  Oban Lite engine: does hybrid search over the same documents return a
-  comparable top 10, how much is a node's index in size and in search time at
-  1,000 and at 25,000 chunks, and what does the code change cost. Results go
-  into "Spike results" above.
+- **B. The storage-engine spike.** Done once, as a throwaway: see "Spike
+  results (SQLite)". It answered loading, vector speed, size, a ranking
+  parity replica, Oban's SQLite engine, the cutover inventory and
+  concurrency, and lists what it could not check (Linux, x86_64, parity at
+  scale, multi-node sharing). A second round would cover those gaps if the
+  owner wants to keep SQLite open.
 
 ## Out of scope
 
