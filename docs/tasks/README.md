@@ -61,6 +61,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [043](043-smarter-weather-queries.md) | Smarter weather queries (design session) | 034, 033 |
 | [044](044-hnsw-recall-after-deletes.md) | Semantic search can lose live chunks to dead HNSW entries (experiment, guard test, iterative scan) | none |
 | [047](047-dependency-automation.md) | Daily Dependabot for mix and npm, and a daily audit that keeps one `security-audit` issue | none |
+| [048](048-local-first-shared-index.md) | Local-first: nodes that share one search index (design agenda, not decided) | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
