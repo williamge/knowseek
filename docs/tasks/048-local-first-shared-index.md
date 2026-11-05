@@ -1,4 +1,4 @@
-# 048. Local-first: nodes that share one search index
+# 048. Local-first instances that share what they find
 
 - Status: open
 - Area: product design + `Knowseek.Documents`, storage engine, deployment
