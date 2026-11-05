@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Turns the result of scripts/check-security into ONE GitHub issue, so the owner
+# is told the day an advisory lands. The scheduled workflow
+# .github/workflows/security-audit.yml calls this after the audit. Policy:
+# docs/decisions/0020-ci-hardening.md.
+#
+# The issue is found by its label `security-audit` (created when missing):
+#
+#   audit fails, no open issue    -> create `Security audit failing on main`
+#   audit fails, issue is open    -> rewrite its body (date, commit, output);
+#                                    add a comment only when the set of
+#                                    advisories changed
+#   audit passes, issue is open   -> comment `Audit passing again on <sha>`, close
+#   audit passes, no open issue   -> nothing
+#
+# Usage: scripts/security-audit-issue <audit-exit-status> <audit-output-file>
+#
+# Environment:
+#   GH_TOKEN            token for `gh` (the workflow passes github.token)
+#   GITHUB_SHA          the commit that was audited (default: git rev-parse HEAD)
+#   GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID
+#                       build the link to the workflow run (omitted when unset)
+#   DRY_RUN=1           print the `gh` commands that WRITE (label, issue create,
+#                       edit, comment, close) and the body files they send, instead of
+#                       running them. The two
+#                       read-only `gh issue list` / `gh issue view` calls still
+#                       run, so put a stub `gh` first on PATH to test offline.
+#
+# Uses only bash 3.2 (macOS default), coreutils, grep, sed, and awk, plus `gh`.
+
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: scripts/security-audit-issue <audit-exit-status> <audit-output-file>" >&2
+  exit 2
+fi
+audit_status="$1"
+audit_file="$2"
+case "$audit_status" in
+  '' | *[!0-9]*)
+    echo "security-audit-issue: exit status must be a number, got '$audit_status'" >&2
+    exit 2
+    ;;
+esac
+if [ ! -f "$audit_file" ]; then
+  echo "security-audit-issue: no such file: $audit_file" >&2
+  exit 2
+fi
+
+label="security-audit"
+title="Security audit failing on main"
+sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+short_sha="$(printf '%s' "$sha" | cut -c1-12)"
+today="$(date -u +%Y-%m-%d)"
+run_url=""
+if [ -n "${GITHUB_SERVER_URL:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ] && [ -n "${GITHUB_RUN_ID:-}" ]; then
+  run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+fi
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+# write_cmd <gh args...>: run a gh command that changes GitHub, or print it.
+write_cmd() {
+  if [ "${DRY_RUN:-}" = "1" ]; then
+    printf 'DRY_RUN: gh'
+    printf ' %q' "$@"
+    printf '\n'
+    prev=""
+    for arg in "$@"; do
+      if [ "$prev" = "--body-file" ]; then
+        sed 's/^/    | /' "$arg"
+      fi
+      prev="$arg"
+    done
+  else
+    gh "$@"
+  fi
+}
+
+# Open issue with the label: its number, or empty.
+number="$(gh issue list --label "$label" --state open --limit 1 --json number --jq '.[0].number // empty')"
+
+if [ "$audit_status" = "0" ]; then
+  if [ -z "$number" ]; then
+    echo "security-audit-issue: audit passes, no open $label issue. Nothing to do."
+    exit 0
+  fi
+  echo "Audit passing again on $short_sha ($today)." > "$tmp/comment.md"
+  [ -z "$run_url" ] || echo "Run: $run_url" >> "$tmp/comment.md"
+  echo "Audit passing again on $short_sha: commenting on and closing issue #$number."
+  write_cmd issue comment "$number" --body-file "$tmp/comment.md"
+  write_cmd issue close "$number" --reason completed
+  exit 0
+fi
+
+# The audit failed. The advisory set is what the owner cares about: advisory
+# IDs when the output has any, else a checksum of the text, so that a new
+# finding without an ID (a sobelow warning) also counts as a change.
+ids="$(grep -oE '(EEF|CVE|GHSA|OSV|MAL)-[A-Za-z0-9-]*[A-Za-z0-9]' "$audit_file" | sort -u | tr '\n' ',' | sed 's/,$//' || true)"
+if [ -z "$ids" ]; then
+  ids="text-$(cksum < "$audit_file" | awk '{print $1}')"
+fi
+
+{
+  echo "The scheduled security audit failed on \`main\`."
+  echo
+  echo "- Date: $today (UTC)"
+  echo "- Commit: \`$sha\`"
+  [ -z "$run_url" ] || echo "- Workflow run: $run_url"
+  echo "- Audit exit status: $audit_status"
+  echo
+  echo "First 60 lines of the audit output (\`scripts/check-security\`):"
+  echo
+  echo '```text'
+  sed -n '1,60p' "$audit_file"
+  echo '```'
+  echo
+  echo "## What to do"
+  echo
+  echo "- Upgrade the dependency to a fixed version (a pull request; a human merges it). Dependabot may already have opened one."
+  echo "- Or, when no fixed version exists or the code path is not reachable, accept the advisory in \`backend/.mix-audit-ignore\` with the reason on a comment line above the ID (policy: \`docs/decisions/0020-ci-hardening.md\`)."
+  echo
+  echo "The issue closes by itself on the first scheduled or manual run that passes. This body is rewritten on every failing run."
+  echo
+  echo "<!-- advisories: $ids -->"
+} > "$tmp/body.md"
+
+if [ -z "$number" ]; then
+  echo "Audit failed on $short_sha: opening issue (label $label)."
+  write_cmd label create "$label" --color B60205 --description "Dependency or static security audit failing on main (scripts/security-audit-issue)" --force
+  write_cmd issue create --title "$title" --label "$label" --body-file "$tmp/body.md"
+  exit 0
+fi
+
+old_ids="$(gh issue view "$number" --json body --jq .body | sed -n 's/^<!-- advisories: \(.*\) -->$/\1/p' | sed -n '1p')"
+echo "Audit failed on $short_sha: updating issue #$number."
+write_cmd issue edit "$number" --body-file "$tmp/body.md"
+if [ "$old_ids" != "$ids" ]; then
+  {
+    echo "The set of failing advisories changed on $short_sha ($today)."
+    echo
+    echo "- Before: ${old_ids:-none recorded}"
+    echo "- Now: $ids"
+    [ -z "$run_url" ] || echo "- Run: $run_url"
+  } > "$tmp/comment.md"
+  write_cmd issue comment "$number" --body-file "$tmp/comment.md"
+fi

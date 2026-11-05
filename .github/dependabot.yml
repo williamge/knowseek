@@ -1,6 +1,12 @@
-# Weekly dependency update PRs. Minor and patch updates of one ecosystem come in
-# one grouped PR; a major update gets its own PR. Security updates for
-# vulnerable dependencies are separate and immediate (GitHub setting).
+# Dependency update PRs: daily for mix and npm, weekly for the rest. Minor and
+# patch updates of one ecosystem come in one grouped PR; a major update gets
+# its own PR. Security updates for vulnerable dependencies are separate and
+# immediate (GitHub setting), but only for advisories in GitHub's own database;
+# the daily audit workflow (.github/workflows/security-audit.yml) covers the
+# Erlang Ecosystem Foundation feed.
+# No `cooldown` block: Dependabot already waits 3 days after a release before it
+# proposes a version update, and that default never applies to security updates.
+# A human merges every PR.
 # GitHub Actions stay pinned by major version tag (actions/checkout@v4), not by
 # commit SHA, and Dependabot proposes the next major.
 version: 2
@@ -8,7 +14,7 @@ updates:
   - package-ecosystem: mix
     directory: /backend
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 5
     commit-message:
       prefix: "deps(backend)"
@@ -20,7 +26,7 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 5
     commit-message:
       prefix: "deps(frontend)"

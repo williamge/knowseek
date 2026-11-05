@@ -1,0 +1,70 @@
+name: Security audit
+
+# Advisories appear without any code change, and the Erlang Ecosystem
+# Foundation feed behind `mix hex.audit` / `mix deps.audit` can list one before
+# GitHub's own database does, so Dependabot alerts stay silent. This workflow
+# runs the same audits as the CI `security` job (scripts/check-security) on
+# `main` every day and keeps ONE issue, labelled `security-audit`, in step with
+# the result (scripts/security-audit-issue): opened or updated while the audit
+# fails, closed when it passes. The issue is the alert.
+#
+# The workflow itself ends green once the issue is handled, so one problem gives
+# one notification. It ends red only when the workflow itself breaks (setup,
+# or `gh` failing). Policy: docs/decisions/0020-ci-hardening.md.
+#
+# Not a pull request check: it never blocks a merge.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # 06:17 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      MIX_ENV: test
+    steps:
+      # No `ref`: the default branch, which is the commit that is audited.
+      - uses: actions/checkout@v7
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          elixir-version: "1.20"
+      - uses: actions/cache@v6
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: mix-security-${{ runner.os }}-${{ hashFiles('backend/mix.lock') }}
+      - run: mix deps.get
+        working-directory: backend
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Audit (hex.audit, deps.audit, sobelow, npm audit)
+        id: audit
+        run: |
+          status=0
+          scripts/check-security > "$RUNNER_TEMP/audit.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/audit.log"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" != "0" ]; then
+            echo "::warning::Security audit failed (exit $status). The security-audit issue is opened or updated next."
+          fi
+      - name: Open, update, or close the security-audit issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUDIT_STATUS: ${{ steps.audit.outputs.status }}
+        run: scripts/security-audit-issue "$AUDIT_STATUS" "$RUNNER_TEMP/audit.log"

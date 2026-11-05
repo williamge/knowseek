@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Runs every dependency and static security scan, one after the other, and
+# fails when any of them fails. `make check-security` calls this; so does the
+# scheduled audit (.github/workflows/security-audit.yml), whose output goes into
+# the `security-audit` issue (scripts/security-audit-issue).
+#
+#   - mix hex.audit        retired Hex packages, and advisories in the Erlang
+#                          Ecosystem Foundation feed (which can list one before GitHub)
+#   - mix deps.audit       known advisories in Hex packages
+#                          (ignores: backend/.mix-audit-ignore)
+#   - mix sobelow          Phoenix static security analysis
+#   - npm audit            production npm dependencies, high or critical
+#
+# Unlike a `&&` chain it does not stop at the first failure, so one run shows
+# every problem. Needs the network. Policy: docs/decisions/0020-ci-hardening.md.
+#
+# Usage: scripts/check-security
+
+set -uo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+status=0
+
+# run <directory> <command...>: print a heading, run the command, remember a failure.
+run() {
+  dir="$1"
+  shift
+  echo "==> $* (in $dir)"
+  if ! (cd "$root/$dir" && "$@"); then
+    echo "check-security: FAILED: $*" >&2
+    status=1
+  fi
+}
+
+run backend mix hex.audit
+run backend mix deps.audit --ignore-file .mix-audit-ignore
+run backend mix sobelow --config
+run frontend npm audit --omit=dev --audit-level=high
+
+exit "$status"

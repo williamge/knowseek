@@ -60,6 +60,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [041](041-card-by-entity-id.md) | Ask for the card of a chosen entity (a card by entity id, so that alternatives with one label are reachable) | 033 |
 | [043](043-smarter-weather-queries.md) | Smarter weather queries (design session) | 034, 033 |
 | [044](044-hnsw-recall-after-deletes.md) | Semantic search can lose live chunks to dead HNSW entries (experiment, guard test, iterative scan) | none |
+| [047](047-dependency-automation.md) | Daily Dependabot for mix and npm, and a daily audit that keeps one `security-audit` issue | none |
 
 Tasks with no shared dependency can run in parallel. Tasks 002, 003, and 004
 all add sources. They touch different files, but read each other's merged
