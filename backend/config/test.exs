@@ -78,6 +78,14 @@ config :knowseek, Knowseek.Embeddings.Voyage,
 # `Knowseek.Discovery.run/2`, and stub its HTTP calls with Req.Test.
 config :knowseek, Knowseek.Discovery, sources: []
 
+# Tests never plan with a model: the planner is the pass-through unless a test
+# passes `planner:` to `Knowseek.Discovery.run/2`. Planner.Ollama requests go
+# to a Req.Test stub.
+config :knowseek, Knowseek.Discovery.Planner, adapter: Knowseek.Discovery.Planner.Passthrough
+
+config :knowseek, Knowseek.Discovery.Planner.Ollama,
+  req_options: [plug: {Req.Test, Knowseek.Discovery.Planner.Ollama}]
+
 config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
   req_options: [plug: {Req.Test, Knowseek.Discovery.Sources.Wikipedia}, retry: false]
 

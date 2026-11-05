@@ -12,7 +12,8 @@ flowchart LR
     coverage -->|sufficient| client
     coverage -->|partial / none| enqueue[Discovery.request]
     enqueue -->|Oban job| seek[SeekWorker]
-    seek --> sources[[Discovery sources]]
+    seek --> planner[Planner]
+    planner -->|search queries| sources[[Discovery sources]]
     sources -->|candidates| ingest[Documents.ingest]
     ingest --> embed[Embeddings]
     ingest --> pg
@@ -33,7 +34,8 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Ollama` (local `bge-m3` through Ollama, free; the default, ADR 0016), `Embeddings.Hashing` (local stand-in, no semantics; the opt-out and the adapter in tests), `Embeddings.Voyage` (Voyage AI API). |
-| `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
+| `Knowseek.Discovery` | Enqueues and runs discovery. In the job, asks the planner for search queries, calls each configured `Discovery.Source` for each of them, merges the candidates (one per canonical URL, in rounds so the original query keeps its share), keeps at most `max_candidates`, and ingests them. The summary has `ingested`, `failed`, `plan`, and `planner` (`:passthrough`, `:ok`, or `{:fallback, reason}`). |
+| `Knowseek.Discovery.Planner` | Behaviour plus the safety rules for query planning (task 007, [ADR 0025](decisions/0025-query-planning.md)): `resolve/2` always puts the original query first, cleans every planned query (control characters, length, duplicates, at most 3), and turns any planner failure into the original query alone. Adapters, selected by `PLANNER_ADAPTER`: `Planner.Passthrough` (the default and the adapter in tests) and `Planner.Ollama` (a small local chat model, `qwen2.5:3b`, with Ollama's structured output). The planner has no tools and its output is only search strings. It runs in the Oban job, never in a request. |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
 | `Knowseek.Discovery.Sources.Wikipedia` | Searches English Wikipedia (MediaWiki API) and returns the plain text of the top 3 articles, capped at ~40k characters each, with each article's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions` in the same request). Skips disambiguation pages. |
 | `Knowseek.Entities` | Entity resolution (task 030, ADR 0017). `resolve(query, opts)` turns a query into `{:ok, %{intent, entity, alternatives}}`, `:none`, `{:pending, query}` (cold cache) or `{:error, reason}`. It reads only the cache; a cold query starts one background fetch. `Entities.Intent` splits `weather in <place>` and `<place> weather` into intent `:weather` and the place. `Entities.Resolver` is the behaviour for a resolver; `Entities.Wikidata` (`wbsearchentities` for candidates, one `wbgetentities` for claims) is the configured one. The top entity is the first candidate whose type a card provider handles (`kind/1`, the `supported_types` config); the other candidates of that kind, at most 5, are the alternatives. The cache holds the candidates, and the top entity is chosen when the answer is read: for the weather intent a place is chosen by sitelinks (`weather in new york` is the city, not the state; ADR 0022). `Entities.Entity` is the struct. |
@@ -89,7 +91,7 @@ Oban stores its jobs in `oban_jobs` in the same database.
 
 | Queue | Workers | Notes |
 | --- | --- | --- |
-| `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
+| `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour (the plan is not in the job arguments). 3 attempts; a retry plans again. The job fails, and is retried, only when candidates were found and none could be ingested (`{:error, {:all_ingests_failed, n}}`, `n` counts every planned query's candidates). A planner failure never fails it (ADR 0025). |
 
 ## Ranking prior
 
@@ -160,7 +162,9 @@ What the layers do not do:
 - `Knowseek.Embeddings.Ollama`: `base_url`, `model`, `max_batch_size`, `req_options`. Set from `OLLAMA_URL` and `OLLAMA_MODEL` in `config/runtime.exs`.
 - `Knowseek.Embeddings.Voyage`: `model`, batch limits, `req_options`. `api_key` comes from `VOYAGE_API_KEY` in `config/runtime.exs`.
 - `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `iterative_scan` (`:strict_order`, the default, or `:off`) and `max_scan_tuples` (20,000): the HNSW scan settings of the vector query (see "Vector index health"), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`, `prior_weight` (0.3), `prior_saturation_views` (1,000,000; see "Ranking prior"). `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
-- `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
+- `Knowseek.Discovery`: `sources` (list of modules), `max_candidates` (12: the most candidates one run ingests, after merging). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2` (and `planner:` for a planner).
+- `Knowseek.Discovery.Planner`: `adapter` (`Planner.Passthrough` by default; `PLANNER_ADAPTER=ollama` in `config/runtime.exs` selects `Planner.Ollama`; `config/test.exs` pins the pass-through), `max_planned` (3 queries added to the original), `max_query_length` (100 characters each).
+- `Knowseek.Discovery.Planner.Ollama`: `base_url` (`OLLAMA_URL`), `model` (`OLLAMA_CHAT_MODEL`, `qwen2.5:3b`), `timeout` (15 s), `keep_alive` (`"5m"`), `max_input_chars` (500), `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`), `cache` (start options of the cache: `max_entries` 5000, `max_in_flight` 4, `reserve_for_refresh` 1, `empty_values` `[:none]`). `Knowseek.Cache` also takes `clock`, for tests.
 - `Knowseek.Entities.Wikidata`: `base_url`, `search_limit` (20), `user_agent`, `req_options` (tests put the `Req.Test` plug here).
