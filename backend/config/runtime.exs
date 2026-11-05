@@ -77,7 +77,7 @@ if config_env() != :test do
   #                   config.exs; nothing to install)
   #   * ollama      - a local chat model through Ollama turns the query into
   #                   a few search queries inside the discovery job. The model
-  #                   (OLLAMA_CHAT_MODEL, default qwen2.5:3b in config.exs) is
+  #                   (OLLAMA_CHAT_MODEL, default qwen3:1.7b in config.exs) is
   #                   a download of about 2 GB, which `scripts/ensure-ollama`
   #                   pulls. OLLAMA_URL is shared with the embeddings.
   # A planner that fails never fails discovery (it searches the original

@@ -84,13 +84,13 @@ defmodule Knowseek.Discovery.PlaygroundTest do
           "details" => %{"family" => "bert"},
           "capabilities" => ["embedding"]
         }),
-        tag("qwen2.5:3b", 1_929_912_432)
+        tag("qwen3:1.7b", 1_929_912_432)
       ])
 
-      assert {:ok, %{models: [small, big], default: "qwen2.5:3b", loaded: [], warning: nil}} =
+      assert {:ok, %{models: [small, big], default: "qwen3:1.7b", loaded: [], warning: nil}} =
                Playground.models()
 
-      assert %{name: "qwen2.5:3b", size_bytes: 1_929_912_432, parameter_size: "3.1B"} = small
+      assert %{name: "qwen3:1.7b", size_bytes: 1_929_912_432, parameter_size: "3.1B"} = small
       assert small.default
       refute small.loaded
       assert %{name: "qwen2.5-coder:7b", default: false} = big
@@ -109,23 +109,23 @@ defmodule Knowseek.Discovery.PlaygroundTest do
     test "says which models are loaded, and warns when more than one chat model is" do
       stub_ollama(
         [
-          tag("qwen2.5:3b", 1),
+          tag("qwen3:1.7b", 1),
           tag("qwen2.5-coder:7b", 2),
           tag("bge-m3:latest", 3, %{"capabilities" => ["embedding"]})
         ],
-        ["bge-m3:latest", "qwen2.5:3b", "qwen2.5-coder:7b"]
+        ["bge-m3:latest", "qwen3:1.7b", "qwen2.5-coder:7b"]
       )
 
       assert {:ok, %{loaded: loaded, warning: warning, models: models}} = Playground.models()
-      assert loaded == ["qwen2.5:3b", "qwen2.5-coder:7b"]
+      assert loaded == ["qwen3:1.7b", "qwen2.5-coder:7b"]
       assert warning =~ "2 chat models are loaded"
       assert warning =~ "do not stop bge-m3"
       assert Enum.all?(models, & &1.loaded)
     end
 
     test "no warning for one loaded chat model next to the embedding model" do
-      stub_ollama([tag("qwen2.5:3b", 1)], ["bge-m3:latest", "qwen2.5:3b"])
-      assert {:ok, %{loaded: ["qwen2.5:3b"], warning: nil}} = Playground.models()
+      stub_ollama([tag("qwen3:1.7b", 1)], ["bge-m3:latest", "qwen3:1.7b"])
+      assert {:ok, %{loaded: ["qwen3:1.7b"], warning: nil}} = Playground.models()
     end
 
     test "an Ollama that does not answer is an error with a message" do

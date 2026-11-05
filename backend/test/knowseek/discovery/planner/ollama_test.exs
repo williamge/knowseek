@@ -37,7 +37,7 @@ defmodule Knowseek.Discovery.Planner.OllamaTest do
       assert_received {:request, "/api/chat", body}
 
       assert %{
-               "model" => "qwen2.5:3b",
+               "model" => "qwen3:1.7b",
                "stream" => false,
                "keep_alive" => "5m",
                "options" => %{"temperature" => 0, "num_ctx" => 1024, "num_predict" => 200},
@@ -68,7 +68,7 @@ defmodule Knowseek.Discovery.Planner.OllamaTest do
       assert_received {:model, "other:1b"}
 
       assert {:ok, ["a b"]} = Ollama.plan("q", [])
-      assert_received {:model, "qwen2.5:3b"}
+      assert_received {:model, "qwen3:1.7b"}
       assert Application.fetch_env!(:knowseek, Ollama) == config
     end
 
@@ -327,10 +327,10 @@ defmodule Knowseek.Discovery.Planner.OllamaTest do
       Req.Test.stub(Ollama, fn conn ->
         conn
         |> Plug.Conn.put_status(404)
-        |> Req.Test.json(%{"error" => "model \"qwen2.5:3b\" not found, try pulling it first"})
+        |> Req.Test.json(%{"error" => "model \"qwen3:1.7b\" not found, try pulling it first"})
       end)
 
-      assert {:error, {:ollama, 404, "model \"qwen2.5:3b\" not found, try pulling it first"}} =
+      assert {:error, {:ollama, 404, "model \"qwen3:1.7b\" not found, try pulling it first"}} =
                Ollama.plan("battery", [])
     end
 

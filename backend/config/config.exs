@@ -78,7 +78,7 @@ config :knowseek, Knowseek.Discovery.Planner,
 
 config :knowseek, Knowseek.Discovery.Planner.Ollama,
   base_url: "http://localhost:11434",
-  model: "qwen2.5:3b",
+  model: "qwen3:1.7b",
   timeout: 15_000
 
 # Entity resolution (ADR 0017, task 030). `resolver` implements

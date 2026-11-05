@@ -2,13 +2,13 @@ defmodule Knowseek.Discovery.Planner.Ollama do
   @moduledoc """
   Planner that asks a small local LLM, through Ollama's chat API, for focused
   search queries. Free, no API key. Select it with `PLANNER_ADAPTER=ollama`;
-  `make ollama` then pulls the model (`qwen2.5:3b`, about 1.9 GB). The model
-  is the one of the evaluation and the default for now; the choice is open
-  (ADR 0025).
+  `make ollama` then pulls the model (`qwen3:1.7b`, about 1.4 GB, Apache-2.0).
+  The owner chose the model after a trial in the playground (ADR 0025); it is
+  a hybrid thinking model, so `think: false` is always sent (see `:think`).
 
       config :knowseek, Knowseek.Discovery.Planner.Ollama,
         base_url: "http://localhost:11434",
-        model: "qwen2.5:3b",
+        model: "qwen3:1.7b",
         timeout: 15_000
 
   Options, with defaults:
@@ -55,7 +55,7 @@ defmodule Knowseek.Discovery.Planner.Ollama do
 
   @defaults [
     base_url: "http://localhost:11434",
-    model: "qwen2.5:3b",
+    model: "qwen3:1.7b",
     timeout: 15_000,
     keep_alive: "5m",
     max_input_chars: 500,

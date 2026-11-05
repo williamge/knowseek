@@ -10,14 +10,14 @@
 #   - ollama CLI missing or server not answering: exit 1 with the fix
 #   - embedding model missing: `ollama pull` (about 1.2 GB for bge-m3)
 #   - embedding model output is not 1024 dimensions: exit 1 (chunks.embedding is vector(1024))
-#   - PLANNER_ADAPTER=ollama and chat model missing: `ollama pull` (about 1.9 GB
-#     for qwen2.5:3b); the model must then answer a one-token /api/chat call
+#   - PLANNER_ADAPTER=ollama and chat model missing: `ollama pull` (about 1.4 GB
+#     for qwen3:1.7b); the model must then answer a one-token /api/chat call
 #   - all good: one line per checked model, exit 0
 #
 # Usage: scripts/ensure-ollama
 # Variables: EMBEDDINGS_ADAPTER (ollama), OLLAMA_URL (http://localhost:11434),
 #            OLLAMA_MODEL (bge-m3), PLANNER_ADAPTER (passthrough),
-#            OLLAMA_CHAT_MODEL (qwen2.5:3b). The defaults match
+#            OLLAMA_CHAT_MODEL (qwen3:1.7b). The defaults match
 #            Knowseek.Embeddings.Ollama and Knowseek.Discovery.Planner.Ollama.
 
 set -euo pipefail
@@ -35,7 +35,7 @@ adapter="$(value EMBEDDINGS_ADAPTER ollama)"
 planner="$(value PLANNER_ADAPTER passthrough)"
 url="$(value OLLAMA_URL http://localhost:11434)"
 model="$(value OLLAMA_MODEL bge-m3)"
-chat_model="$(value OLLAMA_CHAT_MODEL qwen2.5:3b)"
+chat_model="$(value OLLAMA_CHAT_MODEL qwen3:1.7b)"
 dimensions=1024
 
 embeddings=no
@@ -100,8 +100,8 @@ fi
 
 if [ "$planning" = "yes" ]; then
   if ! listed "$chat_model"; then
-    if [ "$chat_model" = "qwen2.5:3b" ]; then
-      size="about 1.9 GB"
+    if [ "$chat_model" = "qwen3:1.7b" ]; then
+      size="about 1.4 GB"
     else
       size="a model of a size this script does not know"
     fi

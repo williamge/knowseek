@@ -17,11 +17,13 @@ independent. The ADR has the evidence and the recommendation.
   `OLLAMA_CHAT_MODEL`, so the app container never plans. Forward both (with
   empty defaults, like `OLLAMA_MODEL`) and say in the README that a container
   reaches the host's Ollama through `APP_OLLAMA_URL`.
-- **Choose the model.** The model is open (ADR 0025): `qwen2.5:3b` is the
-  model of the evaluation and is under a non-commercial research licence. The
-  owner tries candidates in the planner playground (`/planner`, dev only),
-  then the ADR records the model, its licence and the default, and
-  `PLANNER_ADAPTER=ollama` can become the default.
+- **Revisit the model choice.** The owner chose `qwen3:1.7b` (Apache-2.0)
+  after a short playground trial ([ADR 0025](../decisions/0025-query-planning.md)).
+  It is weaker on short entity and ambiguous queries ("knicks", "mercury").
+  `qwen3:4b-instruct` (Apache-2.0, 2.5 GB, about 2 s per plan) is the next
+  candidate. The lever not yet tried is a prompt change for short entity
+  queries; it needs a new evaluation on `eval_queries.json`, including
+  `qwen3:1.7b`, which the evaluation table does not cover.
 - **Job cost.** A planned job is up to 4 searches and 12 page fetches, one at a
   time (16 Wikipedia calls at 15 s each in the worst case; `discover_many/2`
   fetches each distinct page once, but disjoint pages still cost one fetch

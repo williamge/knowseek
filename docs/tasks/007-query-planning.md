@@ -40,7 +40,7 @@ Built, as [ADR 0025](../decisions/0025-query-planning.md) records:
 
 - `Knowseek.Discovery.Planner` (behaviour, and `resolve/2` that enforces the
   safety rules for every adapter), `Planner.Passthrough` (default, pinned in
-  tests), `Planner.Ollama` (`qwen2.5:3b` by evaluation, `POST /api/chat` with a
+  tests), `Planner.Ollama` (`qwen3:1.7b`, chosen by the owner after a trial, `POST /api/chat` with a
   JSON schema, no retries, 15 s timeout). `PLANNER_ADAPTER=ollama|passthrough`
   and `OLLAMA_CHAT_MODEL` in `config/runtime.exs`, `.env.example`, README;
   `scripts/ensure-ollama` pulls and loads the chat model when the planner is
@@ -58,9 +58,9 @@ Left out (on purpose; options and a recommendation are in the ADR):
 - Showing the plan in the UI or the API, feeding planned queries into the
   search itself, and using the plan for cards or entity resolution.
 - A hosted (Anthropic) adapter. The behaviour is ready for one.
-- Making Ollama the default planner (the owner opts in, and the model choice
-  is open: `qwen2.5:3b` is the model of the evaluation, under a
-  non-commercial research licence).
+- Making Ollama the default planner (the owner opts in with
+  `PLANNER_ADAPTER=ollama`; the model is `qwen3:1.7b`, Apache-2.0, chosen by
+  the owner on 2026-11-05).
 - `docker-compose.yml` does not forward `PLANNER_ADAPTER` and
   `OLLAMA_CHAT_MODEL` to the app container.
 

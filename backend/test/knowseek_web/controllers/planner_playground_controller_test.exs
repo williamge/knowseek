@@ -30,7 +30,7 @@ defmodule KnowseekWeb.PlannerPlaygroundControllerTest do
           Req.Test.json(conn, %{
             "models" => [
               %{
-                "name" => "qwen2.5:3b",
+                "name" => "qwen3:1.7b",
                 "size" => 1_929_912_432,
                 "capabilities" => ["completion"]
               },
@@ -76,10 +76,10 @@ defmodule KnowseekWeb.PlannerPlaygroundControllerTest do
     test "lists the chat models and the default", %{conn: conn} do
       conn = Controller.models(conn, %{})
 
-      assert %{"data" => %{"models" => [model], "default" => "qwen2.5:3b", "warning" => nil}} =
+      assert %{"data" => %{"models" => [model], "default" => "qwen3:1.7b", "warning" => nil}} =
                json_response(conn, 200)
 
-      assert %{"name" => "qwen2.5:3b", "size_bytes" => 1_929_912_432, "default" => true} = model
+      assert %{"name" => "qwen3:1.7b", "size_bytes" => 1_929_912_432, "default" => true} = model
     end
 
     test "is a 503 with a message when Ollama does not answer", %{conn: conn} do
@@ -123,7 +123,7 @@ defmodule KnowseekWeb.PlannerPlaygroundControllerTest do
     test "defaults to the configured model and to searching Wikipedia", %{conn: conn} do
       conn = Controller.preview(conn, %{"query" => "tide pools"})
 
-      assert %{"data" => %{"results" => [%{"model" => "qwen2.5:3b", "source" => %{}}]}} =
+      assert %{"data" => %{"results" => [%{"model" => "qwen3:1.7b", "source" => %{}}]}} =
                json_response(conn, 200)
     end
 

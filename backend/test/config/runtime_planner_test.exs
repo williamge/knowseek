@@ -37,7 +37,7 @@ defmodule Knowseek.RuntimePlannerTest do
     assert adapter(config) == nil
     assert ollama(config) == []
     assert Application.fetch_env!(:knowseek, Planner)[:adapter] == Planner.Passthrough
-    assert Application.fetch_env!(:knowseek, Ollama)[:model] == "qwen2.5:3b"
+    assert Application.fetch_env!(:knowseek, Ollama)[:model] == "qwen3:1.7b"
   end
 
   test "empty or blank values are the same as unset" do
