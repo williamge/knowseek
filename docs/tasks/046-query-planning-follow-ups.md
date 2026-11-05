@@ -17,6 +17,26 @@ independent. The ADR has the evidence and the recommendation.
   `OLLAMA_CHAT_MODEL`, so the app container never plans. Forward both (with
   empty defaults, like `OLLAMA_MODEL`) and say in the README that a container
   reaches the host's Ollama through `APP_OLLAMA_URL`.
+- **Choose the model.** The model is open (ADR 0025): `qwen2.5:3b` is the
+  model of the evaluation and is under a non-commercial research licence. The
+  owner tries candidates in the planner playground (`/planner`, dev only),
+  then the ADR records the model, its licence and the default, and
+  `PLANNER_ADAPTER=ollama` can become the default.
+- **Job cost.** A planned job is up to 4 searches and 12 page fetches, one at a
+  time (16 Wikipedia calls at 15 s each in the worst case; `discover_many/2`
+  fetches each distinct page once, but disjoint pages still cost one fetch
+  each). The job has a 5 minute timeout. Options: fetch pages concurrently
+  with a small limit, or fetch only the pages that survive the
+  `max_candidates` cap, or lower `max_candidates`.
+- **Partial ingest failures.** `SeekWorker` retries only when every candidate
+  failed to ingest. With up to 12 candidates, 11 failures and 1 success is
+  `:ok` and the 11 are not retried. Ingest does not re-embed unchanged
+  documents, so retrying when some failed is cheap; a permanently bad
+  candidate would retry for nothing (3 attempts).
+- **Planning concurrency.** Up to 5 discovery jobs call Ollama at once; a burst
+  past the 15 s timeout falls back to the original query, and that fallback is
+  not retried. Options: a queue of its own with a lower limit, or a retry of
+  a planner timeout.
 - **Show the plan.** The plan is only in the log and in the `run/2` summary.
   Options: store it in the Oban job (`meta`) and return it from the discovery
   status of [006](006-discovery-status-for-callers.md); the UI then shows

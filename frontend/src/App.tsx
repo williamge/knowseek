@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { PlannerPlayground } from "./components/PlannerPlayground";
 import { DocumentReader } from "./components/DocumentReader";
 import { FactCard } from "./components/FactCard";
 import { RecentDocuments } from "./components/RecentDocuments";
@@ -8,7 +9,23 @@ import { parseRoute, useRoute } from "./router";
 import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
 import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
 
-export function App({
+/**
+ * In the dev build, `/planner` is the planner playground (ADR 0025). The
+ * route does not exist in a production build: `import.meta.env.DEV` is false
+ * there and the page is not bundled.
+ */
+export function App(props: { watch?: WatchOptions; cardPolling?: CardPolling }) {
+  if (import.meta.env.DEV && window.location.pathname === "/planner") return <PlannerPlayground />;
+  return <Search {...props} />;
+}
+
+const PLANNER_LINK = import.meta.env.DEV ? (
+  <a className="planner__link" href="/planner">
+    planner
+  </a>
+) : null;
+
+function Search({
   watch = DEFAULT_WATCH,
   cardPolling = DEFAULT_CARD_POLLING,
 }: {
@@ -55,6 +72,7 @@ export function App({
             <kbd>Enter</kbd> to search · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
           </p>
           <RecentDocuments onOpen={openDocument} />
+          {PLANNER_LINK}
         </main>
       ) : (
         <>
@@ -70,6 +88,7 @@ export function App({
               knowseek
             </a>
             <SearchBox variant="compact" initialQuery={route.query ?? ""} onSearch={runSearch} />
+            {PLANNER_LINK}
           </header>
           <main className="page">
             {card && <FactCard data={card} onSearch={runSearch} />}

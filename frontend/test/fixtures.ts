@@ -3,6 +3,8 @@ import type {
   CardResponse,
   Hit,
   KnowseekDocument,
+  PlannerModelResult,
+  PlannerModels,
   SearchResult,
   SportsTeamFacts,
   WeatherFacts,
@@ -204,4 +206,63 @@ export function mockApi(routes: Record<string, (body: unknown) => unknown | Resp
     return new Response(JSON.stringify({ data: value }), { status: 200 });
   });
   return { calls, spy };
+}
+
+/** The installed chat models as `GET /api/planner/models` sends them (smallest first). */
+export function plannerModels(overrides: Partial<PlannerModels> = {}): PlannerModels {
+  return {
+    models: [
+      {
+        name: "qwen2.5:3b",
+        size_bytes: 1_929_912_432,
+        parameter_size: "3.1B",
+        default: true,
+        loaded: false,
+      },
+      {
+        name: "qwen2.5-coder:7b",
+        size_bytes: 4_683_087_561,
+        parameter_size: "7.6B",
+        default: false,
+        loaded: false,
+      },
+    ],
+    default: "qwen2.5:3b",
+    loaded: [],
+    warning: null,
+    ...overrides,
+  };
+}
+
+/** One model's entry of `POST /api/planner/preview`, with a source part. */
+export function plannerResult(overrides: Partial<PlannerModelResult> = {}): PlannerModelResult {
+  return {
+    model: "qwen2.5:3b",
+    status: "ok",
+    detail: null,
+    warm: true,
+    unloaded: true,
+    plan_ms: 630,
+    queries: ["tide pools", "rock pool", "intertidal zone"],
+    source: {
+      literal: { titles: ["Tide pool", "Tide"], error: null },
+      searches: [
+        { query: "rock pool", titles: ["Tide pool", "Rock pool"], error: null },
+        { query: "intertidal zone", titles: ["Intertidal zone", "Rock pool"], error: null },
+      ],
+      only_planned: ["Rock pool", "Intertidal zone"],
+      wiki_ms: 420,
+    },
+    ...overrides,
+  };
+}
+
+/** The body of `POST /api/planner/preview` for one model. */
+export function plannerPreview(result: PlannerModelResult) {
+  return {
+    query: "tide pools",
+    literal: { titles: ["Tide pool", "Tide"], error: null, ms: 200 },
+    warning: null,
+    results: [result],
+  };
 }

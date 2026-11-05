@@ -2,8 +2,9 @@ defmodule Knowseek.Discovery.Planner.Ollama do
   @moduledoc """
   Planner that asks a small local LLM, through Ollama's chat API, for focused
   search queries. Free, no API key. Select it with `PLANNER_ADAPTER=ollama`;
-  `make ollama` then pulls the model (`qwen2.5:3b`, about 1.9 GB). The choice
-  of model and the evaluation behind it are in ADR 0025.
+  `make ollama` then pulls the model (`qwen2.5:3b`, about 1.9 GB). The model
+  is the one of the evaluation and the default for now; the choice is open
+  (ADR 0025).
 
       config :knowseek, Knowseek.Discovery.Planner.Ollama,
         base_url: "http://localhost:11434",
@@ -24,7 +25,19 @@ defmodule Knowseek.Discovery.Planner.Ollama do
       gets its memory back.
     * `:max_input_chars` - the user query is cut to this length before it is
       sent (500)
+    * `:think` - sent as `"think"` in the request (`false`): models that
+      think by default (the hybrid Qwen3 and Qwen3.5 families) would spend the
+      token budget on reasoning, or leak it into the JSON. `nil` leaves the
+      field out. A model that rejects the field (Ollama answers "does not
+      support thinking", or HTTP 400 naming `think`) gets the same request
+      once more without it; nothing is remembered between calls. A
+      thinking-only model (for example `qwen3:4b`, the 2507 thinking
+      build) cannot be switched off: do not use one as a planner.
     * `:req_options` - extra `Req` options, for example a `Req.Test` plug
+
+  `plan/2` also takes `:model`, `:timeout`, `:keep_alive` and `:think` in its `opts`, which override the
+  config for that call only (no global state). The planner playground uses
+  them to try several models (ADR 0025).
 
   The request uses Ollama's structured output: `format` is a JSON schema, so
   the reply is `{"queries": [string, ...]}`, and the decoder still checks it.
@@ -32,7 +45,8 @@ defmodule Knowseek.Discovery.Planner.Ollama do
   content of the user message. The query is untrusted: whatever the model
   makes of it, the reply is only parsed, cleaned by
   `Knowseek.Discovery.Planner.clean/2`, and used as search strings. The model
-  has no tools. There are no retries: a failed call is a fallback to the
+  has no tools. There are no retries, except the one repeat without `think`
+  for a model that rejects it: any other failed call is a fallback to the
   original query.
   """
   @behaviour Knowseek.Discovery.Planner
@@ -45,6 +59,7 @@ defmodule Knowseek.Discovery.Planner.Ollama do
     timeout: 15_000,
     keep_alive: "5m",
     max_input_chars: 500,
+    think: false,
     req_options: []
   ]
 
@@ -77,19 +92,39 @@ defmodule Knowseek.Discovery.Planner.Ollama do
   @spec system_prompt() :: String.t()
   def system_prompt, do: String.trim(@system_prompt)
 
+  @doc "The configuration: the defaults, then `config :knowseek, #{inspect(__MODULE__)}`."
+  @spec config() :: keyword()
+  def config, do: Keyword.merge(@defaults, Application.get_env(:knowseek, __MODULE__, []))
+
   @impl true
-  def plan(query, _opts) do
-    config = Keyword.merge(@defaults, Application.get_env(:knowseek, __MODULE__, []))
+  def plan(query, opts) do
+    config = Keyword.merge(config(), Keyword.take(opts, [:model, :timeout, :keep_alive, :think]))
 
     request =
       [base_url: config[:base_url], receive_timeout: config[:timeout], retry: false]
       |> Keyword.merge(config[:req_options])
       |> Req.new()
 
+    case chat(request, query, config) do
+      {:ok, content} -> parse(content, query)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  # One request; when the model rejects `think`, one more without it.
+  defp chat(request, query, config) do
+    result = post(request, query, config)
+
+    if config[:think] != nil and rejects_think?(result),
+      do: post(request, query, Keyword.put(config, :think, nil)),
+      else: result
+  end
+
+  defp post(request, query, config) do
     case Req.post(request, url: "/api/chat", json: body(query, config)) do
       {:ok, %Req.Response{status: 200, body: %{"message" => %{"content" => content}}}}
       when is_binary(content) ->
-        parse(content, query)
+        {:ok, content}
 
       {:ok, %Req.Response{status: 200}} ->
         {:error, {:ollama, :unexpected_response}}
@@ -101,6 +136,13 @@ defmodule Knowseek.Discovery.Planner.Ollama do
         {:error, {:ollama, exception}}
     end
   end
+
+  defp rejects_think?({:error, {:ollama, status, detail}}) when is_binary(detail) do
+    detail = String.downcase(detail)
+    String.contains?(detail, "does not support thinking") or (status == 400 and detail =~ "think")
+  end
+
+  defp rejects_think?(_result), do: false
 
   defp body(query, config) do
     %{
@@ -114,7 +156,11 @@ defmodule Knowseek.Discovery.Planner.Ollama do
         %{role: "user", content: String.slice(query, 0, config[:max_input_chars])}
       ]
     }
+    |> put_think(config[:think])
   end
+
+  defp put_think(body, nil), do: body
+  defp put_think(body, think), do: Map.put(body, :think, think)
 
   defp parse(content, query) do
     case Jason.decode(content) do

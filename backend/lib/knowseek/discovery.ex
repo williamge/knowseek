@@ -66,7 +66,7 @@ defmodule Knowseek.Discovery do
 
     counts =
       queries
-      |> Enum.map(fn planned -> Enum.flat_map(sources, &discover(&1, planned, opts)) end)
+      |> candidate_lists(sources, opts)
       |> merge()
       |> Enum.take(max_candidates)
       |> Enum.reduce(%{ingested: 0, failed: 0}, fn attrs, acc ->
@@ -96,22 +96,42 @@ defmodule Knowseek.Discovery do
 
   defp config, do: Application.get_env(:knowseek, __MODULE__, [])
 
-  defp discover(source, query, opts) do
-    case source.discover(query, opts) do
-      {:ok, candidates} ->
+  # One candidate list per (query, source), the original query's first and,
+  # within a query, in the order of the sources. A source that can find the
+  # documents of all the queries together (`discover_many/2`) is asked once.
+  defp candidate_lists(queries, sources, opts) do
+    by_source = Enum.map(sources, &discover(&1, queries, opts))
+
+    Enum.flat_map(0..(length(queries) - 1)//1, fn index ->
+      Enum.map(by_source, &Enum.at(&1, index))
+    end)
+  end
+
+  defp discover(source, queries, opts) do
+    results =
+      if Code.ensure_loaded?(source) and function_exported?(source, :discover_many, 2) do
+        source.discover_many(queries, opts)
+      else
+        Enum.map(queries, &source.discover(&1, opts))
+      end
+
+    queries
+    |> Enum.zip(results)
+    |> Enum.map(fn
+      {_query, {:ok, candidates}} ->
         Enum.map(candidates, &Map.put(&1, :source, source.name()))
 
-      {:error, reason} ->
+      {query, {:error, reason}} ->
         Logger.warning(
           "discovery source #{inspect(source)} failed for #{inspect(query)}: #{inspect(reason)}"
         )
 
         []
-    end
+    end)
   end
 
-  # Interleaves the candidate lists (one per planned query, original first)
-  # and keeps the first candidate of every canonical URL.
+  # Interleaves the candidate lists (one per planned query and source, the
+  # original query first) and keeps the first candidate of every canonical URL.
   defp merge(lists) do
     lists
     |> interleave()

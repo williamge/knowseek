@@ -58,9 +58,15 @@ Left out (on purpose; options and a recommendation are in the ADR):
 - Showing the plan in the UI or the API, feeding planned queries into the
   search itself, and using the plan for cards or entity resolution.
 - A hosted (Anthropic) adapter. The behaviour is ready for one.
-- Making Ollama the default planner (the owner opts in; the model is a
-  1.9 GB download).
+- Making Ollama the default planner (the owner opts in, and the model choice
+  is open: `qwen2.5:3b` is the model of the evaluation, under a
+  non-commercial research licence).
 - `docker-compose.yml` does not forward `PLANNER_ADAPTER` and
   `OLLAMA_CHAT_MODEL` to the app container.
+
+Added after the review of PR #42: a 5 minute job timeout,
+`Source.discover_many/2` (each distinct Wikipedia page fetched once), the
+planner playground (dev only: `/planner`, `/api/planner/*`) to try other
+models, and the `think: false` option for models that think by default.
 
 Follow-up: [046](046-query-planning-follow-ups.md).

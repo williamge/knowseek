@@ -8,6 +8,7 @@ defmodule Knowseek.DiscoveryTest do
 
   alias Knowseek.Discovery.{
     BadCandidateSource,
+    BatchSource,
     FailingSource,
     FakePlanner,
     FakeSource,
@@ -53,6 +54,10 @@ defmodule Knowseek.DiscoveryTest do
     test "some ingested and some failed is :ok", %{put_sources: put_sources} do
       put_sources.([FakeSource, BadCandidateSource])
       assert :ok = perform_job(SeekWorker, %{"query" => "tide pools"})
+    end
+
+    test "a job is stopped after 5 minutes" do
+      assert SeekWorker.timeout(%Oban.Job{args: %{"query" => "tide pools"}}) == 300_000
     end
 
     test "every candidate failing to ingest returns an error so Oban retries", %{
@@ -215,6 +220,48 @@ defmodule Knowseek.DiscoveryTest do
                run("q", ["one", "two"], results, max_candidates: 4)
 
       assert urls() == for(u <- ~w(o1 q1 q2 t1), do: "https://x.example/#{u}")
+    end
+
+    test "a source with discover_many/2 is asked once for all the queries, with its own errors" do
+      BatchSource.put(%{
+        "q" => {:ok, [ScriptedSource.candidate("https://x.example/q")]},
+        "bad" => {:error, :http_500},
+        "good" => {:ok, [ScriptedSource.candidate("https://x.example/good")]}
+      })
+
+      FakePlanner.put(["bad", "good"])
+
+      capture_log(fn ->
+        send(self(), {:result, Discovery.run("q", sources: [BatchSource], planner: FakePlanner)})
+      end)
+
+      assert_received {:result, {:ok, %{ingested: 2, failed: 0}}}
+      assert_received {:batch_source_asked, ["q", "bad", "good"]}
+      refute_received {:batch_source_asked, _again}
+      assert urls() == ["https://x.example/good", "https://x.example/q"]
+    end
+
+    test "the original query keeps its candidates of every source when the cap bites" do
+      ScriptedSource.put(%{
+        "q" => {:ok, for(n <- 1..2, do: ScriptedSource.candidate("https://x.example/a#{n}"))},
+        "one" => {:ok, [ScriptedSource.candidate("https://x.example/a3")]}
+      })
+
+      BatchSource.put(%{
+        "q" => {:ok, [ScriptedSource.candidate("https://y.example/b1")]},
+        "one" => {:ok, [ScriptedSource.candidate("https://y.example/b2")]}
+      })
+
+      FakePlanner.put(["one"])
+
+      assert {:ok, %{ingested: 3}} =
+               Discovery.run("q",
+                 sources: [ScriptedSource, BatchSource],
+                 planner: FakePlanner,
+                 max_candidates: 3
+               )
+
+      assert urls() == ["https://x.example/a1", "https://x.example/a3", "https://y.example/b1"]
     end
 
     test "the cap comes from config" do

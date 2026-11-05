@@ -53,6 +53,115 @@ defmodule Knowseek.Discovery.Planner.OllamaTest do
       refute system =~ "battery chemistry"
     end
 
+    test "a model and a timeout in the options override the config for that call only", %{
+      config: config
+    } do
+      test_pid = self()
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:model, Jason.decode!(raw)["model"]})
+        reply_queries(conn, ["a b"])
+      end)
+
+      assert {:ok, ["a b"]} = Ollama.plan("q", model: "other:1b", timeout: 1_000)
+      assert_received {:model, "other:1b"}
+
+      assert {:ok, ["a b"]} = Ollama.plan("q", [])
+      assert_received {:model, "qwen2.5:3b"}
+      assert Application.fetch_env!(:knowseek, Ollama) == config
+    end
+
+    test "sends think: false, so that models that think by default do not" do
+      test_pid = self()
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:request, Jason.decode!(raw)})
+        reply_queries(conn, ["a b"])
+      end)
+
+      assert {:ok, ["a b"]} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+
+      assert {:ok, ["a b"]} = Ollama.plan("q", think: nil)
+      assert_received {:request, body}
+      refute Map.has_key?(body, "think")
+    end
+
+    test "a model that rejects think gets the request once more without it, and nothing is remembered" do
+      test_pid = self()
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        body = Jason.decode!(raw)
+        send(test_pid, {:request, body})
+
+        if Map.has_key?(body, "think") do
+          conn
+          |> Plug.Conn.put_status(400)
+          |> Req.Test.json(%{"error" => "\"gemma:2b\" does not support thinking"})
+        else
+          reply_queries(conn, ["a b"])
+        end
+      end)
+
+      assert {:ok, ["a b"]} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+      assert_received {:request, without}
+      refute Map.has_key?(without, "think")
+      refute_received {:request, _third}
+
+      # The next call tries think again: no global state.
+      assert {:ok, ["a b"]} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+    end
+
+    test "an HTTP 400 that names think is retried once without it, any other error is not" do
+      test_pid = self()
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:request, Jason.decode!(raw)})
+
+        conn
+        |> Plug.Conn.put_status(400)
+        |> Req.Test.json(%{"error" => "invalid option: think"})
+      end)
+
+      assert {:error, {:ollama, 400, "invalid option: think"}} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+      assert_received {:request, without}
+      refute Map.has_key?(without, "think")
+      refute_received {:request, _third}
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:request, Jason.decode!(raw)})
+
+        conn
+        |> Plug.Conn.put_status(404)
+        |> Req.Test.json(%{"error" => "model 'x' not found, think again"})
+      end)
+
+      assert {:error, {:ollama, 404, _detail}} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+      refute_received {:request, _again}
+
+      Req.Test.stub(Ollama, fn conn ->
+        {:ok, raw, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:request, Jason.decode!(raw)})
+
+        conn
+        |> Plug.Conn.put_status(400)
+        |> Req.Test.json(%{"error" => "bad request"})
+      end)
+
+      assert {:error, {:ollama, 400, "bad request"}} = Ollama.plan("q", [])
+      assert_received {:request, %{"think" => false}}
+      refute_received {:request, _again}
+    end
+
     test "the model and the limits come from config", %{config: config} do
       Application.put_env(
         :knowseek,

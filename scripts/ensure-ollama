@@ -66,7 +66,7 @@ fail() {
 
 # listed <model>: true when the tags JSON lists the model.
 listed() {
-  grep -Eq "\"name\":\"$1(:latest)?\"" <<<"$tags"
+  grep -Fq -e "\"name\":\"$1\"" -e "\"name\":\"$1:latest\"" <<<"$tags"
 }
 
 command -v ollama >/dev/null ||
@@ -110,9 +110,11 @@ if [ "$planning" = "yes" ]; then
       fail "could not pull $chat_model." "Run: OLLAMA_HOST=$url ollama pull $chat_model   (or pick another model with OLLAMA_CHAT_MODEL)" planner
   fi
 
-  # One one-token chat call loads the model, so the first discovery job does not pay for it.
+  # One one-token chat call loads the model, so the first discovery job does not
+  # pay for it. It sends the same num_ctx and keep_alive as Planner.Ollama: Ollama
+  # starts a new runner when the context size differs, and the job would reload.
   echo "ensure-ollama: loading the query planner model $chat_model..."
-  status="$(curl -s -m 120 -o "$body" -w '%{http_code}' "$url/api/chat" -d "{\"model\":\"$chat_model\",\"stream\":false,\"keep_alive\":\"5m\",\"options\":{\"num_predict\":1},\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}")" || status="no answer"
+  status="$(curl -s -m 120 -o "$body" -w '%{http_code}' "$url/api/chat" -d "{\"model\":\"$chat_model\",\"stream\":false,\"keep_alive\":\"5m\",\"options\":{\"num_ctx\":1024,\"num_predict\":1},\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}")" || status="no answer"
   [ "$status" = "200" ] ||
     fail "$chat_model did not answer /api/chat on $url (HTTP status: $status)." "Check the model name in OLLAMA_CHAT_MODEL (it must be a chat model, not an embedding model), and the Ollama log (brew services info ollama)." planner
 

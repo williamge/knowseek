@@ -3,7 +3,7 @@ defmodule Knowseek.Discovery.FakePlanner do
   A planner for tests. Returns what the test put in the process dictionary
   with `FakePlanner.put/1` (the planner runs in the calling process): a list of
   queries, `{:error, reason}`, or `:raise`. Records the queries it was asked in
-  the `:fake_planner_calls` message sent to the test process.
+  the `{:fake_planner_asked, query}` message sent to the test process.
   """
   @behaviour Knowseek.Discovery.Planner
 

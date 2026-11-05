@@ -53,13 +53,37 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   def name, do: "wikipedia"
 
   @impl true
-  def discover(query, _opts) do
-    config = config()
+  def discover(query, opts), do: hd(discover_many([query], opts))
 
-    with {:ok, pageids} <- search(query, config) do
-      collect_pages(pageids, config)
-    end
+  # The planner makes up to 4 queries that often find the same pages. The pages
+  # are fetched one by one, in full, so every distinct page is fetched once
+  # for all the queries (task 007, ADR 0025). A page that fails to fetch fails
+  # for each query that found it.
+  @impl true
+  def discover_many(queries, _opts) do
+    config = config()
+    searches = Enum.map(queries, &search(&1, config))
+
+    pages =
+      for {:ok, found} <- searches, %{pageid: pageid} <- found, uniq: true, do: pageid
+
+    fetched = Map.new(pages, &{&1, fetch_page(&1, config)})
+
+    Enum.map(searches, fn
+      {:ok, found} -> collect_pages(Enum.map(found, &Map.fetch!(fetched, &1.pageid)))
+      {:error, reason} -> {:error, reason}
+    end)
   end
+
+  @doc """
+  The search step alone: the pages (`%{pageid, title}`, best match first, at
+  most `limit`) that Wikipedia's search finds for `query`. One request, and no
+  page text is fetched. The planner playground (ADR 0025) uses it to compare
+  what a planned query finds; `discover/2` starts with the same call.
+  """
+  @spec search_pages(String.t()) ::
+          {:ok, [%{pageid: integer(), title: String.t()}]} | {:error, term()}
+  def search_pages(query) when is_binary(query), do: search(query, config())
 
   defp search(query, config) do
     params = [
@@ -71,9 +95,15 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
     ]
 
     case api_get(params, config) do
-      {:ok, %{"query" => %{"search" => results}}} -> {:ok, Enum.map(results, & &1["pageid"])}
-      {:ok, _body} -> {:error, :unexpected_body}
-      {:error, reason} -> {:error, reason}
+      {:ok, %{"query" => %{"search" => results}}} ->
+        {:ok,
+         for(%{"pageid" => id} = result <- results, do: %{pageid: id, title: result["title"]})}
+
+      {:ok, _body} ->
+        {:error, :unexpected_body}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -95,12 +125,9 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
     end
   end
 
-  defp collect_pages(pageids, config) do
-    results = Enum.map(pageids, &fetch_page(&1, config))
+  defp collect_pages(results) do
     candidates = for {:ok, candidate} <- results, candidate != nil, do: candidate
     errors = for {:error, reason} <- results, do: reason
-
-    Enum.each(errors, &Logger.warning("wikipedia page fetch failed: #{inspect(&1)}"))
 
     case {candidates, errors} do
       {[], [reason | _rest]} -> {:error, reason}
@@ -120,16 +147,23 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
       pageids: pageid
     ]
 
-    case api_get(params, config) do
-      {:ok, %{"query" => %{"pages" => [page | _rest]}}} ->
-        {:ok, to_candidate(page, config[:max_chars])}
+    result =
+      case api_get(params, config) do
+        {:ok, %{"query" => %{"pages" => [page | _rest]}}} ->
+          {:ok, to_candidate(page, config[:max_chars])}
 
-      {:ok, _body} ->
-        {:error, :unexpected_body}
+        {:ok, _body} ->
+          {:error, :unexpected_body}
 
-      {:error, reason} ->
-        {:error, reason}
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    with {:error, reason} <- result do
+      Logger.warning("wikipedia page fetch failed: #{inspect(reason)}")
     end
+
+    result
   end
 
   # Disambiguation pages only list links to other pages.

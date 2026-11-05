@@ -85,6 +85,31 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert_received {:request, %{"pageids" => "76162223"}, _}
     end
 
+    test "search_pages/1 returns the titles of the search step and fetches no page" do
+      stub_api(%{
+        "query" => %{
+          "search" => [
+            %{"pageid" => 74_020_014, "title" => "Vector database"},
+            %{"pageid" => 76_162_223, "title" => "Hierarchical navigable small world"}
+          ]
+        }
+      })
+
+      assert {:ok,
+              [
+                %{pageid: 74_020_014, title: "Vector database"},
+                %{pageid: 76_162_223, title: "Hierarchical navigable small world"}
+              ]} = Wikipedia.search_pages("pgvector")
+
+      assert_received {:request, %{"list" => "search", "srsearch" => "pgvector"}, _}
+      refute_received {:request, %{"pageids" => _}, _}
+    end
+
+    test "search_pages/1 returns the error of a failed search" do
+      Req.Test.stub(Wikipedia, fn conn -> Plug.Conn.send_resp(conn, 500, "") end)
+      assert {:error, {:http_status, 500}} = Wikipedia.search_pages("pgvector")
+    end
+
     test "skips pages that are missing" do
       stub_api(%{"query" => %{"search" => [%{"pageid" => 1}, %{"pageid" => 74_020_014}]}})
 
@@ -261,6 +286,68 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       assert %{monthly_views: 6_752} = Enum.find(documents, &(&1.title == "Vector database"))
       assert %{monthly_views: nil} = Enum.find(documents, &(&1.title =~ "small world"))
+    end
+  end
+
+  describe "discover_many/2" do
+    defp stub_searches(by_query) do
+      Req.Test.stub(Wikipedia, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        send(self(), {:request, conn.query_params, []})
+
+        case conn.query_params do
+          %{"list" => "search", "srsearch" => "boom"} ->
+            Plug.Conn.send_resp(conn, 500, "")
+
+          %{"list" => "search", "srsearch" => query} ->
+            Req.Test.json(conn, %{"query" => %{"search" => Map.fetch!(by_query, query)}})
+
+          %{"pageids" => id} ->
+            Req.Test.json(conn, fixture("page_#{id}.json"))
+        end
+      end)
+    end
+
+    defp page_fetches do
+      for {:request, %{"pageids" => id}, _} <- drain(), do: id
+    end
+
+    defp drain do
+      receive do
+        message -> [message | drain()]
+      after
+        0 -> []
+      end
+    end
+
+    test "fetches a page that several queries found once, and returns each query's own pages" do
+      stub_searches(%{
+        "one" => [%{"pageid" => 74_020_014}, %{"pageid" => 76_162_223}],
+        "two" => [%{"pageid" => 76_162_223}]
+      })
+
+      assert [{:ok, [first, second]}, {:ok, [again]}] =
+               Wikipedia.discover_many(["one", "two"], [])
+
+      assert [first.title, second.title] == [
+               "Vector database",
+               "Hierarchical navigable small world"
+             ]
+
+      assert again == second
+      assert page_fetches() == ["74020014", "76162223"]
+    end
+
+    test "a query whose search fails fails alone" do
+      stub_searches(%{"one" => [%{"pageid" => 74_020_014}]})
+
+      assert [{:ok, [%{title: "Vector database"}]}, {:error, {:http_status, 500}}] =
+               Wikipedia.discover_many(["one", "boom"], [])
+    end
+
+    test "discover/2 is discover_many/2 of one query" do
+      stub_searches(%{"one" => [%{"pageid" => 74_020_014}]})
+      assert {:ok, [%{title: "Vector database"}]} = Wikipedia.discover("one", [])
     end
   end
 end

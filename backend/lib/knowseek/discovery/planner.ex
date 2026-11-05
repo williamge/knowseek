@@ -21,7 +21,7 @@ defmodule Knowseek.Discovery.Planner do
   for every adapter:
 
     * the original query is always the first search, so planning only adds;
-    * every other query is cleaned (`clean/2`): control characters removed,
+    * every other query is cleaned (`clean/2`): control and format characters (bidi marks, zero-width spaces) removed,
       whitespace collapsed, cut to `max_query_length` characters, empty ones
       dropped, duplicates (ignoring case and spacing) dropped, at most
       `max_planned` kept;
@@ -127,10 +127,12 @@ defmodule Knowseek.Discovery.Planner do
   end
 
   # Control and format characters (newlines, escapes, bidi marks, zero-width
-  # spaces) become spaces; then whitespace collapses, and the text is cut.
+  # spaces) become spaces; then whitespace collapses, and the text is cut. The
+  # zero-width non-joiner and joiner (U+200C, U+200D) stay: Persian words and
+  # emoji sequences are spelled with them.
   defp sanitize(text, max_length) do
     text
-    |> String.replace(~r/[\p{Cc}\p{Cf}]/u, " ")
+    |> String.replace(~r/(?![\x{200C}\x{200D}])[\p{Cc}\p{Cf}]/u, " ")
     |> String.split()
     |> Enum.join(" ")
     |> String.slice(0, max_length)

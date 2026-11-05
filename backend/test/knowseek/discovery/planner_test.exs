@@ -1,5 +1,6 @@
 defmodule Knowseek.Discovery.PlannerTest do
-  use ExUnit.Case, async: true
+  # "the limits come from config" changes the global planner config.
+  use ExUnit.Case, async: false
 
   alias Knowseek.Discovery.{FakePlanner, Planner}
   alias Knowseek.Discovery.Planner.Passthrough
@@ -94,6 +95,11 @@ defmodule Knowseek.Discovery.PlannerTest do
     test "strips control and format characters and collapses whitespace" do
       assert Planner.clean(["a\u0000b\nc\td", "\u202Eevil\u202C  text", "x\u200By"], "q") ==
                ["a b c d", "evil text", "x y"]
+    end
+
+    test "keeps the zero-width non-joiner and joiner" do
+      assert Planner.clean(["می\u200Cخواهم", "👩\u200D🔬 science"], "q") ==
+               ["می\u200Cخواهم", "👩\u200D🔬 science"]
     end
 
     test "cuts to 100 characters, counting characters, not bytes" do
