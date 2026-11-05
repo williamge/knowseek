@@ -66,7 +66,10 @@ This ADR's own measurements (same method, scratch databases, the real
    a scan that comes up short of `LIMIT` rows keeps walking the graph.
 2. Both are config under `config :knowseek, Knowseek.Search`: `iterative_scan`
    (`:strict_order`, the default, or `:off`) and `max_scan_tuples` (a positive
-   integer). Any other value raises `ArgumentError` on the next search.
+   integer). Any other value raises `ArgumentError`. `Knowseek.Application`
+   validates both once at boot, with the same function that every search uses
+   (`Search.validate_config!/0`), so a typo stops the start instead of failing
+   every search.
 3. `strict_order`, not `relaxed_order`. The vector list's rank feeds reciprocal
    rank fusion (rank `i` contributes `1 / (60 + i)`), and the rows are
    consumed in the order the query returns them. `relaxed_order` returned the
@@ -93,9 +96,24 @@ This ADR's own measurements (same method, scratch databases, the real
 5. The minimum pgvector version is 0.8 (`hnsw.iterative_scan` was added in
    0.8.0). The `pgvector/pgvector:pg17` image in `docker-compose.yml`, which
    development, CI and the release image's database use, has 0.8.x (0.8.7
-   when measured). We do not guard against an older pgvector with a version
-   check, and we do not swallow its error:
-   - On pgvector 0.7.4 (tested on the `pgvector/pgvector:0.7.4-pg17` image) the
+   when measured). The application checks the installed version at boot, and a
+   pgvector below 0.8 does not start (the failure is clear, and nothing is
+   swallowed):
+   - `Knowseek.Search.PgvectorCheck` is a supervisor child right after
+     `Knowseek.Repo`. Unless `iterative_scan` is `:off`, it reads
+     `SELECT extversion FROM pg_extension WHERE extname = 'vector'`, compares
+     the version as numbers (0.10.1 is above 0.8.7), and fails the start when
+     the extension is missing or below 0.8.0, with a message that names
+     `iterative_scan: :off` and the minimum. It runs when the application
+     starts. `mix ecto.migrate` and `Knowseek.Release.migrate/0` (`bin/migrate`)
+     do not start the application, so the migration that runs
+     `CREATE EXTENSION vector` is never blocked by it; an application that
+     starts on a database without the extension has not been migrated, and the
+     message says to run the migrations. Checked by hand on
+     `pgvector/pgvector:0.7.4-pg17`: a created but unmigrated database, the
+     migrated one (too old), `iterative_scan: :off` (starts), and
+     `Release.migrate/0` on a fresh database (runs).
+   - Without the check, on pgvector 0.7.4 the
      statement fails with `invalid configuration parameter name
      "hnsw.iterative_scan"` (`"hnsw" is a reserved prefix`), so every search
      fails loudly. Postgres only raises that error once pgvector is loaded in the
@@ -112,15 +130,23 @@ This ADR's own measurements (same method, scratch databases, the real
 6. A guard test, `test/knowseek/search_hnsw_test.exs` (tag `:hnsw_guard`), runs
    the real HNSW scan on committed data: 520 dead look-alike chunks (a
    20-chunk document ingested 26 times with a changed body, then deleted)
-   around one query, and a live related document. The failure starts at about
+   around one query, and a live set of three related documents. The failure starts at about
    400 dead entries, `ef_search` for `limit: 10` (280 and 360 dead entries
    still found the live chunk, 400 and 420 did not), and the test keeps a
-   margin of 30%. With `iterative_scan: :off` it returns no hit; with the
-   default it returns the live document, with the exact scan's similarity. It
+   margin of 30%. With `iterative_scan: :off` it returns no hit (this
+   documents pgvector's behaviour: a pgvector that walks past dead entries by
+   itself would fail it); with the
+   default it returns the live documents, with the exact scan's similarities.
+   The live set is three documents with different similarities, and the test
+   asserts their order against the exact scan. (A three-row list did not
+   show a difference between `strict_order` and `relaxed_order` in five runs,
+   so the choice of mode is pinned by the unit test, not by the guard.) It
    is the one exception to "index scans are off in tests" (AGENTS.md,
    "Testing rules"), and isolates itself: its own connection pool outside the
    SQL sandbox, `async: false`, a truncate before and after, autovacuum off
-   for `chunks` meanwhile.
+   for `chunks` meanwhile, both undone in `on_exit` (the autovacuum reset first,
+   and both steps even if one fails). A run that is killed leaves its rows
+   behind until the next run or a `TRUNCATE`.
 7. `docs/ARCHITECTURE.md`, "Vector index health", has the `psql` query for dead
    tuples and index size, and the `VACUUM` and `REINDEX` commands with
    measured costs.
@@ -174,8 +200,13 @@ This ADR's own measurements (same method, scratch databases, the real
 - A pgvector older than 0.8 needs `iterative_scan: :off`. The docker image tag
   is not pinned to a minor version, so a future `pg17` tag moves forward, not
   back. The minimum is documented here and in `docs/ARCHITECTURE.md`; the
-  compose file is unchanged.
-- The guard test takes a few seconds and locks `chunks` and `documents`
-  (truncate) while it runs; it is the only test that does.
+  compose file is unchanged. The application does not start on an older one
+  unless `iterative_scan: :off` is set (decision 5).
+- The guard test takes a few seconds (about 2 to 8 s depending on the machine)
+  and locks `chunks` and `documents` (truncate) while it runs; it is the only
+  test that does.
+- `limit` above 25 (more than 1,000 candidates, `ef_search` capped at 1000) was
+  not measured with the iterative scan; the worst case is bounded by
+  `max_scan_tuples` ([INFERENCE]).
 - Not measured: real Ollama embeddings, dead entries above 40,000 chunks,
   concurrent writers during a search, long transactions that hold vacuum back.

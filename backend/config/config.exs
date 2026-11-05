@@ -40,7 +40,8 @@ config :knowseek, Knowseek.Embeddings,
 # keeps walking the graph when dead entries (chunks deleted or replaced, not
 # yet vacuumed) leave it short of rows (ADR 0024). `iterative_scan` is
 # `:strict_order` (rows in exact order) or `:off`; `:off` sets nothing, and is
-# the only value that works on pgvector older than 0.8.
+# the only value that works on pgvector older than 0.8 (the application does
+# not start on an older one otherwise, and not on an invalid value).
 # `max_scan_tuples` caps how many index entries one query visits (pgvector's
 # default).
 # `prior_weight` and `prior_saturation_views`: the document prior (ADR 0018).

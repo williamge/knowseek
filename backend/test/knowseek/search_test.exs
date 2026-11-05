@@ -368,7 +368,8 @@ defmodule Knowseek.SearchTest do
     test "sets nothing for iterative_scan: :off, which keeps an older pgvector working" do
       put_search_config(iterative_scan: :off, max_scan_tuples: 5_000)
 
-      # pgvector's own defaults.
+      # pgvector's own defaults. This assertion deliberately documents pgvector's
+      # behaviour: if a later pgvector changes a default, update it here and in ADR 0024.
       assert [["off", "20000"]] = Search.with_ef_search(400, &read_scan_settings/0)
     end
 
@@ -380,6 +381,31 @@ defmodule Knowseek.SearchTest do
 
       assert_raise ArgumentError, ~r/max_scan_tuples a positive integer/, fn ->
         Search.search("x")
+      end
+    end
+
+    test "validate_config!/0, which the application calls at boot, accepts the defaults and rejects the same values" do
+      assert Search.validate_config!() == :ok
+
+      put_search_config(iterative_scan: :off, max_scan_tuples: -1)
+      assert Search.validate_config!() == :ok
+
+      for {mode, max} <- [
+            {:sometimes, 20_000},
+            {"strict_order", 20_000},
+            {nil, 20_000},
+            {:relaxed_order, 20_000},
+            {:strict_order, 0},
+            {:strict_order, -5},
+            {:strict_order, 1.5},
+            {:strict_order, "20000"},
+            {:strict_order, nil}
+          ] do
+        put_search_config(iterative_scan: mode, max_scan_tuples: max)
+
+        assert_raise ArgumentError, ~r/invalid Knowseek.Search config/, fn ->
+          Search.validate_config!()
+        end
       end
     end
   end

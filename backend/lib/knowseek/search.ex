@@ -135,13 +135,16 @@ defmodule Knowseek.Search do
     result
   end
 
-  defp scan_settings(:off, _max_scan_tuples, ef_search) do
+  defp scan_settings(mode, max_scan_tuples, ef_search) do
+    :ok = validate_scan_config!(mode, max_scan_tuples)
+    apply_scan_settings(mode, max_scan_tuples, ef_search)
+  end
+
+  defp apply_scan_settings(:off, _max_scan_tuples, ef_search) do
     Repo.query!("SELECT set_config('hnsw.ef_search', $1, true)", [ef_search])
   end
 
-  defp scan_settings(mode, max_scan_tuples, ef_search)
-       when mode in @iterative_scan_modes and is_integer(max_scan_tuples) and
-              max_scan_tuples > 0 do
+  defp apply_scan_settings(mode, max_scan_tuples, ef_search) do
     Repo.query!(
       """
       SELECT set_config('hnsw.ef_search', $1, true),
@@ -153,7 +156,25 @@ defmodule Knowseek.Search do
     )
   end
 
-  defp scan_settings(mode, max_scan_tuples, _ef_search) do
+  @doc false
+  # Raises when the `:iterative_scan` or `:max_scan_tuples` config of this
+  # module is invalid. `Knowseek.Application` calls it once at boot, so that a
+  # typo stops the start instead of failing every search; every search checks
+  # again through the same function.
+  @spec validate_config!() :: :ok
+  def validate_config!,
+    do: validate_scan_config!(config(:iterative_scan), config(:max_scan_tuples))
+
+  @doc false
+  @spec validate_scan_config!(term(), term()) :: :ok
+  def validate_scan_config!(:off, _max_scan_tuples), do: :ok
+
+  def validate_scan_config!(mode, max_scan_tuples)
+      when mode in @iterative_scan_modes and is_integer(max_scan_tuples) and
+             max_scan_tuples > 0,
+      do: :ok
+
+  def validate_scan_config!(mode, max_scan_tuples) do
     raise ArgumentError,
           "invalid Knowseek.Search config: iterative_scan must be one of " <>
             "#{inspect(@iterative_scan_modes)} and max_scan_tuples a positive integer, " <>

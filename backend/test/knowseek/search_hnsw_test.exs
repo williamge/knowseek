@@ -28,7 +28,6 @@ defmodule Knowseek.SearchHnswTest do
 
   alias Knowseek.{Documents, Repo, Search}
   alias Knowseek.Documents.Document
-  alias Knowseek.Search.Hit
 
   @moduletag :hnsw_guard
 
@@ -36,7 +35,16 @@ defmodule Knowseek.SearchHnswTest do
   # query); the live match has 16 of the 24.
   @base ~w(amber basalt cobalt dune ember fjord glacier harbor island jasper kelp lagoon
            meadow nebula oasis prairie quartz reef summit tundra umber valley willow xenon)
-  @live_words Enum.take(@base, 16) ++ ~w(copper delta flint garnet heron ivory lichen marble)
+  # Three live documents that share 20, 16 and 13 of the query's 24 words (the
+  # rest are words of their own), so their similarities differ: about 0.83,
+  # 0.67 and 0.54, all above the relevance floor (`min_similarity` 0.5). They
+  # share too few words for the full-text search to match (that needs all 24),
+  # so only the vector search finds them, and its order is their order.
+  @live [
+    {"near", 20, ~w(copper delta flint garnet)},
+    {"middle", 16, ~w(copper delta flint garnet heron ivory lichen marble)},
+    {"far", 13, ~w(copper delta flint garnet heron ivory lichen marble opal pearl quill rust)}
+  ]
   @query Enum.join(@base, " ")
 
   # One body is 20 paragraphs of about 900 characters: the chunker packs
@@ -59,10 +67,7 @@ defmodule Knowseek.SearchHnswTest do
         parameters: [enable_indexscan: "on", enable_seqscan: "off", lock_timeout: "15s"]
       )
 
-    on_exit(fn ->
-      sql!(config, "TRUNCATE chunks, documents CASCADE")
-      sql!(config, "ALTER TABLE chunks RESET (autovacuum_enabled)")
-    end)
+    on_exit(fn -> cleanup!(config) end)
 
     sql!(config, "ALTER TABLE chunks SET (autovacuum_enabled = false)")
     sql!(config, "TRUNCATE chunks, documents CASCADE")
@@ -76,38 +81,52 @@ defmodule Knowseek.SearchHnswTest do
     :ok
   end
 
-  test "a scan crowded by dead look-alikes returns nothing without iterative scan, the live match with it" do
+  test "a scan crowded by dead look-alikes returns nothing without iterative scan, the live documents in order with it" do
     live = ingest_live_documents()
     churn_then_delete_document()
 
-    assert Repo.aggregate(Document, :count) == 21
+    assert Repo.aggregate(Document, :count) == 23
     assert uses_hnsw_index?()
+    expected = Enum.map(live, & &1.id)
 
     # The exact answer: what the vector query returns with the index off.
-    assert [%Hit{document_id: id} = exact] = search(iterative_scan: :off, exact: true)
-    assert id == live.id
-    assert exact.similarity >= 0.5
+    exact = search(iterative_scan: :off, exact: true)
+    assert Enum.map(exact, & &1.document_id) == expected
+    assert Enum.map(exact, & &1.semantic_rank) == [1, 2, 3]
+    assert exact |> Enum.map(& &1.similarity) |> Enum.all?(&(&1 >= 0.5))
+    similarities = Enum.map(exact, & &1.similarity)
+    assert similarities == Enum.sort(similarities, :desc)
+    assert length(Enum.uniq(similarities)) == 3
 
-    # The problem: 820 dead entries nearer than the live chunk fill the scan.
+    # The problem: 520 dead entries nearer than the live chunks fill the scan.
+    # This and the next assertion document pgvector's behaviour: if a later
+    # pgvector walks past dead entries by itself, the first one fails, and the
+    # iterative scan is no longer needed (ADR 0024).
     assert search(iterative_scan: :off) == []
 
-    # The fix: the iterative scan walks past the dead entries to the live chunk.
-    assert [%Hit{document_id: ^id} = hit] = search(iterative_scan: :strict_order)
-    assert hit.semantic_rank == 1
-    assert hit.keyword_rank == nil
-    assert_in_delta hit.similarity, exact.similarity, 1.0e-6
+    # The fix: the iterative scan walks past the dead entries, and strict_order
+    # returns the rows in the exact scan's order (RRF ranks by position).
+    for hits <- [search(iterative_scan: :strict_order), search([])] do
+      assert Enum.map(hits, & &1.document_id) == expected
+      assert Enum.map(hits, & &1.semantic_rank) == [1, 2, 3]
+      assert Enum.all?(hits, &(&1.keyword_rank == nil))
 
-    # The default configuration is the fix.
-    assert [%Hit{document_id: ^id}] = search([])
+      for {hit, exact_hit} <- Enum.zip(hits, exact),
+          do: assert_in_delta(hit.similarity, exact_hit.similarity, 1.0e-6)
+    end
   end
 
-  # The live match: 16 of the query's 24 words, so its similarity is about
-  # 0.67, above the relevance floor. It shares too few words for the
-  # full-text search to match (that needs all 24), so only the vector search
-  # can find it. Twenty unrelated documents are live too.
+  # The live documents of `@live`, best match first, and twenty unrelated ones.
   defp ingest_live_documents do
-    {:ok, match} =
-      Documents.ingest(%{url: "https://hnsw.test/live", source: "hnsw", body: body(@live_words)})
+    live =
+      for {name, shared, own} <- @live do
+        words = Enum.take(@base, shared) ++ Enum.take(own, 24 - shared)
+
+        {:ok, document} =
+          Documents.ingest(%{url: "https://hnsw.test/#{name}", source: "hnsw", body: body(words)})
+
+        document
+      end
 
     for n <- 1..20 do
       words = for i <- 1..24, do: "filler#{n}x#{i}"
@@ -116,7 +135,7 @@ defmodule Knowseek.SearchHnswTest do
         Documents.ingest(%{url: "https://hnsw.test/f#{n}", source: "hnsw", body: body(words)})
     end
 
-    match
+    live
   end
 
   # Every re-ingest replaces the chunks (the old ones stay in the index as
@@ -191,6 +210,34 @@ defmodule Knowseek.SearchHnswTest do
       end)
     after
       Application.put_env(:knowseek, Search, env)
+    end
+  end
+
+  # Both steps always run, even when the first raises (a lock timeout, a dead
+  # connection): leaving autovacuum off for `chunks` is the worse leftover. The
+  # first error is raised after both. A run that is killed before this runs
+  # (Ctrl-C, a CI timeout) leaves its rows and the autovacuum setting behind: run
+  # the guard again, or `TRUNCATE chunks, documents CASCADE` and
+  # `ALTER TABLE chunks RESET (autovacuum_enabled)` in the test database.
+  defp cleanup!(config) do
+    errors =
+      for statement <- [
+            "ALTER TABLE chunks RESET (autovacuum_enabled)",
+            "TRUNCATE chunks, documents CASCADE"
+          ],
+          reduce: [] do
+        errors ->
+          try do
+            sql!(config, statement)
+            errors
+          rescue
+            error -> [error | errors]
+          end
+      end
+
+    case Enum.reverse(errors) do
+      [] -> :ok
+      [first | _] -> raise first
     end
   end
 
