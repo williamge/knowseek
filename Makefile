@@ -75,8 +75,7 @@ check-shell: ## ShellCheck scripts/ (needs shellcheck; skipped with a note when 
 	@if command -v shellcheck >/dev/null; then shellcheck scripts/*; else echo "check-shell: shellcheck not installed (brew install shellcheck), skipped. CI runs it."; fi
 
 check-security: ## Dependency and static security scans: hex.audit, deps.audit, sobelow, npm audit (needs the network; not part of check; CI runs it)
-	cd backend && mix hex.audit && mix deps.audit --ignore-file .mix-audit-ignore && mix sobelow --config
-	cd frontend && npm audit --omit=dev --audit-level=high
+	@scripts/check-security
 
 check-secrets: ## Scan the whole git history for secrets with gitleaks (needs Docker; not part of check; CI runs it)
 	@scripts/check-secrets

@@ -76,3 +76,4 @@ report a table of finding, fixed or declined (with a reason), and the CI result.
 - After EVERY subagent returns, run `git status --short` in the main checkout (what `scripts/assert-main-clean` does from a worktree) before you report success. It must print nothing.
 - Restart the owner's dev servers after merges.
 - After merges that change compose or Makefile start behaviour, check `docker ps` and restart the owner's `knowseek-start` service if needed.
+- Check open issues labelled `security-audit` (the daily audit's alert; `gh issue list --label security-audit`) and open Dependabot PRs (`gh pr list --author app/dependabot`).
