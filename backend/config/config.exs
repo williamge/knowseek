@@ -36,6 +36,14 @@ config :knowseek, Knowseek.Embeddings,
 # `candidate_factor`: each ranked list fetches `limit * candidate_factor`
 # chunks, so grouping them by document still fills `limit` hits.
 # `max_passages`: the most extra chunks a hit carries in `passages`.
+# `iterative_scan` and `max_scan_tuples`: the HNSW scan of the vector query
+# keeps walking the graph when dead entries (chunks deleted or replaced, not
+# yet vacuumed) leave it short of rows (ADR 0024). `iterative_scan` is
+# `:strict_order` (rows in exact order) or `:off`; `:off` sets nothing, and is
+# the only value that works on pgvector older than 0.8 (the application does
+# not start on an older one otherwise, and not on an invalid value).
+# `max_scan_tuples` caps how many index entries one query visits (pgvector's
+# default).
 # `prior_weight` and `prior_saturation_views`: the document prior (ADR 0018).
 # A document's score is multiplied by 1 + prior_weight * min(1,
 # log10(1 + views) / log10(1 + prior_saturation_views)), at most +30% by
@@ -43,6 +51,8 @@ config :knowseek, Knowseek.Embeddings,
 config :knowseek, Knowseek.Search,
   default_limit: 10,
   candidate_factor: 40,
+  iterative_scan: :strict_order,
+  max_scan_tuples: 20_000,
   max_passages: 3,
   min_similarity: 0.5,
   min_strong_hits: 3,
