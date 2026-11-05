@@ -23,7 +23,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [004](004-feed-source.md) | RSS/Atom feed source | none |
 | [005](005-freshness-aware-coverage.md) | Freshness-aware coverage | none |
 | [006](006-discovery-status-for-callers.md) | Tell callers when discovery finishes | none |
-| [007](007-query-planning.md) | LLM query planning for sources | 002 or 003 |
+| [007](007-query-planning.md) | LLM query planning for sources (done, [ADR 0025](../decisions/0025-query-planning.md)) | 002 or 003 |
 | [008](008-answer-synthesis.md) | Answer synthesis with citations | 001 |
 | [009](009-users-and-api-keys.md) | Users and API keys (parked) | none |
 | [010](010-observability.md) | Telemetry and job dashboard (parked) | none |
@@ -60,6 +60,7 @@ Status lives only in each task file, so parallel branches do not conflict on thi
 | [041](041-card-by-entity-id.md) | Ask for the card of a chosen entity (a card by entity id, so that alternatives with one label are reachable) | 033 |
 | [043](043-smarter-weather-queries.md) | Smarter weather queries (design session) | 034, 033 |
 | [044](044-hnsw-recall-after-deletes.md) | Semantic search can lose live chunks to dead HNSW entries (experiment, guard test, iterative scan) | none |
+| [046](046-query-planning-follow-ups.md) | Query planning follow-ups: plan in the UI, planned queries in the search, compose, source language | 007 |
 | [047](047-dependency-automation.md) | Daily Dependabot for mix and npm, and a daily audit that keeps one `security-audit` issue | none |
 | [048](048-local-first-shared-index.md) | Local-first instances that share what they find (design agenda, not decided) | none |
 

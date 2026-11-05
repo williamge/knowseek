@@ -24,6 +24,16 @@ defmodule KnowseekWeb.Router do
     # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
+    # The planner playground (ADR 0025) calls Ollama in the request path
+    # (AGENTS.md rule 6) and has no authentication or rate limit: it is mounted
+    # only in dev, where the endpoint listens on the loopback interface.
+    scope "/api/planner", KnowseekWeb do
+      pipe_through :api
+
+      get "/models", PlannerPlaygroundController, :models
+      post "/preview", PlannerPlaygroundController, :preview
+    end
+
     scope "/dev" do
       pipe_through [:fetch_session, :protect_from_forgery]
 

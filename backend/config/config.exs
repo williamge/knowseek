@@ -61,7 +61,25 @@ config :knowseek, Knowseek.Search,
   prior_saturation_views: 1_000_000
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
-config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
+config :knowseek, Knowseek.Discovery,
+  sources: [Knowseek.Discovery.Sources.Wikipedia],
+  max_candidates: 12
+
+# Query planning (task 007, ADR 0025). The planner turns a query into a few
+# search queries inside the discovery job. `adapter` implements
+# Knowseek.Discovery.Planner: Passthrough (the default, plans nothing) or
+# Ollama (a local LLM; opt in with PLANNER_ADAPTER=ollama, see config/runtime.exs
+# and scripts/ensure-ollama). `max_planned` queries are added to the original,
+# each at most `max_query_length` characters.
+config :knowseek, Knowseek.Discovery.Planner,
+  adapter: Knowseek.Discovery.Planner.Passthrough,
+  max_planned: 3,
+  max_query_length: 100
+
+config :knowseek, Knowseek.Discovery.Planner.Ollama,
+  base_url: "http://localhost:11434",
+  model: "qwen3:1.7b",
+  timeout: 15_000
 
 # Entity resolution (ADR 0017, task 030). `resolver` implements
 # Knowseek.Entities.Resolver. `ttl`, `backoff` and `timeout` (milliseconds)

@@ -34,9 +34,10 @@ db-down: ## Stop Postgres and the app container (data is kept in a Docker volume
 db-reset: db-up ollama ## Drop and recreate this workspace's dev database
 	$(LOAD_ENV); cd backend && mix ecto.reset
 
-# The defaults match Knowseek.Embeddings.Ollama. Does nothing for other adapters.
+# The defaults match Knowseek.Embeddings.Ollama. Also pulls $OLLAMA_CHAT_MODEL when
+# PLANNER_ADAPTER=ollama (ADR 0025). Does nothing when neither adapter is ollama.
 # Runs after db-up in dev, iex, start, and setup. Not part of test or check.
-ollama: ## Check that Ollama runs and pull $OLLAMA_MODEL (skipped if EMBEDDINGS_ADAPTER is not ollama)
+ollama: ## Check that Ollama runs and pull $OLLAMA_MODEL, and $OLLAMA_CHAT_MODEL if PLANNER_ADAPTER=ollama (skipped if neither adapter is ollama)
 	@$(LOAD_ENV); scripts/ensure-ollama
 
 start: db-up ollama ## Run the API and the web UI together in one terminal (Ctrl-C stops both)

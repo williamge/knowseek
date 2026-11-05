@@ -1,4 +1,11 @@
-import type { CardResponse, DocumentSummary, KnowseekDocument, SearchResult } from "./types";
+import type {
+  CardResponse,
+  DocumentSummary,
+  KnowseekDocument,
+  PlannerModels,
+  PlannerPreview,
+  SearchResult,
+} from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -86,4 +93,15 @@ export const api = {
   /** Cache-only on the server: it never waits for an upstream. Poll it. */
   getCard: (query: string, signal?: AbortSignal) =>
     request<CardResponse>(`/cards?q=${encodeURIComponent(query)}`, { signal }),
+
+  /** Dev only: the planner playground exists only in the dev backend (ADR 0025). */
+  plannerModels: (signal?: AbortSignal) => request<PlannerModels>("/planner/models", { signal }),
+
+  /** Dev only. Runs the models one after another on the server; call it once per model. */
+  plannerPreview: (query: string, models: string[], signal?: AbortSignal) =>
+    request<PlannerPreview>("/planner/preview", {
+      method: "POST",
+      body: JSON.stringify({ query, models, source: true }),
+      signal,
+    }),
 };

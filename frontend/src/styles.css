@@ -808,3 +808,235 @@ kbd {
     transition: none !important;
   }
 }
+
+/* Planner playground (dev only, ADR 0025) */
+
+.planner__link {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.hero .planner__link {
+  margin: 2rem auto 0;
+  display: block;
+  text-align: center;
+}
+
+.planner__title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.planner {
+  max-width: 1080px;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.planner__intro,
+.planner__muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.planner__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.planner__field {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.planner__field textarea {
+  resize: vertical;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-weight: 400;
+}
+
+.planner__models {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.6rem 1rem 0.9rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.planner__models legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 0.4rem;
+}
+
+.planner__model {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.planner__warning {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  color: var(--partial);
+  background: var(--partial-soft);
+  font-size: 0.85rem;
+}
+
+.planner__error {
+  margin: 0.3rem 0 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.planner__actions,
+.planner__copy {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.planner__run {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.45rem 1.4rem;
+  font-weight: 600;
+}
+
+.planner__run:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.planner__examples summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.planner__examples ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.7rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.planner__results {
+  display: grid;
+  gap: 1rem;
+}
+
+.planner__query {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.planner__card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.25rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.planner__card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.planner__card-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.planner__meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.planner__meta strong {
+  color: var(--ink);
+}
+
+.planner__plan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.planner__plan .chip {
+  cursor: default;
+}
+
+.planner__plan .chip:hover {
+  border-color: var(--line);
+  color: inherit;
+}
+
+.chip--original {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.planner__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .planner__columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.planner__columns h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.planner__titles {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.95rem;
+}
+
+.planner__manual {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.6rem;
+}

@@ -72,6 +72,35 @@ if config_env() != :test do
       raise "unknown EMBEDDINGS_ADAPTER #{inspect(other)}; use hashing, ollama, or voyage"
   end
 
+  # Query planning (task 007, ADR 0025). PLANNER_ADAPTER selects the planner:
+  #   * passthrough - searches the user's query as it is (the default in
+  #                   config.exs; nothing to install)
+  #   * ollama      - a local chat model through Ollama turns the query into
+  #                   a few search queries inside the discovery job. The model
+  #                   (OLLAMA_CHAT_MODEL, default qwen3:1.7b in config.exs) is
+  #                   a download of about 2 GB, which `scripts/ensure-ollama`
+  #                   pulls. OLLAMA_URL is shared with the embeddings.
+  # A planner that fails never fails discovery (it searches the original
+  # query), so a missing model costs only the enhancement.
+  config :knowseek,
+         Knowseek.Discovery.Planner.Ollama,
+         set.(base_url: env.("OLLAMA_URL"), model: env.("OLLAMA_CHAT_MODEL"))
+
+  case env.("PLANNER_ADAPTER") do
+    nil ->
+      :ok
+
+    "passthrough" ->
+      config :knowseek, Knowseek.Discovery.Planner,
+        adapter: Knowseek.Discovery.Planner.Passthrough
+
+    "ollama" ->
+      config :knowseek, Knowseek.Discovery.Planner, adapter: Knowseek.Discovery.Planner.Ollama
+
+    other ->
+      raise "unknown PLANNER_ADAPTER #{inspect(other)}; use passthrough or ollama"
+  end
+
   # Company cards (task 032, ADR 0021). The SEC asks for a User-Agent with a
   # name and a contact address: SEC_USER_AGENT, for example
   # "My Company admin@example.com". Unset: the default in config.exs.

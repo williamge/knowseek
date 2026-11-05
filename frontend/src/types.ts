@@ -206,3 +206,73 @@ export interface CardResponse {
   /** When to ask again, in milliseconds. */
   refresh_after_ms: number;
 }
+
+/**
+ * The planner playground (dev only, ADR 0025): `GET /api/planner/models` and
+ * `POST /api/planner/preview`. These routes exist only in the dev backend.
+ */
+export interface PlannerModel {
+  name: string;
+  size_bytes: number;
+  /** For example "3.1B". */
+  parameter_size: string | null;
+  /** The model `OLLAMA_CHAT_MODEL` names. */
+  default: boolean;
+  /** In Ollama's memory now. */
+  loaded: boolean;
+}
+
+export interface PlannerModels {
+  /** Chat models only, smallest first. Embedding models are left out. */
+  models: PlannerModel[];
+  default: string;
+  /** Names of the chat models in memory now. */
+  loaded: string[];
+  /** Set when more than one chat model is in memory. */
+  warning: string | null;
+}
+
+/**
+ * `fallback`: the planner failed and only the query as typed is searched
+ * (`detail` says why). `timeout` and `error`: the call did not finish.
+ */
+export type PlannerStatus = "ok" | "passthrough" | "fallback" | "timeout" | "error";
+
+export interface PlannerSearch {
+  query: string;
+  /** The top 3 titles of Wikipedia's search. */
+  titles: string[];
+  error: string | null;
+}
+
+export interface PlannerSourceResult {
+  literal: { titles: string[]; error: string | null };
+  /** One entry per planned query (the query as typed is `literal`). */
+  searches: PlannerSearch[];
+  /** Titles that only the planned queries found. */
+  only_planned: string[];
+  wiki_ms: number;
+}
+
+export interface PlannerModelResult {
+  model: string;
+  status: PlannerStatus;
+  detail: string | null;
+  /** The model was already in memory; `null` when Ollama did not say. */
+  warm: boolean | null;
+  /** The server unloaded the model from Ollama's memory after its call. */
+  unloaded: boolean;
+  plan_ms: number;
+  /** The query as typed first, then the planned queries. */
+  queries: string[];
+  /** Null when the request had `source: false`. */
+  source: PlannerSourceResult | null;
+}
+
+export interface PlannerPreview {
+  query: string;
+  literal: { titles: string[]; error: string | null; ms: number } | null;
+  /** Set when several models run in one request. */
+  warning: string | null;
+  results: PlannerModelResult[];
+}

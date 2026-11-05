@@ -14,7 +14,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 
 - Ingest documents into a Postgres + pgvector index (chunked and embedded).
 - Hybrid search (full-text + vector) with a coverage assessment.
-- Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles.
+- Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles. Opt in to query planning (`PLANNER_ADAPTER=ollama`) and a small local model first turns the query into a few focused search queries; the original query is always searched too.
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
 - A web UI (`frontend/`) searches and shows results as discovery adds them.
 
@@ -31,6 +31,8 @@ make check   # what CI runs
 ```
 
 The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`, `make iex`, and `make start` run `scripts/ensure-ollama` first. It prints a short status line when all is well, and the fix when Ollama is missing or stopped. There is no silent fallback: if Ollama is down while the server runs, search and ingest return an error (HTTP 503 from the API), and a discovery job whose documents all fail to ingest is retried by Oban. `make worktree` gives task worktrees `EMBEDDINGS_ADAPTER=hashing` in `.env` unless it is already set.
+
+Query planning is off by default (`PLANNER_ADAPTER=passthrough`: the query is searched as typed). To opt in, set `PLANNER_ADAPTER=ollama` in `.env`: `make setup`, `make dev`, `make iex`, `make start`, and `make ollama` then also pull the chat model (`qwen3:1.7b`, Apache-2.0, a download of about 1.4 GB; change it with `OLLAMA_CHAT_MODEL`) and load it. The model runs inside the discovery job, never in a request. The model, `qwen3:1.7b`, was chosen by the owner after trying it in the playground (ADR 0025); it is a small model and weaker on very short queries. On a 16 GB machine keep the chat model small: a chat model over about 4 GB next to `bge-m3` can push Ollama to evict `bge-m3` and make search return 503. To try models and compare their plans, use the dev-only planner playground: the page `/planner` of the web UI (`make web`) and `GET /api/planner/models` and `POST /api/planner/preview` of the API, which exist only in the dev environment, are unauthenticated, call Ollama in the request path, and write nothing. Its answer only ever adds search queries: the original query is always searched first, and a planner that fails (Ollama stopped, model missing, timeout, bad answer) never fails the job, which falls back to the original query and logs a warning. See [ADR 0025](docs/decisions/0025-query-planning.md) for the model evaluation and what planning changed for real queries.
 
 To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents (task 017).
 
@@ -90,12 +92,16 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 | `EMBEDDINGS_ADAPTER` | no | `ollama` | `hashing`, `voyage` |
 | `OLLAMA_URL` | no | `http://localhost:11434`; compose reads `APP_OLLAMA_URL`, default `http://host.docker.internal:11434` | `http://host.docker.internal:11434` |
 | `OLLAMA_MODEL` | no | `bge-m3` | `bge-m3` |
+| `PLANNER_ADAPTER` | no | `passthrough` | `ollama` |
+| `OLLAMA_CHAT_MODEL` | with `PLANNER_ADAPTER=ollama` | `qwen3:1.7b` | `qwen3:1.7b` |
 | `VOYAGE_API_KEY` | with `voyage` | none | `pa-...` |
 | `VOYAGE_MODEL` | no | `voyage-3.5` | `voyage-3.5` |
 | `TRUSTED_PROXIES` | no | none: `X-Forwarded-For` is ignored | `10.0.0.0/8,fd00::/8` |
 | `SEC_USER_AGENT` | no | `Knowseek/0.1 (self-hosted instance)` | `My Company admin@example.com` |
 
 `SEC_USER_AGENT` is the User-Agent of the company card's requests to `data.sec.gov`. The SEC asks every automated user to say who it is (a name and a contact address) and blocks undeclared tools with HTTP 403; the default is accepted today, but a deployment that serves other people should set its own. With a block the company cards go `stale` or `unavailable` and the log says so once. No key and no account are needed.
+
+`PLANNER_ADAPTER` and `OLLAMA_CHAT_MODEL` are not forwarded by compose yet, so the container plans nothing (a follow-up, see [task 046](docs/tasks/046-query-planning-follow-ups.md)). `OLLAMA_URL` is shared with the embeddings.
 
 `TRUSTED_PROXIES` is also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod_<workspace>`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
 
