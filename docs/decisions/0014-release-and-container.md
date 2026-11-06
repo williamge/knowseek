@@ -3,6 +3,8 @@
 - Status: Accepted
 - Date: 2026-10-30
 
+> Update (2026-11-05): `KNOWSEEK_WORKSPACE` was removed (see [0005](0005-per-workspace-databases.md)). The app container's database is `knowseek_prod` (or `APP_DB_NAME`) and its image is `knowseek-app:local`; the per-workspace text below is history.
+
 ## Context
 
 The API only ran through `mix phx.server` on a developer machine. Deployment

@@ -25,6 +25,6 @@ Task 006 replaces it with a status endpoint or push.
 ## Consequences
 
 - The backend stays API only. UI work and backend work do not conflict.
-- The UI has no production serving story yet. See `docs/tasks/018-serve-frontend-in-production.md`.
+- The UI has no production serving story yet. See task 018 (parked; file removed, see git history).
 - Polling adds a small amount of load, and each re-search can enqueue discovery again (deduplicated for one hour by Oban).
 - `frontend/src/types.ts` duplicates the API shapes by hand until task 013 (OpenAPI) generates them.

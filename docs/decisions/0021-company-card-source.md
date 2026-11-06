@@ -5,7 +5,7 @@
 
 Related: [0017](0017-live-fact-cards.md) (live fact cards; decision 3 listed a
 Yahoo-style chart endpoint for companies), tasks
-[032](../tasks/032-company-card.md) and [040](../tasks/040-company-price-card.md).
+032 (done; file removed, see git history) and 040 (parked; file removed, see git history).
 
 ## Context
 

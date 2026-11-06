@@ -5,6 +5,8 @@
 - Status: Accepted
 - Date: 2026-10-30
 
+> Update (2026-11-05): Conductor and per-workspace setups are no longer used; "every local Conductor workspace" below now means the one local checkout.
+
 ## Context
 
 The hashing stand-in (ADR 0004) matches words, not meaning. We need a real

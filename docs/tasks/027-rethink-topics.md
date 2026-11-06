@@ -6,7 +6,7 @@
 
 The questions about following (purpose, audience, notification, cadence,
 failures, unit of following) now live in
-[028](028-live-facts-for-entities.md). Decide them there, in the session.
+028 (done; file removed, see git history). Decide them there, in the session.
 
 ## What the removed version did
 

@@ -2,11 +2,11 @@
 
 - Status: open
 - Area: `Knowseek.Discovery`
-- Depends on: 002 or 003 (needs at least one real source)
+- Depends on: none
 
-Note: for entity queries its job (turning a query into something searchable) overlaps entity resolution in [028](028-live-facts-for-entities.md). Decide after 028 whether 007 is still needed and for what.
+Note: for entity queries its job (turning a query into something searchable) overlaps entity resolution in 028 (done; file removed, see git history). Decide after 028 whether 007 is still needed and for what.
 
-Note: [ADR 0017](../decisions/0017-live-fact-cards.md) chose Wikidata for entity identity and a plain intent/place splitter (task [030](030-entity-resolution.md)). An LLM intent step stays an open alternative.
+Note: [ADR 0017](../decisions/0017-live-fact-cards.md) chose Wikidata for entity identity and a plain intent/place splitter (task 030 (done; file removed, see git history)). An LLM intent step stays an open alternative.
 
 ## Goal
 

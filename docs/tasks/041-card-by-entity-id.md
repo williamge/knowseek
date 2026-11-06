@@ -2,7 +2,7 @@
 
 - Status: open
 - Area: `KnowseekWeb.CardController`, `Knowseek.Entities`, web (`useCard`, router, `FactCard`)
-- Depends on: 033
+- Depends on: none
 
 ## Goal
 
@@ -10,7 +10,7 @@ Let the reader pick another entity of the query, and get its card, even when it 
 
 ## Why
 
-The "also:" chips re-search the label of an alternative (`weather in New York City`). An alternative with the same label as the top entity (Springfield, Illinois, Massachusetts and Missouri; Cambridge in England and in Massachusetts; Georgia the state and the country) cannot be reached that way: the endpoint drops it (`same_label?`), and a re-search would resolve the same top entity. Found in the review of [033](033-weather-card.md).
+The "also:" chips re-search the label of an alternative (`weather in New York City`). An alternative with the same label as the top entity (Springfield, Illinois, Massachusetts and Missouri; Cambridge in England and in Massachusetts; Georgia the state and the country) cannot be reached that way: the endpoint drops it (`same_label?`), and a re-search would resolve the same top entity. Found in the review of 033 (done; file removed, see git history).
 
 ## Scope
 

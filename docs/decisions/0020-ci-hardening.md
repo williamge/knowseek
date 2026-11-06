@@ -7,7 +7,7 @@ Extends [0010](0010-worktrees-and-pull-requests.md) (CI on every pull request).
 
 ## Context
 
-The repository is public. CI ran the tests and the build, and nothing else: no scan of dependencies, no secret scan, no proof that a migration works on a database that is not empty, and no check that the backlog and the ADR index agree with the files. Several of these checks need the network (advisory databases), which tests must never do. See `docs/tasks/037-ci-hardening.md`.
+The repository is public. CI ran the tests and the build, and nothing else: no scan of dependencies, no secret scan, no proof that a migration works on a database that is not empty, and no check that the backlog and the ADR index agree with the files. Several of these checks need the network (advisory databases), which tests must never do. See task 037 (done; file removed, see git history).
 
 ## Decision
 

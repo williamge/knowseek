@@ -2,22 +2,14 @@ import Config
 
 # Configure your database
 #
-# Each workspace (a git worktree, or a Conductor workspace) gets its own
-# database so parallel agents do not collide. Name it with KNOWSEEK_WORKSPACE;
-# CONDUCTOR_WORKSPACE_NAME is the fallback. Postgres itself runs from the
-# repo-root docker-compose.yml.
-db_suffix =
-  case System.get_env("KNOWSEEK_WORKSPACE") || System.get_env("CONDUCTOR_WORKSPACE_NAME") do
-    nil -> ""
-    name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
-  end
+# Postgres runs from the repo-root docker-compose.yml.
 
 config :knowseek, Knowseek.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
   hostname: System.get_env("PGHOST", "localhost"),
   port: String.to_integer(System.get_env("PGPORT", "5432")),
-  database: "knowseek_dev#{db_suffix}",
+  database: "knowseek_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

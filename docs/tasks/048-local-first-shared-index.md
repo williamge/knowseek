@@ -81,7 +81,7 @@ What follows from the split:
 - **Identity is a keypair per instance, and records are signed with it.**
   That replaces user accounts as the first security piece for sharing: a
   peer is known by its public key, not by a login. Task
-  [009](009-users-and-api-keys.md) (users and API keys) is not changed by
+  009 (parked; file removed, see git history) (users and API keys) is not changed by
   this file; it stays parked and still covers access to one instance's API.
 - **Pull-based following of paired peers.** An instance fetches the logs of
   the peers its owner paired with (decision 1), from the point it last read.
@@ -102,7 +102,7 @@ These were made for the own-devices goal and still hold for that case.
    public service.
 2. **Hosting is not a goal now.** Free public hosting was judged a poor fit: the
    service has no authentication yet (task
-   [009](009-users-and-api-keys.md) is parked), it needs an always-on host, and
+   009 (parked; file removed, see git history)), it needs an always-on host, and
    free database tiers are small.
 3. **Scope cut: nodes are desktops and laptops, and maybe servers.** A server
    node is not essential. **Phones are out of scope.** The fallback for a
@@ -188,7 +188,7 @@ laptop, 43 Wikipedia articles, 993 chunks). **`docs/DATA-AND-JOBS.md` is not on
   1,000 documents (about 23,000 chunks) is about 27 minutes, one node at a
   time. The embedding is the throughput limit of any sync that recomputes.
 - Postgres uses the HNSW index only above roughly **25,000 to 27,500**
-  real-vector chunks (task [044](044-hnsw-recall-after-deletes.md), the
+  real-vector chunks (task 044 (done; file removed, see git history), the
   planner experiment; `docs/ARCHITECTURE.md` "Vector index health"). Below it
   the vector query is already an exact scan. `[INFERENCE]`: at 23.1 chunks per
   article that is about 1,100 to 1,200 articles, and about 450 MB at 18 KB per
@@ -217,7 +217,7 @@ the own-devices case and is kept as it was.
 
 | | What it is | For | Against |
 | --- | --- | --- | --- |
-| **A. One host, thin clients** | One node runs the whole stack. Other devices open its web UI or call its API over a LAN or a private VPN. | Nothing to sync, one index, no new code for the index. The only way a phone can take part (scope cut). | The host must be on, and a laptop away from the network has no search. Not local-first for the thin devices. There is no authentication (task [009](009-users-and-api-keys.md) parked), so it must stay on a private network. The web UI is not served by the release yet (task [018](018-serve-frontend-in-production.md) parked; `docs/ARCHITECTURE.md` "Deployment"). Behind a proxy the rate limit needs `TRUSTED_PROXIES` (ADR [0023](../decisions/0023-rate-limiting-anonymous-endpoints.md)). |
+| **A. One host, thin clients** | One node runs the whole stack. Other devices open its web UI or call its API over a LAN or a private VPN. | Nothing to sync, one index, no new code for the index. The only way a phone can take part (scope cut). | The host must be on, and a laptop away from the network has no search. Not local-first for the thin devices. There is no authentication (task 009, parked; file removed, see git history), so it must stay on a private network. The web UI is not served by the release yet (task 018, parked; file removed, see git history; `docs/ARCHITECTURE.md` "Deployment"). Behind a proxy the rate limit needs `TRUSTED_PROXIES` (ADR [0023](../decisions/0023-rate-limiting-anonymous-endpoints.md)). |
 | **B. Replicated full nodes** | Every node has the full stack and its own database. Nodes exchange documents and import them through `Documents.ingest/1`. | Each node works offline and fast. Reuses the one write path. The transport can be anything. A node that is lost loses nothing the others have. | Every node needs Postgres, the release and Ollama. Eventual consistency, so two nodes can briefly answer differently. Merge rules (question 4), embedding compatibility (question 3), schema skew (question 8). Each node pays the embedding time for imported documents unless it carries vectors. |
 | **C. One shared network database** | Every node runs the Elixir release and Ollama, but all point `DATABASE_URL` (`backend/config/runtime.exs`) at one Postgres. | One real index, no merge logic. The `SeekWorker` uniqueness (one job per normalized query per hour, `unique` in `Discovery.SeekWorker`) lives in `oban_jobs`, so nodes would not repeat each other's discovery within the hour (`[INFERENCE]`: not tried). | It is topology A with extra steps: the database host must be reachable for any node to search, from a laptop on another network too. Postgres exposed beyond localhost needs TLS and real credentials (the runtime config has `ssl: true` commented out). Every search makes several round trips over the network. A laptop on a bad network is slow or down. Caches and rate limits stay per node. The embedding model must still be the same on all nodes, and nothing enforces it. |
 
@@ -491,7 +491,7 @@ two-layer split is taken.
     - *LAN or VPN, instance to instance.* An endpoint that serves the log to
       paired keys only, and a client that pulls from it. Authentication by
       the instance key, not by user accounts (task
-      [009](009-users-and-api-keys.md), unchanged, covers users and API keys
+      009 (parked; file removed, see git history), unchanged, covers users and API keys
       of one instance).
     - *Over the internet between homes.* An instance behind a home router is
       usually not reachable (`[INFERENCE]`). A VPN both join, a shared
@@ -1077,7 +1077,7 @@ private-document filtering.
 - Phones: no phone app, no phone-side index. A phone uses a node's web UI
   over a private network (topology A).
 - A hosted public service, and free or paid hosting for one.
-- Accounts and API keys (task [009](009-users-and-api-keys.md), not changed
+- Accounts and API keys (task 009 (parked; file removed, see git history), not changed
   by this file).
 - Designing open sharing with strangers and its incentives (listed under
   "Later: open sharing with incentives", not designed).

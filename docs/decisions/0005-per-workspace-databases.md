@@ -1,6 +1,11 @@
 # 0005. One database per Conductor workspace
 
-- Status: Accepted
+- Status: Withdrawn (2026-11-05). There is no separate status value for a withdrawn decision, so this line says it in words.
+
+> Update (2026-11-05): Conductor is no longer used. Per-workspace databases and
+> the `make worktree` workflow were removed: the databases are plain
+> `knowseek_dev` and `knowseek_test` again, in the one Postgres container from
+> `docker compose`. The text below is history.
 - Date: 2026-10-30
 
 ## Context

@@ -2,7 +2,7 @@
 
 - Status: won't do. Topics were removed (task 026, ADR 0015). Following will be redesigned in task 027, so there is nothing left to edit.
 - Area: `Knowseek.Topics`, web
-- Depends on: 020
+- Depends on: none
 
 ## Goal
 

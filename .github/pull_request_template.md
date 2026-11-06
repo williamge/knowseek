@@ -1,6 +1,6 @@
 ## Task
 
-<!-- Link the task file, e.g. docs/tasks/014-one-hit-per-document.md. -->
+<!-- Link the task file, e.g. docs/tasks/006-discovery-status-for-callers.md. -->
 
 ## What changed
 

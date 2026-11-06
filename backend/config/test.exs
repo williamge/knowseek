@@ -5,13 +5,6 @@ import Config
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
-#
-# Each workspace gets its own test database (see config/dev.exs).
-db_suffix =
-  case System.get_env("KNOWSEEK_WORKSPACE") || System.get_env("CONDUCTOR_WORKSPACE_NAME") do
-    nil -> ""
-    name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
-  end
 
 config :knowseek, Knowseek.Repo,
   # Index scans are off, so the vector query in Knowseek.Search is an exact
@@ -26,7 +19,7 @@ config :knowseek, Knowseek.Repo,
   password: System.get_env("PGPASSWORD", "postgres"),
   hostname: System.get_env("PGHOST", "localhost"),
   port: String.to_integer(System.get_env("PGPORT", "5432")),
-  database: "knowseek_test#{db_suffix}#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "knowseek_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 

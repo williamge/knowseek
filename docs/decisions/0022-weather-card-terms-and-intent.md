@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-01
 
-Builds on [0017](0017-live-fact-cards.md) (live fact cards). Task [033](../tasks/033-weather-card.md).
+Builds on [0017](0017-live-fact-cards.md) (live fact cards). Task 033 (done; file removed, see git history).
 
 ## Context
 

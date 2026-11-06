@@ -23,10 +23,10 @@
 # older than it (a rollback cannot jump over a migration), and says so. The
 # migration still runs forward. The reason is required.
 #
-# Database: knowseek_test[_<workspace>]_migcheck, dropped before and after (the
+# Database: knowseek_test_migcheck, dropped before and after (the
 # MIX_TEST_PARTITION suffix `_migcheck` is set here, so the dev and test
 # databases are never touched). Run it through `make check-migration-roundtrip`
-# so .env (KNOWSEEK_WORKSPACE) is loaded and each worktree gets its own database.
+# so .env is loaded.
 #
 # Usage: scripts/check-migration-roundtrip [base-ref]   (default: $BASE or origin/main)
 
