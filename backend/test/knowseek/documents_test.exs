@@ -2,7 +2,7 @@ defmodule Knowseek.DocumentsTest do
   use Knowseek.DataCase, async: true
 
   alias Knowseek.Documents
-  alias Knowseek.Documents.{Chunk, Document, DocumentAlias}
+  alias Knowseek.Documents.{Attribution, Chunk, Document, DocumentAlias}
 
   describe "ingest/1" do
     test "stores the document with embedded chunks" do
@@ -175,6 +175,106 @@ defmodule Knowseek.DocumentsTest do
         })
 
       assert Documents.get_document(original.id).monthly_views == 500
+    end
+  end
+
+  describe "ingest/1 license fields" do
+    @wikipedia %{
+      license: "CC-BY-SA-4.0",
+      attribution: %{url: "https://en.wikipedia.org/wiki/Ada", credit: "Wikipedia", authors: []},
+      modified: true,
+      share: "full"
+    }
+
+    test "a document without them is unknown and not shared" do
+      {:ok, document} = Documents.ingest(%{body: "A note.", source: "manual"})
+
+      assert %Document{
+               license: "LicenseRef-unknown",
+               attribution: nil,
+               modified: false,
+               share: "none"
+             } = Documents.get_document(document.id)
+    end
+
+    test "stores them, keeps them when left out, and updates them for an unchanged body" do
+      attrs = %{url: "https://en.wikipedia.org/wiki/Ada", body: "same body", source: "wikipedia"}
+      {:ok, %Document{id: id}} = Documents.ingest(Map.merge(attrs, @wikipedia))
+
+      assert %Document{
+               license: "CC-BY-SA-4.0",
+               attribution: %Attribution{
+                 url: "https://en.wikipedia.org/wiki/Ada",
+                 credit: "Wikipedia",
+                 authors: []
+               },
+               modified: true,
+               share: "full"
+             } = Documents.get_document(id)
+
+      # Left out, whether the body changed or not: the stored values stay.
+      changed = %{attrs | body: "other body"}
+      {:ok, _} = Documents.ingest(attrs)
+      {:ok, _} = Documents.ingest(changed)
+
+      stored = Documents.get_document(id)
+      assert %Document{license: "CC-BY-SA-4.0", modified: true, share: "full"} = stored
+      assert %Attribution{credit: "Wikipedia"} = stored.attribution
+
+      # Given again with the body unchanged: the fields change, the chunks don't.
+      [chunk] = chunks(stored)
+      other = %{license: "CC0-1.0", attribution: nil, modified: false, share: "pointer"}
+      {:ok, _} = Documents.ingest(Map.merge(changed, other))
+
+      assert %Document{license: "CC0-1.0", attribution: nil, modified: false, share: "pointer"} =
+               Documents.get_document(id)
+
+      assert chunks(stored) == [chunk]
+    end
+
+    test "rejects a nil license, modified or share, and an unknown share" do
+      base = %{url: "https://example.com/l", body: "Body.", source: "test"}
+
+      for {field, value} <- [license: nil, modified: nil, share: nil, share: "some"] do
+        assert {:error, changeset} = Documents.ingest(Map.put(base, field, value))
+        assert %{^field => [_]} = errors_on(changeset)
+      end
+    end
+
+    test "rejects an attribution without a credit" do
+      assert {:error, changeset} =
+               Documents.ingest(%{
+                 body: "Body.",
+                 source: "test",
+                 attribution: %{url: "https://example.com"}
+               })
+
+      assert %{attribution: %{credit: [_]}} = errors_on(changeset)
+    end
+
+    test "a copy of another document's body keeps the original's license fields" do
+      body = long_body("license")
+
+      {:ok, original} =
+        Documents.ingest(
+          Map.merge(
+            %{url: "https://en.wikipedia.org/wiki/Ada", body: body, source: "wikipedia"},
+            @wikipedia
+          )
+        )
+
+      {:ok, _} =
+        Documents.ingest(%{
+          url: "https://mirror.example/ada",
+          body: body,
+          source: "test",
+          license: "LicenseRef-unknown",
+          attribution: nil,
+          share: "none"
+        })
+
+      assert %Document{license: "CC-BY-SA-4.0", share: "full", attribution: %Attribution{}} =
+               Documents.get_document(original.id)
     end
   end
 

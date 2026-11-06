@@ -15,11 +15,18 @@ defmodule Knowseek.Documents.Document do
   Wikipedia, the latest revision timestamp). It is `nil` when the source does
   not say. It is not `published_at` (first published) and not `fetched_at`
   (when Knowseek last saw the content).
+
+  `license`, `attribution`, `modified` and `share` say under which terms the
+  text may be shown and passed on (ADR 0026). `license` is an SPDX id
+  (`CC-BY-SA-4.0`), `attribution` who to credit (`Knowseek.Documents.Attribution`,
+  or `nil`), `modified` whether the text differs from the source's, and
+  `share` what a peer may receive: `full`, `pointer` or `none`. The source sets
+  them at ingest. Unknown is `LicenseRef-unknown`, no attribution, and `none`.
   """
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias Knowseek.Documents.URL
+  alias Knowseek.Documents.{Attribution, URL}
 
   @type t :: %__MODULE__{}
 
@@ -36,11 +43,17 @@ defmodule Knowseek.Documents.Document do
     field :metadata, :map, default: %{}
     field :monthly_views, :integer
     field :source_updated_at, :utc_datetime
+    field :license, :string, default: "LicenseRef-unknown"
+    embeds_one :attribution, Attribution, on_replace: :delete
+    field :modified, :boolean, default: false
+    field :share, :string, default: "none"
 
     has_many :chunks, Knowseek.Documents.Chunk
 
     timestamps(type: :utc_datetime)
   end
+
+  @shares ~w(full pointer none)
 
   @doc """
   Changeset for ingestion. Canonicalizes the `url`, fills in `content_hash`
@@ -58,15 +71,21 @@ defmodule Knowseek.Documents.Document do
       :fetched_at,
       :metadata,
       :monthly_views,
-      :source_updated_at
+      :source_updated_at,
+      :license,
+      :modified,
+      :share
     ])
+    |> cast_embed(:attribution)
     |> validate_number(:monthly_views, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:share, @shares)
+    |> check_constraint(:share, name: :documents_share_check)
     |> validate_required([:body, :source])
     |> update_change(:url, &URL.canonicalize/1)
     |> put_content_hash()
     |> put_default_url()
     |> put_default_fetched_at()
-    |> validate_required([:url, :content_hash, :fetched_at])
+    |> validate_required([:url, :content_hash, :fetched_at, :license, :modified, :share])
     |> unique_constraint(:url)
   end
 

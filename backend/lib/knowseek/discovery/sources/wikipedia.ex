@@ -22,6 +22,11 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   days that have data). It is left out when the API has no figure. See ADR
   0018.
 
+  Each candidate carries the license fields (ADR 0026): `CC-BY-SA-4.0`
+  (Wikipedia text is CC BY-SA 4.0 or GFDL; reusers may pick either), credit
+  "Wikipedia" with a link to the page, `modified: true` (a plain-text extract,
+  maybe cut) and `share: "full"`.
+
   Configuration (all optional):
 
       config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
@@ -144,11 +149,17 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
         nil
 
       body ->
+        url = page["canonicalurl"] || page["fullurl"]
+
         %{
-          url: page["canonicalurl"] || page["fullurl"],
+          url: url,
           title: page["title"],
           body: truncate(body, max_chars),
-          metadata: %{"pageid" => pageid}
+          metadata: %{"pageid" => pageid},
+          license: "CC-BY-SA-4.0",
+          attribution: %{url: url, credit: "Wikipedia", authors: []},
+          modified: true,
+          share: "full"
         }
         |> put_monthly_views(page["pageviews"])
         |> put_source_updated_at(page["revisions"])

@@ -309,7 +309,11 @@ defmodule Knowseek.Search do
                content: c.content,
                published_at: d.published_at,
                fetched_at: d.fetched_at,
-               source_updated_at: d.source_updated_at
+               source_updated_at: d.source_updated_at,
+               license: d.license,
+               attribution: d.attribution,
+               modified: d.modified,
+               share: d.share
              }}
       )
       |> Map.new()

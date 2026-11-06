@@ -3,6 +3,24 @@ defmodule KnowseekWeb.ApiControllerTest do
 
   alias Knowseek.Discovery.SeekWorker
 
+  @wikipedia %{
+    license: "CC-BY-SA-4.0",
+    attribution: %{url: "https://en.wikipedia.org/wiki/Glacier", credit: "Wikipedia"},
+    modified: true,
+    share: "full"
+  }
+  @wikipedia_json %{
+    "license" => "CC-BY-SA-4.0",
+    "attribution" => %{
+      "url" => "https://en.wikipedia.org/wiki/Glacier",
+      "credit" => "Wikipedia",
+      "authors" => []
+    },
+    "modified" => true,
+    "share" => "full"
+  }
+  @license_keys ~w(license attribution modified share)
+
   test "GET /api/health", %{conn: conn} do
     assert %{"status" => "ok", "database" => "ok"} =
              conn |> get(~p"/api/health") |> json_response(200)
@@ -54,6 +72,16 @@ defmodule KnowseekWeb.ApiControllerTest do
         conn |> post(~p"/api/search", query: "glaciers retreat") |> json_response(200)
 
       assert %{"data" => %{"hits" => [%{"source_updated_at" => "2026-10-29T03:01:48Z"}]}} = data
+    end
+
+    test "returns the license fields on hits", %{conn: conn} do
+      document_fixture(Map.merge(%{body: "Glaciers retreat in warm summers."}, @wikipedia))
+
+      data =
+        conn |> post(~p"/api/search", query: "glaciers retreat") |> json_response(200)
+
+      assert %{"data" => %{"hits" => [hit]}} = data
+      assert Map.take(hit, @license_keys) == @wikipedia_json
     end
 
     test "accepts a null max_age_seconds", %{conn: conn} do
@@ -126,6 +154,31 @@ defmodule KnowseekWeb.ApiControllerTest do
 
       assert %{"data" => %{"source_updated_at" => nil}} =
                conn |> get(~p"/api/documents/#{without.id}") |> json_response(200)
+    end
+
+    test "documents carry the license fields, unknown by default", %{conn: conn} do
+      licensed = document_fixture(Map.merge(%{body: "Licensed."}, @wikipedia))
+
+      assert %{"data" => shown} =
+               conn |> get(~p"/api/documents/#{licensed.id}") |> json_response(200)
+
+      assert Map.take(shown, @license_keys) == @wikipedia_json
+
+      assert %{"data" => [listed]} = conn |> get(~p"/api/documents") |> json_response(200)
+      assert Map.take(listed, @license_keys) == @wikipedia_json
+
+      created =
+        conn
+        |> post(~p"/api/documents", document: %{body: "A manual note."})
+        |> json_response(201)
+        |> Map.fetch!("data")
+
+      assert Map.take(created, @license_keys) == %{
+               "license" => "LicenseRef-unknown",
+               "attribution" => nil,
+               "modified" => false,
+               "share" => "none"
+             }
     end
 
     test "POST returns 422 for an invalid document", %{conn: conn} do
