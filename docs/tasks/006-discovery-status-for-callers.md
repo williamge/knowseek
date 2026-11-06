@@ -4,7 +4,7 @@
 - Area: `Knowseek.Lookup`, `Knowseek.Discovery`, web (`frontend/src/lib/useSearch.ts`)
 - Depends on: none
 
-Note: a view-time card may reuse the completion signal of this task (see [028](028-live-facts-for-entities.md), [ADR 0017](../decisions/0017-live-fact-cards.md)).
+Note: a view-time card may reuse the completion signal of this task (see 028 (done; file removed, see git history), [ADR 0017](../decisions/0017-live-fact-cards.md)).
 
 ## Goal
 

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-04
 
-Related: task [044](../tasks/044-hnsw-recall-after-deletes.md) (the experiment
+Related: task 044 (done; file removed, see git history) (the experiment
 and the options),
 [ADR 0011](0011-one-hit-per-document.md) (the candidate budget and
 `hnsw.ef_search`), [ADR 0002](0002-postgres-pgvector.md) (pgvector).

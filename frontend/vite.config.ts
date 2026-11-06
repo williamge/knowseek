@@ -2,9 +2,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The API runs on $CONDUCTOR_PORT (or 4000). The web dev server runs on the
+// The API runs on $API_PORT (or 4000). The web dev server runs on the
 // next port and proxies /api to the API, so the browser sees one origin.
-const apiPort = Number(process.env.API_PORT ?? process.env.CONDUCTOR_PORT ?? 4000);
+const apiPort = Number(process.env.API_PORT ?? 4000);
 const webPort = Number(process.env.WEB_PORT ?? apiPort + 1);
 
 export default defineConfig({

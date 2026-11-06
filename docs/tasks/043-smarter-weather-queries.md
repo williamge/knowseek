@@ -2,10 +2,10 @@
 
 - Status: open
 - Area: query understanding for the weather card (`Knowseek.Entities.Intent`, `Knowseek.Cards`, web UI)
-- Depends on: 034, 033
+- Depends on: 034
 
 This is a design task, to be decided in a design session with the owner. Write
-no code first, like task [028](028-live-facts-for-entities.md). It is abstract
+no code first, like task 028 (done; file removed, see git history). It is abstract
 on purpose: a problem statement, evidence, and open questions. It is not a
 design.
 
@@ -32,7 +32,7 @@ What exists:
   coordinates. A place alone ("tokyo") gives no weather card.
 - When nothing resolves, the card endpoint answers `none` and the web UI
   shows only the ordinary search results.
-- The weather card is task [033](033-weather-card.md) (GitHub PR #32), merged
+- The weather card is task 033 (done; file removed, see git history) (GitHub PR #32), merged
   on `main`, next to the sports-team card.
 - Task [034](034-weather-location-context.md) plans browser-location context
   for a bare `weather`. It overlaps this task: decisions about where the

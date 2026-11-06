@@ -1,6 +1,11 @@
 # 0005. One database per Conductor workspace
 
-- Status: Accepted
+- Status: Accepted (amended 2026-11-05: Conductor removed)
+
+> Update (2026-11-05): Conductor is no longer used. Per-checkout databases
+> stay: they are named from `KNOWSEEK_WORKSPACE` only (set by `make worktree`,
+> ADR 0010); the `CONDUCTOR_WORKSPACE_NAME` fallback and the Conductor archive
+> script were removed. Read "workspace" below as "checkout".
 - Date: 2026-10-30
 
 ## Context

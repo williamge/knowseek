@@ -3,6 +3,8 @@
 - Status: Accepted
 - Date: 2026-10-30
 
+> Update (2026-11-05): Conductor is no longer used; "workspace" below means a checkout named by `KNOWSEEK_WORKSPACE` (see [0005](0005-per-workspace-databases.md)).
+
 ## Context
 
 The API only ran through `mix phx.server` on a developer machine. Deployment

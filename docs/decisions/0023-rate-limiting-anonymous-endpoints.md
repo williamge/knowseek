@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-31
 
-Builds on [0017](0017-live-fact-cards.md) (the cache that runs refreshes in the background). See `docs/tasks/039-rate-limit-anonymous-endpoints.md`.
+Builds on [0017](0017-live-fact-cards.md) (the cache that runs refreshes in the background). See task 039 (done; file removed, see git history).
 
 ## Context
 

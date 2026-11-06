@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-31
 
-Related: task [035](../tasks/035-ranking-prior.md),
+Related: task 035 (done; file removed, see git history),
 [ADR 0017](0017-live-fact-cards.md) (proposed the prior),
 [ADR 0011](0011-one-hit-per-document.md) (document grouping).
 

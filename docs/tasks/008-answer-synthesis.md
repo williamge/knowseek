@@ -2,7 +2,7 @@
 
 - Status: open
 - Area: new context (for example `Knowseek.Answers`)
-- Depends on: 001 (real embeddings make the retrieved context worth summarizing)
+- Depends on: none
 
 ## Goal
 

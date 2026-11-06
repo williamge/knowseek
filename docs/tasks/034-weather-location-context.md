@@ -2,7 +2,7 @@
 
 - Status: open
 - Area: web (`frontend/src`), card endpoint
-- Depends on: 033
+- Depends on: none
 
 ## Goal
 
@@ -16,7 +16,7 @@ location is context for the request, not an entity.
   of our own first. Result is held in memory for the session.
 - Fallback when the user declines or the browser fails: a saved home city,
   chosen once through a small form and stored in `localStorage` (no account
-  exists; task [009](009-users-and-api-keys.md) is separate).
+  exists; task 009 (parked; file removed, see git history) is separate).
 - What is sent to the backend: rounded coordinates (2 decimals, about 1 km) as
   query parameters on the card endpoint, or the saved city's Wikidata id. No
   raw precise location, nothing stored server-side, nothing logged: the

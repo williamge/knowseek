@@ -2,12 +2,12 @@ import Config
 
 # Configure your database
 #
-# Each workspace (a git worktree, or a Conductor workspace) gets its own
-# database so parallel agents do not collide. Name it with KNOWSEEK_WORKSPACE;
-# CONDUCTOR_WORKSPACE_NAME is the fallback. Postgres itself runs from the
-# repo-root docker-compose.yml.
+# Each checkout can have its own databases: KNOWSEEK_WORKSPACE (set in .env
+# by `make worktree`) adds a suffix, so parallel checkouts do not collide.
+# Without it the names are plain knowseek_dev / knowseek_test. Postgres itself
+# runs from the repo-root docker-compose.yml.
 db_suffix =
-  case System.get_env("KNOWSEEK_WORKSPACE") || System.get_env("CONDUCTOR_WORKSPACE_NAME") do
+  case System.get_env("KNOWSEEK_WORKSPACE") do
     nil -> ""
     name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
   end

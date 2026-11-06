@@ -30,11 +30,11 @@ make start   # API on http://localhost:4000 and web UI on http://localhost:4001,
 make check   # what CI runs
 ```
 
-The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`, `make iex`, and `make start` run `scripts/ensure-ollama` first. It prints a short status line when all is well, and the fix when Ollama is missing or stopped. There is no silent fallback: if Ollama is down while the server runs, search and ingest return an error (HTTP 503 from the API), and a discovery job whose documents all fail to ingest is retried by Oban. `make worktree` gives task worktrees `EMBEDDINGS_ADAPTER=hashing` in `.env` unless it is already set.
+The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`, `make iex`, and `make start` run `scripts/ensure-ollama` first. It prints a short status line when all is well, and the fix when Ollama is missing or stopped. There is no silent fallback: if Ollama is down while the server runs, search and ingest return an error (HTTP 503 from the API), and a discovery job whose documents all fail to ingest is retried by Oban.
 
 To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents (task 017).
 
-`make dev` (API) and `make web` (web UI) also run separately, on `$CONDUCTOR_PORT` and `$CONDUCTOR_PORT + 1`.
+`make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001). `make worktree NAME=...` creates a second checkout next to this one with its own databases and port pair (see `AGENTS.md`).
 
 Open the web UI, type a query, and press Enter. If the index covers the query weakly, the page keeps watching and adds new results when discovery finishes.
 
@@ -57,7 +57,7 @@ docker compose --profile app up --build   # API on http://localhost:4000 (or $AP
 curl localhost:4000/api/health            # {"status":"ok","database":"ok"}
 ```
 
-On start, the container creates its database if it is missing, runs the migrations, then serves. The database is `knowseek_prod`, plus `_<workspace>` from `KNOWSEEK_WORKSPACE` in `.env` (for example `knowseek_prod_task-014-one-hit`; dashes work), or `$APP_DB_NAME` if you set it. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
+On start, the container creates its database if it is missing, runs the migrations, then serves. The database is `knowseek_prod`, plus `_<workspace>` from `KNOWSEEK_WORKSPACE` in `.env` (for example `knowseek_prod_my-branch`; dashes work), or `$APP_DB_NAME` if you set it. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
 
 **One app container per compose project.** The compose project is `knowseek` for every worktree, and so is the `app` service. Running `docker compose --profile app up` in a second worktree replaces the first worktree's `app` container. The image tag (`knowseek-app:<workspace>`) and the database follow the workspace, so nothing is corrupted: the new container runs the new worktree's code against its own database. To run two at once you need two compose projects, which this repository does not set up.
 
@@ -130,7 +130,6 @@ Test fixtures contain excerpts of Wikipedia (CC BY-SA 4.0) and Wikidata (CC0). S
 ## Documentation
 
 - [`AGENTS.md`](AGENTS.md): how to work in this repo (for humans and coding agents)
-- [`docs/WORKING-WITH-AGENTS.md`](docs/WORKING-WITH-AGENTS.md): how to run several agents in parallel, with prompt templates in [`docs/agent-brief.md`](docs/agent-brief.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, data model
 - [`docs/decisions/`](docs/decisions/): architecture decision records
 - [`docs/tasks/`](docs/tasks/): the task backlog

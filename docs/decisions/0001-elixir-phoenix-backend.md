@@ -3,6 +3,8 @@
 - Status: Accepted
 - Date: 2026-10-30
 
+> Update (2026-11-05): the empty `services/` directory and `services/README.md` were removed; a first non-Elixir service would add them again.
+
 ## Context
 
 The service does a lot of concurrent, I/O-bound work: serving searches, calling

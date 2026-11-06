@@ -2,7 +2,7 @@
 
 - Status: open
 - Area: `Knowseek.Documents`, `Knowseek.Embeddings`
-- Depends on: 001
+- Depends on: none
 
 Note: not parked. Ollama becomes the default embedding provider (task 029), so a model/adapter mismatch with stored vectors becomes a real risk.
 

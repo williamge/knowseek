@@ -1,5 +1,5 @@
-# Local infrastructure. One Postgres instance serves every Conductor
-# workspace; each workspace uses its own database (see backend/config/dev.exs).
+# Local infrastructure. One Postgres instance serves every checkout; each
+# checkout can use its own databases (see backend/config/dev.exs).
 name: knowseek
 
 services:

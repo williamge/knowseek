@@ -4,7 +4,7 @@
 - Date: 2026-10-31
 
 Related: [0015](0015-remove-topics.md) (removed the cron-refreshed topics),
-task [028](../tasks/028-live-facts-for-entities.md) (the design session).
+task 028 (done; file removed, see git history) (the design session).
 
 ## Context
 
@@ -156,7 +156,7 @@ the company card (task 032, ADR 0021) and the weather card (task 033) are built 
 - Passage selection: the best passage for the main Knicks article was about the
   1967-68 season.
 - The ranking prior (document importance from Wikipedia pageviews or Wikidata
-  sitelinks) is a proposed standalone task, [035](../tasks/035-ranking-prior.md).
+  sitelinks) is a proposed standalone task, 035 (done; file removed, see git history).
   The owner has not decided its priority.
 
 ## Alternatives rejected
