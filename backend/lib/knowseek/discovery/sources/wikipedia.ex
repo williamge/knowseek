@@ -242,7 +242,9 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
       )
       |> Req.merge(config[:req_options])
 
-    case Req.get(request) do
+    # A background caller of the shared Wikimedia slots (ADR 0027). Req's
+    # retries, and their waits, keep the slot.
+    case Knowseek.Wikimedia.run(:background, fn -> Req.get(request) end) do
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => code}}}} ->
         {:error, {:api_error, code}}
 

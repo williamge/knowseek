@@ -63,6 +63,13 @@ config :knowseek, Knowseek.Search,
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
 config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
 
+# Wikimedia asks for at most 3 requests at once across all its sites. Every
+# Wikipedia and Wikidata request takes one of `max_concurrent` slots (ADR 0027).
+# Discovery jobs (background) hold at most `background_max`, so a slot stays
+# free for entity lookups; those go first. A request with no free slot waits:
+# the `discovery` queue runs 5 jobs and the entity cache 4 resolutions.
+config :knowseek, Knowseek.Wikimedia, max_concurrent: 3, background_max: 2
+
 # Entity resolution (ADR 0017, task 030). `resolver` implements
 # Knowseek.Entities.Resolver. `ttl`, `backoff` and `timeout` (milliseconds)
 # go to Knowseek.Cache: entities rarely change, so a long TTL, and a failed
@@ -72,7 +79,8 @@ config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikip
 # "Supported types" in the Knowseek.Entities docs). Ids marked "seen" appeared
 # in the probes of tasks 028 and 030; the others were checked by label.
 # `cache`: start options of the entity cache. Its keys come from user queries,
-# so at most 4 Wikidata resolutions run at once and 5000 entries are kept.
+# so at most 4 Wikidata resolutions run at once (and share the Wikimedia slots,
+# see Knowseek.Wikimedia above) and 5000 entries are kept.
 # One of the 4 slots is reserved for refreshing entries that hold a value, so
 # a flood of new keys cannot starve those refreshes (ADR 0023). The cache holds
 # the candidates of a text (ADR 0022); `[]` (what a junk query resolves to) does
