@@ -66,6 +66,16 @@ export function displayHost(url: string): string {
   }
 }
 
+/** Display names and links of the licenses the reader can credit (#67). An id not here gets no license line. */
+const LICENSES: Record<string, { name: string; url: string }> = {
+  "CC-BY-SA-4.0": { name: "CC BY-SA 4.0", url: "https://creativecommons.org/licenses/by-sa/4.0/" },
+};
+
+/** The display name and link of an SPDX id, or null when it is unknown or not in the list. */
+export function licenseInfo(spdxId: string): { name: string; url: string } | null {
+  return LICENSES[spdxId] ?? null;
+}
+
 /** A passage to show on a result card: the hit's best chunk, then its other passages. */
 export interface CardPassage {
   chunk_id: string;
