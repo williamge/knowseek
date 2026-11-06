@@ -95,7 +95,11 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
                Discovery.run("how do i fix a flat tire", sources: [Wikipedia, Wikibooks])
 
       documents = Documents.list_documents()
-      assert documents |> Enum.map(& &1.source) |> Enum.frequencies() == %{"wikibooks" => 2, "wikipedia" => 2}
+
+      assert documents |> Enum.map(& &1.source) |> Enum.frequencies() == %{
+               "wikibooks" => 2,
+               "wikipedia" => 2
+             }
 
       assert %{license: "CC-BY-SA-4.0", share: "full", modified: true, attribution: attribution} =
                Enum.find(documents, &(&1.source == "wikibooks" and &1.title =~ "Fixing a flat"))
