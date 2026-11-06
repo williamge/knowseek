@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-11-06
 
-Related: issue [#73](https://github.com/williamge/knowseek/issues/73),
+Related: issues [#73](https://github.com/williamge/knowseek/issues/73) and
+[#78](https://github.com/williamge/knowseek/issues/78) (Cookbook recipes),
 [how-to sources](../notes/how-to-sources.md) (#69, the evidence),
 [storage and licenses](../notes/storage-and-licenses.md) (section 4, the
 checklist), [0018](0018-ranking-prior.md) (ranking prior),
@@ -59,6 +60,27 @@ But Wikibooks is small (99,158 content pages) and uneven: for a name like
    page that transcludes a single shared page is kept. Only Wikibooks opts in
    (`skip_compilations` in its site); Wikipedia's request is unchanged.
    Revisit if it skips the wrong pages on another site.
+6. **Recipes from the Cookbook** (#78). Wikibooks keeps recipes in the
+   `Cookbook:` namespace (102), which a namespace-0 search does not cover.
+   For a question, `Wikibooks.discover/2` sends two searches on the same
+   `search_text/1`: namespace 102 first, then namespace 0, one extra
+   request per question, also a `:background` caller of
+   `Knowseek.Wikimedia`. The Cookbook pages come first, then the
+   main-namespace pages, without duplicates, cut to the usual `limit` (3).
+   A question that matches no recipe gets the same pages as before: live,
+   "fix a flat tire", "tie a bowline knot" and "learn python" find nothing
+   in 102, while "cook eggs" finds *Cookbook:Hard Cooked Eggs*,
+   *Cookbook:Egg* and *Cookbook:Basic Scrambled Eggs*, and "make pancakes"
+   *Cookbook:Whole Wheat Pancakes*. One search over `srnamespace=0|102`
+   does not work: main-namespace pages rank first ("cook eggs" in 0 finds
+   *Python Programming/Classes*), so the recipes fall past the cut.
+   Cookbook titles keep their `Cookbook:` prefix; recipes are checked for
+   compilations and disambiguation like other pages and carry the same
+   license and credit. The change is one optional site setting in
+   `MediaWiki`, `search_namespaces` (default `[0]`), set to `[102, 0]` for
+   Wikibooks only, so Wikipedia still sends one search in namespace 0. If
+   either search fails, the source returns the error, as it does when its
+   one search fails: `Discovery` logs it and the run has no Wikibooks pages.
 
 ### Where the gate lives
 
@@ -113,10 +135,10 @@ Quotes read 2026-11-06 (the how-to note), checked again live where marked.
   embedded (about 1.4 s per 20 chunks with local Ollama).
 - Many questions still find nothing useful: Wikibooks is small, and its
   search returns book pages for any word they contain.
-- Recipes are missed: Wikibooks keeps them in the `Cookbook:` namespace (102),
-  which the namespace-0 search does not cover ("sourdough bread" in 102 finds
-  *Cookbook:San Francisco Sourdough Bread*; "how do i bake sourdough bread" in
-  0 finds off-topic pages). Searching it is a follow-up.
+- Recipes rank first for any question that matches one, ahead of a
+  main-namespace page that may fit better, and with 3 or more recipe hits
+  the main-namespace pages are cut. Each question also costs one more search
+  request.
 - Compilations are found by structure. A compilation that copies its chapters'
   text instead of transcluding them is not caught; a content page that
   transcludes 2 or more main-namespace pages is skipped.

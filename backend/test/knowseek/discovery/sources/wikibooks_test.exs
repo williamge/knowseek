@@ -10,18 +10,48 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
   defp fixture(site, name),
     do: [@fixtures, site, name] |> Path.join() |> File.read!() |> Jason.decode!()
 
-  # Answers like the Wikibooks API, from the recorded fixtures.
+  # Answers like the Wikibooks API, from the recorded fixtures. The Cookbook
+  # search (namespace 102) finds no recipe for "fix a flat tire".
   defp stub_wikibooks do
     Req.Test.stub(Wikibooks, fn conn ->
       conn = Plug.Conn.fetch_query_params(conn)
       send(self(), {:wikibooks_request, conn.host, conn.query_params})
 
       case conn.query_params do
-        %{"list" => "search"} -> Req.Test.json(conn, fixture("wikibooks", "search.json"))
-        %{"pageids" => id} -> Req.Test.json(conn, fixture("wikibooks", "page_#{id}.json"))
+        %{"list" => "search", "srnamespace" => "102"} ->
+          Req.Test.json(conn, fixture("wikibooks", "search_cookbook_none.json"))
+
+        %{"list" => "search"} ->
+          Req.Test.json(conn, fixture("wikibooks", "search.json"))
+
+        %{"pageids" => id} ->
+          Req.Test.json(conn, fixture("wikibooks", "page_#{id}.json"))
       end
     end)
   end
+
+  # The Cookbook search finds *Cookbook:Hard Cooked Eggs*; the main-namespace
+  # search answers `main_search`.
+  defp stub_wikibooks_cookbook(main_search) do
+    Req.Test.stub(Wikibooks, fn conn ->
+      conn = Plug.Conn.fetch_query_params(conn)
+      send(self(), {:wikibooks_request, conn.host, conn.query_params})
+
+      case conn.query_params do
+        %{"list" => "search", "srnamespace" => "102"} ->
+          Req.Test.json(conn, fixture("wikibooks", "search_cookbook.json"))
+
+        %{"list" => "search", "srnamespace" => "0"} ->
+          Req.Test.json(conn, main_search)
+
+        %{"pageids" => id} ->
+          Req.Test.json(conn, fixture("wikibooks", "page_#{id}.json"))
+      end
+    end)
+  end
+
+  defp search_body(pageids),
+    do: %{"query" => %{"search" => Enum.map(pageids, &%{"ns" => 0, "pageid" => &1})}}
 
   defp stub_wikipedia do
     Req.Test.stub(Wikipedia, fn conn ->
@@ -39,7 +69,11 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
       assert {:ok, [flat, moped]} = Wikibooks.discover("how do i fix a flat tire", [])
 
       assert_received {:wikibooks_request, "en.wikibooks.org",
-                       %{"list" => "search", "srsearch" => "fix a flat tire"}}
+                       %{
+                         "list" => "search",
+                         "srsearch" => "fix a flat tire",
+                         "srnamespace" => "0"
+                       }}
 
       assert flat.url ==
                "https://en.wikibooks.org/wiki/Bicycles/Maintenance_and_Repair/Wheels_and_Tires/Fixing_a_flat"
@@ -105,6 +139,9 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
     test "keeps a page that transcludes only one main-namespace page" do
       Req.Test.stub(Wikibooks, fn conn ->
         case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search", "srnamespace" => "102"} ->
+            Req.Test.json(conn, fixture("wikibooks", "search_cookbook_none.json"))
+
           %{"list" => "search"} ->
             Req.Test.json(conn, fixture("wikibooks", "search.json"))
 
@@ -142,6 +179,112 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
       refute params["prop"] =~ "templates"
       refute Map.has_key?(params, "tlnamespace")
     end
+
+    test "Wikipedia sends one search, in the main namespace" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        params = Plug.Conn.fetch_query_params(conn).query_params
+        send(self(), {:wikipedia_request, params})
+
+        case params do
+          %{"list" => "search"} -> Req.Test.json(conn, fixture("wikipedia", "search.json"))
+          %{"pageids" => id} -> Req.Test.json(conn, fixture("wikipedia", "page_#{id}.json"))
+        end
+      end)
+
+      assert {:ok, [_one, _two]} = Wikipedia.discover("how do i cook eggs", [])
+
+      assert_received {:wikipedia_request, %{"list" => "search", "srnamespace" => "0"}}
+      refute_received {:wikipedia_request, %{"list" => "search"}}
+    end
+
+    test "searches the Cookbook, then the main namespace, for a question" do
+      stub_wikibooks()
+
+      assert {:ok, [_flat, _moped]} = Wikibooks.discover("how do i fix a flat tire", [])
+
+      assert_received {:wikibooks_request, "en.wikibooks.org",
+                       %{
+                         "list" => "search",
+                         "srsearch" => "fix a flat tire",
+                         "srnamespace" => "102"
+                       } =
+                         cookbook}
+
+      assert_received {:wikibooks_request, "en.wikibooks.org",
+                       %{"list" => "search", "srnamespace" => "0"}}
+
+      assert %{"srlimit" => "3", "maxlag" => "5"} = cookbook
+    end
+
+    test "puts Cookbook recipes first, then main-namespace pages, cut to 3" do
+      stub_wikibooks_cookbook(fixture("wikibooks", "search.json"))
+
+      assert {:ok, candidates} = Wikibooks.discover("how do i cook eggs", [])
+
+      assert Enum.map(candidates, & &1.title) == [
+               "Cookbook:Hard Cooked Eggs",
+               "Bicycles/Maintenance and Repair/Wheels and Tires/Fixing a flat",
+               "Tomos Moped/Repair"
+             ]
+
+      # The main search's third page is past the cut: it is not fetched.
+      refute_received {:wikibooks_request, _host, %{"pageids" => "448201"}}
+    end
+
+    test "returns a recipe with its Cookbook: title, credited to Wikibooks like other pages" do
+      stub_wikibooks_cookbook(search_body([]))
+
+      assert {:ok, [recipe]} = Wikibooks.discover("how do i cook eggs", [])
+
+      assert %{
+               title: "Cookbook:Hard Cooked Eggs",
+               url: "https://en.wikibooks.org/wiki/Cookbook:Hard_Cooked_Eggs",
+               metadata: %{"pageid" => 123_791},
+               license: "CC-BY-SA-4.0",
+               attribution: %{
+                 url: "https://en.wikibooks.org/wiki/Cookbook:Hard_Cooked_Eggs",
+                 credit: "Wikibooks",
+                 authors: []
+               },
+               modified: true,
+               share: "full",
+               monthly_views: 118,
+               source_updated_at: ~U[2025-06-08 13:32:52Z]
+             } = recipe
+
+      assert recipe.body =~ "Bring to a rolling boil."
+
+      # Recipes are checked for compilations too.
+      assert_received {:wikibooks_request, _host,
+                       %{"pageids" => "123791", "tlnamespace" => "0"} = params}
+
+      assert params["prop"] =~ "templates"
+    end
+
+    test "drops a page that both searches return" do
+      stub_wikibooks_cookbook(search_body([123_791, 3567]))
+
+      assert {:ok, candidates} = Wikibooks.discover("how do i cook eggs", [])
+
+      assert Enum.map(candidates, & &1.title) == [
+               "Cookbook:Hard Cooked Eggs",
+               "Bicycles/Maintenance and Repair/Wheels and Tires/Fixing a flat"
+             ]
+    end
+
+    test "returns the error when the Cookbook search fails" do
+      Req.Test.stub(Wikibooks, fn conn ->
+        case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search", "srnamespace" => "102"} ->
+            Req.Test.json(conn, %{"error" => %{"code" => "maxlag"}})
+
+          %{"list" => "search"} ->
+            Req.Test.json(conn, fixture("wikibooks", "search.json"))
+        end
+      end)
+
+      assert {:error, {:api_error, "maxlag"}} = Wikibooks.discover("how do i cook eggs", [])
+    end
   end
 
   describe "with Discovery.run/2" do
@@ -163,6 +306,16 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
                Enum.find(documents, &(&1.source == "wikibooks" and &1.title =~ "Fixing a flat"))
 
       assert %{credit: "Wikibooks"} = attribution
+    end
+
+    test "ingests a recipe as a wikibooks document with its Cookbook: title" do
+      stub_wikibooks_cookbook(search_body([]))
+
+      assert {:ok, %{ingested: 1, failed: 0}} =
+               Discovery.run("how do i cook eggs", sources: [Wikibooks])
+
+      assert [%{source: "wikibooks", title: "Cookbook:Hard Cooked Eggs"}] =
+               Documents.list_documents()
     end
 
     test "runs only Wikipedia for a query that is not a question" do
