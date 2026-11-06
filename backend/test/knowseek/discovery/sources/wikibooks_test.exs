@@ -33,13 +33,13 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
   end
 
   describe "discover/2" do
-    test "searches en.wikibooks.org for a question and returns its pages, in search order" do
+    test "searches en.wikibooks.org for a question, without its lead-in, and returns its pages, in search order" do
       stub_wikibooks()
 
       assert {:ok, [flat, moped]} = Wikibooks.discover("how do i fix a flat tire", [])
 
       assert_received {:wikibooks_request, "en.wikibooks.org",
-                       %{"list" => "search", "srsearch" => "how do i fix a flat tire"}}
+                       %{"list" => "search", "srsearch" => "fix a flat tire"}}
 
       assert flat.url ==
                "https://en.wikibooks.org/wiki/Bicycles/Maintenance_and_Repair/Wheels_and_Tires/Fixing_a_flat"
@@ -216,6 +216,34 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
           ] do
         refute Wikibooks.question?(query), query
       end
+    end
+  end
+
+  describe "search_text/1" do
+    test "drops the question lead-in and a trailing question mark" do
+      for {query, text} <- [
+            {"how do i cook eggs", "cook eggs"},
+            {"How do I fix a flat tire?", "fix a flat tire"},
+            {"how to tie a bowline", "tie a bowline"},
+            {"how-to bake bread", "bake bread"},
+            {"how does a carburetor work", "a carburetor work"},
+            {"why does my bike chain slip", "my bike chain slip"},
+            {"can I freeze bread", "freeze bread"},
+            {"should I patch or replace a tube", "patch or replace a tube"},
+            {"do I need a torque wrench", "need a torque wrench"},
+            {"Is it safe to ride on a patched tube", "safe to ride on a patched tube"},
+            {"what's the best way to learn knots", "learn knots"},
+            {"whats the best tire lever", "tire lever"},
+            {"WHAT IS THE BEST bike pump", "bike pump"},
+            {"who wrote dune?", "who wrote dune"}
+          ] do
+        assert Wikibooks.search_text(query) == text, query
+      end
+    end
+
+    test "keeps the query when nothing would be left" do
+      assert Wikibooks.search_text("how?") == "how?"
+      assert Wikibooks.search_text("  how do i  ") == "how do i"
     end
   end
 end

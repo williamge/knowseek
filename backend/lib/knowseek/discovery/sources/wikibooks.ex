@@ -43,7 +43,27 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
 
   @impl true
   def discover(query, _opts) do
-    if question?(query), do: MediaWiki.discover(query, @site), else: {:ok, []}
+    if question?(query), do: MediaWiki.discover(search_text(query), @site), else: {:ok, []}
+  end
+
+  @doc """
+  The text sent to the Wikibooks search for a question: `query` without its
+  question lead-in ("how do I", "how to", "why does", "can I", "what's the
+  best way to", ...) and without a trailing `?`. Wikibooks' search matches
+  those words too: "how do i cook eggs" finds *General Engineering
+  Introduction/Golden Ignorance*, "cook eggs" does not (ADR 0029). If nothing
+  is left, `query` is sent as it is.
+  """
+  @spec search_text(String.t()) :: String.t()
+  def search_text(query) do
+    stripped =
+      query
+      |> String.trim()
+      |> String.replace(~r/\s*\?+$/u, "")
+      |> String.replace(lead_in(), "")
+      |> String.trim()
+
+    if stripped == "", do: String.trim(query), else: stripped
   end
 
   @doc """
@@ -65,5 +85,11 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   # ends "how" in "how-to".
   defp question_start do
     ~r/^(how|why|can|could|should|do i|is it|what(?:'|’)?s the best|what is the best)\b/iu
+  end
+
+  # The lead-in of a question, longest first: "how do i", "how to", "why does",
+  # "can i", "what's the best way to", ...
+  defp lead_in do
+    ~r/^(?:how(?:-to|\s+(?:do|does|did|can|could|should|would|to))?(?:\s+(?:i|you|we|one|it))?(?:\s+to)?|why(?:\s+(?:do|does|did|is|are|would|can't|won't))?(?:\s+(?:i|you|we|it))?|(?:can|could|should|would|do)(?:\s+(?:i|you|we|one))?|is\s+it|what(?:'|’)?s\s+the\s+best(?:\s+way)?(?:\s+to)?|what\s+is\s+the\s+best(?:\s+way)?(?:\s+to)?)\b\s*/iu
   end
 end

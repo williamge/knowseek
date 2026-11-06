@@ -41,6 +41,11 @@ But Wikibooks is small (99,158 content pages) and uneven: for a name like
    best, what is the best (any case, whole word; `whats` and `what’s` count).
    These ask for a method, a reason or advice. "What is X" and "who" ask what
    something is, which Wikipedia answers. Wikipedia runs for every query.
+   The text sent to the Wikibooks search drops the lead-in and a trailing `?`
+   (`Wikibooks.search_text/1`): the search matches those words too, so "how
+   do i cook eggs" found *General Engineering Introduction/Golden Ignorance*
+   in QA, while "fix a flat tire" and "tie a bowline knot" find the right
+   page. Wikipedia gets the query as typed.
 4. **Page views are kept, on their own scale** (below).
 5. **Compilations are skipped.** A Wikibooks page that transcludes 2 or more
    main-namespace pages is built from other pages, such as a print version
