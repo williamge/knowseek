@@ -40,6 +40,7 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Cache` | A disposable in-memory cache (ETS) with a supervised background refresher: `get(cache, key, fetch_fun, opts)` never fetches in the caller. Single-flight per key, TTL (a number or a function of the value), stale-while-revalidate, the old value kept on failure, a backoff after a failure, a fetch timeout, a cap on entries, a cap on concurrent fetches (`max_in_flight`: a refresh over the cap is dropped, the next `get` asks again), and a cache-wide stop on a rate limit (a fetch that fails with `{:rate_limited, ms}`, see `Cache.rate_limited/1`, stops every fetch of that cache for `Retry-After`, at most ten minutes). Entity resolution (`Knowseek.Entities.Cache`) and the cards (one `Knowseek.Cards.Cache.<Provider>` per card provider, so a rate limit stops only that upstream's cards, and `Knowseek.Cards.EspnTeams`) each use an instance. `reserve_for_refresh` keeps some of the slots for refreshes of keys that hold a value, so a flood of new keys cannot starve those refreshes (it does not protect new keys), and eviction drops the entries with the fewest reads first (ADR 0023). |
 | `Knowseek.Cards` | Live fact cards (task 031, ADR 0017). `get(entity, opts)` returns `:none` (no provider handles the entity) or `%{status, type, title, facts, as_of, refresh_after_ms}` with status `fresh`, `stale`, `pending` or `unavailable`. It reads only the cache and never calls a provider: a cold or expired card starts one background fetch. `Cards.Provider` is the behaviour (`handles?/1`, `fetch/1` returning `{:ok, card, ttl_ms}`); the providers are the `providers` config. `Cards.Providers.EspnNba` (with `Cards.Espn`, the HTTP client) makes the NBA team card. Each provider has its own cache (`cache_name/1`). `Cards.Providers.OpenMeteo` (with `Cards.OpenMeteo`) makes the weather card of a place (task 033, ADR 0022); a provider that defines the optional `intent/0` is used only when the query carried that intent (`get/2` option `:intent`). |
 | `Knowseek.RateLimiter` | An in-memory token bucket per key (task 039, ADR 0023): `hit(key, limit, window_ms)` returns `:ok` or `{:error, retry_after_ms}`. One process owns the buckets; full ones are swept, at most `max_buckets` are kept. Only `KnowseekWeb.Plugs.RateLimit` calls it. |
+| `Knowseek.Wikimedia` | The cap on Wikimedia requests at once (ADR 0027): 3 slots across Wikipedia and Wikidata. `run(class, fun)` holds a slot while `fun` runs. `Entities.Wikidata` is `:interactive` (served first, any slot); `Discovery.Sources.Wikipedia` is `:background` (at most 2 slots). |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. `CardController` (`GET /api/cards?q=`) composes `Entities.resolve/2` and `Cards.get/2`. `Plugs.RateLimit` (an endpoint plug before the body parsers) limits the three anonymous endpoints per client (`ClientIp` decides who the client is). |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
@@ -134,6 +135,17 @@ Two limits protect the upstreams from user input (the query is user input). The 
 
 `Entities.Wikidata` does not send `maxlag` (an interactive read behind a cache; MediaWiki says interactive tasks "may omit" it). Wikidata counts the lag of its Query Service (wdqs) in `maxlag`, which these two read actions do not use, so with `maxlag=5` every lookup failed whenever wdqs lagged (observed 2026-11-02). A `maxlag` error that still arrives waits for `Retry-After`, clamped to 1 to 300 s. The Wikipedia source keeps its `maxlag` (background job, replica lag).
 
+### Wikimedia concurrency (ADR 0027)
+
+Wikimedia asks for at most 3 requests at once across all its sites. Every Wikipedia and Wikidata request runs inside `Knowseek.Wikimedia.run/3`:
+
+| Caller | Class | Slots | Queue position |
+|---|---|---|---|
+| `Entities.Wikidata` (entity cache tasks) | `:interactive` | any of the 3 | first |
+| `Discovery.Sources.Wikipedia` (`discovery` jobs) | `:background` | at most 2 | after interactive waiters |
+
+A caller with no free slot waits, with no time limit; the Oban queue (5) and the entity cache (4 in flight) stay as they are. A slot is held for one request, Req's retries included. A caller that dies frees its slot or leaves the queue. The wait of an entity lookup counts towards the cache's 15 s timeout. The cap is per node.
+
 ### Limits on anonymous input (ADR 0023)
 
 The query is user input, and there is no authentication yet (task 009), so three layers protect the upstreams and the other clients:
@@ -168,6 +180,7 @@ What the layers do not do:
 - `Knowseek.Discovery.Sources.Wikipedia`: `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`), `cache` (start options of the cache: `max_entries` 5000, `max_in_flight` 4, `reserve_for_refresh` 1, `empty_values` `[:none]`). `Knowseek.Cache` also takes `clock`, for tests.
 - `Knowseek.Entities.Wikidata`: `base_url`, `search_limit` (20), `user_agent`, `req_options` (tests put the `Req.Test` plug here).
+- `Knowseek.Wikimedia`: `max_concurrent` (3, slots in all) and `background_max` (2, slots discovery may hold).
 - `Knowseek.Cards`: `providers` (modules that implement `Knowseek.Cards.Provider`, tried in order; each gets its own cache), `backoff` (10 s) and `timeout` (12 s) for the caches, `cache` (start options of every provider's cache: `max_entries` 1000, `max_in_flight` 8, `reserve_for_refresh` 2) and `caches` (options per provider, merged over `cache`: weather has 2000 entries, 4 in flight, 1 reserved for refreshes).
 - `KnowseekWeb.RateLimit`: `enabled`, `limits` (per bucket `cards`, `search`, `documents`: `{limit, window_ms}`), `trusted_proxies` (CIDRs; `TRUSTED_PROXIES` in `config/runtime.exs`), `limiter` (for tests). `Knowseek.RateLimiter`: `max_buckets` (50,000), `sweep_interval` (a minute).
 - `Knowseek.Cards.Espn`: `base_url`, `user_agent`, `receive_timeout` (4 s), `req_options` (tests put the `Req.Test` plug here).

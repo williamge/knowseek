@@ -21,6 +21,10 @@ defmodule Knowseek.Application do
         Knowseek.Search.PgvectorCheck,
         {DNSCluster, query: Application.get_env(:knowseek, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Knowseek.PubSub},
+        # Before its callers (discovery jobs, the entity cache): every
+        # Wikimedia request takes one of its slots (ADR 0027).
+        {Knowseek.Wikimedia,
+         [name: Knowseek.Wikimedia] ++ Application.get_env(:knowseek, Knowseek.Wikimedia, [])},
         {Oban, Application.fetch_env!(:knowseek, Oban)},
         # In-memory, disposable caches with single-flight background refresh.
         {Knowseek.Cache, [name: Knowseek.Entities.Cache] ++ cache_options(Knowseek.Entities)}

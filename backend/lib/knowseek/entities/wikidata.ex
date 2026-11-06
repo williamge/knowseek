@@ -34,6 +34,10 @@ defmodule Knowseek.Entities.Wikidata do
   stop all Wikidata fetches for that long; for `maxlag` the time is clamped
   to 1 to 300 seconds.
 
+  Each request takes an `:interactive` slot of `Knowseek.Wikimedia`, the cap
+  on Wikimedia requests at once that it shares with the Wikipedia source (ADR
+  0027). Time spent waiting for a slot counts towards the cache's timeout.
+
   Why no `maxlag`: MediaWiki says "Interactive tasks (where a user is waiting
   for the result) may omit the maxlag parameter. Noninteractive tasks should
   always use it" (Manual:Maxlag_parameter). A card lookup is interactive, and
@@ -230,7 +234,7 @@ defmodule Knowseek.Entities.Wikidata do
       )
       |> Req.merge(config[:req_options])
 
-    case Req.get(request) do
+    case Knowseek.Wikimedia.run(:interactive, fn -> Req.get(request) end) do
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => "maxlag"}}} = response} ->
         {:rate_limited, ms} = Knowseek.Cache.rate_limited(response)
         {:error, {:rate_limited, ms |> max(@min_maxlag_backoff) |> min(@max_maxlag_backoff)}}
