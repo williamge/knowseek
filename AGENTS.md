@@ -32,9 +32,11 @@ Run everything from the repository root.
 | --- | --- |
 | `make setup` | Start Postgres, fetch deps, create and migrate dev + test databases |
 | `make start` | Run the API and the web UI together in one terminal (Ctrl-C stops both). |
-| `make dev` | Run the API on `$PORT` (default 4000). Checks Ollama first (`make ollama`). |
+| `make dev` | Run the API on `$PORT` (the environment, then `.env`, then 4000). Checks Ollama first (`make ollama`). |
 | `make web` | Run the web UI on `$PORT` + 1. It proxies `/api` to the API. |
 | `make test` | Run the backend test suite. Pass `ARGS=test/knowseek/search_test.exs` for one file. |
+| `make worktree NAME=...` | Create a worktree + branch (from `origin/main`) next to the main checkout, copy `.env`, add `KNOWSEEK_WORKSPACE`, `EMBEDDINGS_ADAPTER=hashing` (unless set) and a free `PORT` (4100, 4200, ...), and set up its own databases. Prints the path, database names and ports. |
+| `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree (keeps the branch). |
 | `make ollama` | Run `scripts/ensure-ollama`: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB). Does nothing when `EMBEDDINGS_ADAPTER` is not `ollama`. `setup`, `dev`, `iex`, and `start` run it. `make test` and `make check` do not. |
 | `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
 | `make check-docs` | Check task and ADR numbers, README index rows, `Status:` and `Depends on:` lines, and relative markdown links. `make check` and `make check-quiet` run it. |
@@ -45,7 +47,9 @@ Run everything from the repository root.
 | `make check` | Backend: compile with warnings as errors, format, Credo, tests. Frontend: types, format, tests. **Must pass before you finish.** |
 | `make check-quiet` | Same as `make check`, but prints only a summary or the failures. |
 
-The Makefile loads `.env` (see `.env.example`), so run single test files with `make test ARGS=...`, not with a bare `mix test`. One Postgres container (`docker compose`, project name `knowseek`) holds the databases `knowseek_dev` and `knowseek_test`.
+The Makefile loads `.env` (see `.env.example`), so run single test files with `make test ARGS=...`, not with a bare `mix test`. One Postgres container (`docker compose`, project name `knowseek`) holds all databases.
+
+**Parallel checkouts.** `make worktree NAME=...` creates one worktree per branch at `../knowseek-worktrees/<name>`. Its `.env` sets `KNOWSEEK_WORKSPACE` (its own databases, `knowseek_dev_<name>` and `knowseek_test_<name>`) and `PORT` (its own port pair: API on `PORT`, web UI on `PORT`+1), so several checkouts run at once without colliding. `make worktree-rm NAME=...` drops its databases and removes it. The main checkout uses `knowseek_dev`, `knowseek_test` and port 4000.
 
 New migration: `cd backend && mix ecto.gen.migration name_with_underscores`. Never write the version by hand. Two branches that generate a migration in the same second get the same version, and each passes CI alone. After `git fetch origin && git rebase origin/main`, run `make check-quiet`. If `check-migrations` reports a duplicate, delete your new file and generate it again.
 

@@ -34,7 +34,7 @@ The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`,
 
 To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents (task 017).
 
-`make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001).
+`make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001). `make worktree NAME=...` creates a second checkout next to this one with its own databases and port pair (see `AGENTS.md`).
 
 Open the web UI, type a query, and press Enter. If the index covers the query weakly, the page keeps watching and adds new results when discovery finishes.
 
@@ -57,7 +57,9 @@ docker compose --profile app up --build   # API on http://localhost:4000 (or $AP
 curl localhost:4000/api/health            # {"status":"ok","database":"ok"}
 ```
 
-On start, the container creates its database if it is missing, runs the migrations, then serves. The database is `knowseek_prod`, or `$APP_DB_NAME` if you set it. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
+On start, the container creates its database if it is missing, runs the migrations, then serves. The database is `knowseek_prod`, plus `_<workspace>` from `KNOWSEEK_WORKSPACE` in `.env` (for example `knowseek_prod_my-branch`; dashes work), or `$APP_DB_NAME` if you set it. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
+
+**One app container per compose project.** The compose project is `knowseek` for every worktree, and so is the `app` service. Running `docker compose --profile app up` in a second worktree replaces the first worktree's `app` container. The image tag (`knowseek-app:<workspace>`) and the database follow the workspace, so nothing is corrupted: the new container runs the new worktree's code against its own database. To run two at once you need two compose projects, which this repository does not set up.
 
 Stop and clean up:
 
@@ -95,7 +97,7 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 
 `SEC_USER_AGENT` is the User-Agent of the company card's requests to `data.sec.gov`. The SEC asks every automated user to say who it is (a name and a contact address) and blocks undeclared tools with HTTP 403; the default is accepted today, but a deployment that serves other people should set its own. With a block the company cards go `stale` or `unavailable` and the log says so once. No key and no account are needed.
 
-`TRUSTED_PROXIES` is also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
+`TRUSTED_PROXIES` is also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod_<workspace>`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
 
 Notes:
 

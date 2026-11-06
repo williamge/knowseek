@@ -1,13 +1,15 @@
 # 0010. One worktree and one pull request per task
 
-- Status: Partly withdrawn (2026-11-05): the worktree and per-workspace database parts are withdrawn; pull requests against `main`, CI on every PR, and the owner merging remain accepted.
+- Status: Accepted (amended 2026-11-05: Conductor and the agent-process docs removed)
 
-> Update (2026-11-05): Conductor is no longer used. Per-workspace databases
-> (`KNOWSEEK_WORKSPACE`), the `make worktree` / `make worktree-rm` workflow,
-> and `scripts/assert-main-clean` (`make guard-main`) were removed. What
-> remains: work on a branch, open a pull request against `main`, CI must be
-> green, and the owner reviews and merges; nothing is pushed to `main`. The
-> worktree text below is history.
+> Update (2026-11-05): Conductor is no longer used, and the
+> `CONDUCTOR_WORKSPACE_NAME` fallback is gone. The worktree workflow stays as
+> general tooling: `make worktree` gives each worktree its own databases
+> (`KNOWSEEK_WORKSPACE`) and now its own port pair (`PORT` in its `.env`,
+> 4100, 4200, ...); `make worktree-rm` drops them. Removed: the agent-process
+> docs (`docs/WORKING-WITH-AGENTS.md`, `docs/agent-brief.md`) and the
+> `scripts/assert-main-clean` tripwire (`make guard-main`). Pull requests
+> against `main`, CI on every PR, and the owner merging remain.
 - Date: 2026-10-30
 
 Updates [0005](0005-per-workspace-databases.md): databases are named from

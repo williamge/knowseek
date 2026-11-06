@@ -1,14 +1,24 @@
 # Entry points for humans, agents, and CI. Run `make help` for the list.
 
 SHELL := /bin/bash
-PORT ?= 4000
+# API port: the environment or the command line wins, then PORT in .env (set
+# per worktree by `make worktree`), then 4000. The web UI runs on PORT+1.
+ifeq ($(origin PORT),undefined)
+PORT := $(or $(shell [ -f .env ] && sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?PORT=([0-9]+)[[:space:]]*$$/\2/p' .env | tail -n 1),4000)
+endif
+
+# Worktrees live next to the main checkout: ../knowseek-worktrees/<name>.
+# The main checkout is found through git, so this also works inside a worktree.
+MAIN_REPO := $(shell dirname "$$(git rev-parse --path-format=absolute --git-common-dir)")
+WORKTREES ?= $(abspath $(MAIN_REPO)/../knowseek-worktrees)
+BASE ?= origin/main
 
 # Prefix for recipe lines that run mix. Sources .env (see .env.example) with
 # shell syntax, then restores the variables that were already exported, so the
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations check-migration-roundtrip check-docs check-shell check-security check-secrets check-quiet web-check fmt
+.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations check-migration-roundtrip check-docs check-shell check-security check-secrets check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -40,7 +50,7 @@ start: db-up ollama ## Run the API and the web UI together in one terminal (Ctrl
 api-run: # internal: used by scripts/start
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
-dev: db-up ollama ## Run the API server on $PORT (default 4000)
+dev: db-up ollama ## Run the API server on $PORT (from the environment, then .env, then 4000)
 	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
@@ -96,3 +106,33 @@ fmt: ## Format Elixir and web UI code
 	cd backend && mix format
 	cd frontend && npm run format
 
+# One worktree per branch, with its own databases and port pair, so several
+# checkouts can run at once. KNOWSEEK_WORKSPACE in the worktree's .env names the
+# databases (see backend/config/dev.exs); PORT picks the API port (web: PORT+1).
+# Runs from any checkout. The branch starts at BASE (default origin/main).
+worktree: ## Create a worktree + branch + databases + port pair: make worktree NAME=my-branch
+	@[[ "$(NAME)" =~ ^[a-z0-9][a-z0-9-]{0,30}$$ ]] || { echo "Usage: make worktree NAME=<lowercase-letters-digits-dashes, max 31 chars>"; exit 1; }
+	git fetch origin main
+	git worktree add -b "$(NAME)" "$(WORKTREES)/$(NAME)" "$(BASE)"
+	@if [ -f "$(MAIN_REPO)/.env" ]; then grep -vE '^[[:space:]]*(export[[:space:]]+)?(KNOWSEEK_WORKSPACE|PORT)=' "$(MAIN_REPO)/.env" > "$(WORKTREES)/$(NAME)/.env" || true; fi
+	@echo "KNOWSEEK_WORKSPACE=$(NAME)" >> "$(WORKTREES)/$(NAME)/.env"
+	@# Worktrees do not need Ollama (tests pin hashing). Opt in by editing .env. ADR 0016.
+	@grep -qE '^[[:space:]]*(export[[:space:]]+)?EMBEDDINGS_ADAPTER=' "$(WORKTREES)/$(NAME)/.env" || echo "EMBEDDINGS_ADAPTER=hashing" >> "$(WORKTREES)/$(NAME)/.env"
+	@# First port pair in 4100, 4200, ... 4900 that no other worktree's .env uses and nothing listens on.
+	@port=""; for n in 4100 4200 4300 4400 4500 4600 4700 4800 4900; do \
+		if grep -qsxE "[[:space:]]*(export[[:space:]]+)?PORT=$$n[[:space:]]*" "$(WORKTREES)"/*/.env; then continue; fi; \
+		if lsof -nP -iTCP:$$n -iTCP:$$((n + 1)) -sTCP:LISTEN >/dev/null 2>&1; then continue; fi; \
+		port=$$n; break; \
+	done; \
+	[ -n "$$port" ] || { echo "No free port pair in 4100..4900. Remove a worktree or set PORT in $(WORKTREES)/$(NAME)/.env"; exit 1; }; \
+	echo "PORT=$$port" >> "$(WORKTREES)/$(NAME)/.env"
+	@$(MAKE) -C "$(WORKTREES)/$(NAME)" setup || { echo "Setup failed. The worktree exists: fix the problem, then run 'make setup' inside $(WORKTREES)/$(NAME)"; exit 1; }
+	@db="$$(printf '%s' "$(NAME)" | tr -cs 'a-z0-9\n' '_')"; port="$$(sed -n 's/^PORT=//p' "$(WORKTREES)/$(NAME)/.env" | tail -n 1)"; \
+	echo "Worktree ready: $(WORKTREES)/$(NAME)"; \
+	echo "  databases: knowseek_dev_$$db, knowseek_test_$$db"; \
+	echo "  ports:     API $$port (make dev), web UI $$((port + 1)) (make web)"
+
+worktree-rm: ## Drop a worktree's databases and remove it (keeps the branch): make worktree-rm NAME=...
+	@test -d "$(WORKTREES)/$(NAME)" || { echo "No worktree at $(WORKTREES)/$(NAME)"; exit 1; }
+	cd "$(WORKTREES)/$(NAME)/backend" && KNOWSEEK_WORKSPACE="$(NAME)" mix ecto.drop --quiet && KNOWSEEK_WORKSPACE="$(NAME)" MIX_ENV=test mix ecto.drop --quiet
+	git worktree remove --force "$(WORKTREES)/$(NAME)"

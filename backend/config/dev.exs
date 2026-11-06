@@ -2,14 +2,22 @@ import Config
 
 # Configure your database
 #
-# Postgres runs from the repo-root docker-compose.yml.
+# Each checkout can have its own databases: KNOWSEEK_WORKSPACE (set in .env
+# by `make worktree`) adds a suffix, so parallel checkouts do not collide.
+# Without it the names are plain knowseek_dev / knowseek_test. Postgres itself
+# runs from the repo-root docker-compose.yml.
+db_suffix =
+  case System.get_env("KNOWSEEK_WORKSPACE") do
+    nil -> ""
+    name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
+  end
 
 config :knowseek, Knowseek.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),
   hostname: System.get_env("PGHOST", "localhost"),
   port: String.to_integer(System.get_env("PGPORT", "5432")),
-  database: "knowseek_dev",
+  database: "knowseek_dev#{db_suffix}",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

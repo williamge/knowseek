@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-30
 
-> Update (2026-11-05): `KNOWSEEK_WORKSPACE` was removed (see [0005](0005-per-workspace-databases.md)). The app container's database is `knowseek_prod` (or `APP_DB_NAME`) and its image is `knowseek-app:local`; the per-workspace text below is history.
+> Update (2026-11-05): Conductor is no longer used; "workspace" below means a checkout named by `KNOWSEEK_WORKSPACE` (see [0005](0005-per-workspace-databases.md)).
 
 ## Context
 

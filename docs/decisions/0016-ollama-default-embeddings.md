@@ -3,8 +3,6 @@
 - Status: Accepted
 - Date: 2026-10-31
 
-> Update (2026-11-05): the `make worktree` target was removed (see [0010](0010-worktrees-and-pull-requests.md)); set `EMBEDDINGS_ADAPTER=hashing` in `.env` by hand to run without Ollama.
-
 Changes the default set in [0007](0007-embedding-providers.md).
 
 ## Context

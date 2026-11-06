@@ -11,12 +11,12 @@ write a new ADR that supersedes it and set the old one's status to
 | [0002](0002-postgres-pgvector.md) | Postgres + pgvector as the single datastore |
 | [0003](0003-hybrid-search.md) | Hybrid search with reciprocal rank fusion |
 | [0004](0004-embeddings.md) | Pluggable embeddings, fixed at 1024 dimensions |
-| [0005](0005-per-workspace-databases.md) | One database per Conductor workspace (withdrawn 2026-11-05) |
+| [0005](0005-per-workspace-databases.md) | One database per checkout, named from `KNOWSEEK_WORKSPACE` (Conductor removed 2026-11-05) |
 | [0006](0006-freshness-aware-coverage.md) | Freshness-aware coverage; per-topic refresh checks |
 | [0007](0007-embedding-providers.md) | Embedding providers: Ollama locally, Voyage AI hosted |
 | [0008](0008-web-frontend.md) | Web frontend in Vite, React, and TypeScript |
 | [0009](0009-search-returns-only-relevant-hits.md) | Search returns only relevant hits |
-| [0010](0010-worktrees-and-pull-requests.md) | One worktree and one pull request per task; CI on every PR (worktree part withdrawn 2026-11-05) |
+| [0010](0010-worktrees-and-pull-requests.md) | One worktree and one pull request per task; CI on every PR |
 | [0011](0011-one-hit-per-document.md) | One search hit per document, with `passages` |
 | [0012](0012-unique-topics.md) | Topics are unique by normalized query; a repeated follow returns the existing topic (superseded by 0015) |
 | [0013](0013-url-canonicalization-and-aliases.md) | Canonical URLs and aliases for exact duplicate content |

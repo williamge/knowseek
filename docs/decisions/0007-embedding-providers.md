@@ -5,7 +5,7 @@
 - Status: Accepted
 - Date: 2026-10-30
 
-> Update (2026-11-05): Conductor and per-workspace setups are no longer used; "every local Conductor workspace" below now means the one local checkout.
+> Update (2026-11-05): Conductor is no longer used; "every local Conductor workspace" below now means every local checkout (worktrees included).
 
 ## Context
 
