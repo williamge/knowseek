@@ -127,6 +127,8 @@ Copyright (C) 2026 William Gelhar. Knowseek is licensed under the [GNU Affero Ge
 
 Test fixtures contain excerpts of Wikipedia (CC BY-SA 4.0) and Wikidata (CC0). See [`NOTICE`](NOTICE).
 
+What Knowseek may store, embed and share from each source, and under which license: [`docs/notes/storage-and-licenses.md`](docs/notes/storage-and-licenses.md).
+
 ## Documentation
 
 - [`AGENTS.md`](AGENTS.md): how to work in this repo (for humans and coding agents)
