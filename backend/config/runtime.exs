@@ -78,6 +78,12 @@ if config_env() != :test do
   if user_agent = env.("SEC_USER_AGENT") do
     config :knowseek, Knowseek.Cards.Edgar, user_agent: user_agent
   end
+
+  # NBA team cards (ADR 0028). balldontlie needs a key: a free account at
+  # https://www.balldontlie.io gives one. Unset: no NBA card.
+  if api_key = env.("BALLDONTLIE_API_KEY") do
+    config :knowseek, Knowseek.Cards.Balldontlie, api_key: api_key
+  end
 end
 
 # Reverse proxies whose X-Forwarded-For header is believed when rate limiting

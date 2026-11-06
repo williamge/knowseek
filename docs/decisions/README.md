@@ -33,3 +33,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0024](0024-hnsw-iterative-scan.md) | Search: HNSW iterative scan (`strict_order`, `max_scan_tuples` 20,000) so dead index entries do not empty the vector list; pgvector 0.8 or later |
 | [0026](0026-per-document-license-fields.md) | Every document records its `license`, `attribution`, `modified` and `share`, set by its source at ingest; unknown means never shared |
 | [0027](0027-wikimedia-concurrency-cap.md) | Wikimedia: at most 3 requests at once across Wikipedia and Wikidata, entity lookups first |
+| [0028](0028-nba-card-source.md) | NBA card: balldontlie's free tier with a key per operator, replacing ESPN (whose terms forbid scripted access); no injuries |

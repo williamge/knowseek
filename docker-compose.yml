@@ -57,6 +57,8 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       VOYAGE_MODEL: ${VOYAGE_MODEL:-}
+      # The NBA team card's free balldontlie key (ADR 0028). Empty: no NBA card.
+      BALLDONTLIE_API_KEY: ${BALLDONTLIE_API_KEY:-}
       # Reverse proxies whose X-Forwarded-For is believed by the rate limit
       # (CIDRs, comma-separated). Empty: none, so every client that reaches the
       # published port has the same address (ADR 0023).

@@ -394,7 +394,7 @@ describe("useCard", () => {
 describe("FactCard", () => {
   const noop = () => {};
 
-  it("shows the team, league, record, last game, next game and injuries", () => {
+  it("shows the team, league, record, last game and next game", () => {
     render(<FactCard data={cardResponse()} onSearch={noop} />);
 
     const card = screen.getByRole("region", { name: "Live facts: New York Knicks" });
@@ -407,9 +407,6 @@ describe("FactCard", () => {
       /L 93–98 at Philadelphia 76ers/,
     );
     expect(screen.getByText("Next game").nextElementSibling).toHaveTextContent(/vs Brooklyn Nets/);
-    expect(screen.getByText("Injuries").nextElementSibling).toHaveTextContent(
-      "Jose Alvarado (Out)",
-    );
     expect(screen.queryByText("Live")).not.toBeInTheDocument();
   });
 
@@ -421,8 +418,8 @@ describe("FactCard", () => {
         team_score: 80,
         opponent_score: 85,
         period: 3,
-        clock: "0.0",
-        status_text: "End of 3rd",
+        clock: "4:32",
+        status_text: "3rd Qtr 4:32",
       },
     });
     render(
@@ -434,11 +431,11 @@ describe("FactCard", () => {
 
     const live = screen.getByText("Live").closest(".fact-card__row");
     expect(live).toHaveTextContent("80–85 at Golden State Warriors");
-    expect(live).toHaveTextContent("End of 3rd");
+    expect(live).toHaveTextContent("3rd Qtr 4:32");
   });
 
   it("omits the rows that have no data", () => {
-    const facts = teamFacts({ last_game: null, next_game: null, injuries: [], record: null });
+    const facts = teamFacts({ last_game: null, next_game: null, record: null });
     render(
       <FactCard
         data={cardResponse({ card: { type: "sports_team", title: "Team", facts } })}
@@ -448,7 +445,6 @@ describe("FactCard", () => {
 
     expect(screen.queryByText("Last game")).not.toBeInTheDocument();
     expect(screen.queryByText("Next game")).not.toBeInTheDocument();
-    expect(screen.queryByText("Injuries")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Record this season")).not.toBeInTheDocument();
   });
 
@@ -458,7 +454,7 @@ describe("FactCard", () => {
     const stamp = screen.getByText(clockTime("2026-10-31T15:42:15Z"));
     expect(stamp.tagName).toBe("TIME");
     expect(stamp).toHaveAttribute("datetime", "2026-10-31T15:42:15Z");
-    expect(stamp.closest("footer")).toHaveTextContent(/^ESPN\s*as of /);
+    expect(stamp.closest("footer")).toHaveTextContent(/^balldontlie\s*as of /);
   });
 
   it("stamps a live card with seconds", () => {
@@ -470,7 +466,7 @@ describe("FactCard", () => {
         opponent_score: 2,
         period: 1,
         clock: "1:00",
-        status_text: "1:00 - 1st",
+        status_text: "1st Qtr 1:00",
       },
     });
     render(

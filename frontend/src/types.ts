@@ -95,7 +95,7 @@ export interface TeamLiveGame {
   opponent_score: number | null;
   period: number | null;
   clock: string | null;
-  /** ESPN's short status, for example "End of 3rd" or "7:12 - 2nd". */
+  /** The status and the clock, for example "3rd Qtr 4:32" or "Halftime". */
   status_text: string | null;
 }
 
@@ -103,7 +103,7 @@ export interface TeamLastGame {
   date: string;
   opponent: string | null;
   home_away: string | null;
-  /** "W" or "L"; null when ESPN does not say. */
+  /** "W" or "L"; null when the score does not say. */
   result: "W" | "L" | null;
   team_score: number | null;
   opponent_score: number | null;
@@ -115,11 +115,6 @@ export interface TeamNextGame {
   home_away: string | null;
 }
 
-export interface TeamInjury {
-  player: string;
-  status: string;
-}
-
 export interface SportsTeamFacts {
   source: string;
   league: string;
@@ -127,7 +122,6 @@ export interface SportsTeamFacts {
   live: TeamLiveGame | null;
   last_game: TeamLastGame | null;
   next_game: TeamNextGame | null;
-  injuries: TeamInjury[];
 }
 
 /** Metric values (°C, km/h, mm); the UI converts them to the reader's units. A number is null when the source lacks it. */

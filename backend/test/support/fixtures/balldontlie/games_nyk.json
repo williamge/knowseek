@@ -1,0 +1,304 @@
+{
+  "data": [
+    {
+      "id": 18447001,
+      "date": "2026-10-21",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 111,
+      "visitor_team_score": 104,
+      "datetime": "2026-10-21T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      },
+      "visitor_team": {
+        "id": 6,
+        "conference": "East",
+        "division": "Central",
+        "city": "Cleveland",
+        "name": "Cavaliers",
+        "full_name": "Cleveland Cavaliers",
+        "abbreviation": "CLE"
+      }
+    },
+    {
+      "id": 18447015,
+      "date": "2026-10-23",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 108,
+      "visitor_team_score": 99,
+      "datetime": "2026-10-23T23:00:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 2,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "Boston",
+        "name": "Celtics",
+        "full_name": "Boston Celtics",
+        "abbreviation": "BOS"
+      },
+      "visitor_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      }
+    },
+    {
+      "id": 18447031,
+      "date": "2026-10-25",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 101,
+      "visitor_team_score": 110,
+      "datetime": "2026-10-25T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      },
+      "visitor_team": {
+        "id": 17,
+        "conference": "East",
+        "division": "Central",
+        "city": "Milwaukee",
+        "name": "Bucks",
+        "full_name": "Milwaukee Bucks",
+        "abbreviation": "MIL"
+      }
+    },
+    {
+      "id": 18447046,
+      "date": "2026-10-27",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 109,
+      "visitor_team_score": 115,
+      "datetime": "2026-10-27T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 16,
+        "conference": "East",
+        "division": "Southeast",
+        "city": "Miami",
+        "name": "Heat",
+        "full_name": "Miami Heat",
+        "abbreviation": "MIA"
+      },
+      "visitor_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      }
+    },
+    {
+      "id": 18447058,
+      "date": "2026-10-28",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 100,
+      "visitor_team_score": 106,
+      "datetime": "2026-10-28T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      },
+      "visitor_team": {
+        "id": 5,
+        "conference": "East",
+        "division": "Central",
+        "city": "Chicago",
+        "name": "Bulls",
+        "full_name": "Chicago Bulls",
+        "abbreviation": "CHI"
+      }
+    },
+    {
+      "id": 18447072,
+      "date": "2026-10-30",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 98,
+      "visitor_team_score": 93,
+      "datetime": "2026-10-30T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 23,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "Philadelphia",
+        "name": "76ers",
+        "full_name": "Philadelphia 76ers",
+        "abbreviation": "PHI"
+      },
+      "visitor_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      }
+    },
+    {
+      "id": 18447090,
+      "date": "2026-11-01",
+      "season": 2026,
+      "status": "Postponed",
+      "status_state": "postponed",
+      "period": 0,
+      "time": " ",
+      "postseason": false,
+      "postponed": true,
+      "home_team_score": 0,
+      "visitor_team_score": 0,
+      "datetime": "2026-11-01T23:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      },
+      "visitor_team": {
+        "id": 22,
+        "conference": "East",
+        "division": "Southeast",
+        "city": "Orlando",
+        "name": "Magic",
+        "full_name": "Orlando Magic",
+        "abbreviation": "ORL"
+      }
+    },
+    {
+      "id": 18447112,
+      "date": "2026-11-03",
+      "season": 2026,
+      "status": "7:30 pm ET",
+      "status_state": "scheduled",
+      "period": 0,
+      "time": " ",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 0,
+      "visitor_team_score": 0,
+      "datetime": "2026-11-03T00:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      },
+      "visitor_team": {
+        "id": 3,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "Brooklyn",
+        "name": "Nets",
+        "full_name": "Brooklyn Nets",
+        "abbreviation": "BKN"
+      }
+    },
+    {
+      "id": 18447130,
+      "date": "2026-11-05",
+      "season": 2026,
+      "status": "7:00 pm ET",
+      "status_state": "scheduled",
+      "period": 0,
+      "time": " ",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 0,
+      "visitor_team_score": 0,
+      "datetime": "2026-11-05T00:00:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 28,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "Toronto",
+        "name": "Raptors",
+        "full_name": "Toronto Raptors",
+        "abbreviation": "TOR"
+      },
+      "visitor_team": {
+        "id": 20,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "New York",
+        "name": "Knicks",
+        "full_name": "New York Knicks",
+        "abbreviation": "NYK"
+      }
+    }
+  ],
+  "meta": {
+    "per_page": 100
+  }
+}

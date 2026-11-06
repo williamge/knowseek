@@ -123,7 +123,7 @@ describe("weather card", () => {
 
   it("does not show the sports footer on a weather card", () => {
     render(<FactCard data={weatherResponse()} onSearch={noop} />);
-    expect(screen.queryByText("ESPN")).not.toBeInTheDocument();
+    expect(screen.queryByText("balldontlie")).not.toBeInTheDocument();
   });
 
   it("searches for the weather in an alternative place", async () => {

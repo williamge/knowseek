@@ -1,5 +1,5 @@
 defmodule Knowseek.CardsTest do
-  # The ESPN stub runs in the cache's fetch tasks, so Req.Test is shared.
+  # The balldontlie stub runs in the cache's fetch tasks, so Req.Test is shared.
   use ExUnit.Case, async: false
 
   import Knowseek.Fixtures
@@ -14,7 +14,7 @@ defmodule Knowseek.CardsTest do
   @start_ms 1_800_000_000_000
 
   setup do
-    reset_espn_teams_cache()
+    reset_nba_teams_cache()
 
     clock = start_supervised!({Agent, fn -> @start_ms end})
     now = fn -> Agent.get(clock, & &1) end
@@ -38,48 +38,38 @@ defmodule Knowseek.CardsTest do
   # is awaited the messages are in the mailbox: no waiting here.
   defp requests(acc \\ []) do
     receive do
-      {:espn_request, path, _user_agent} -> requests([path | acc])
+      {:nba_request, request, _headers} -> requests([request | acc])
     after
       0 -> Enum.reverse(acc)
     end
   end
 
-  defp card_requests(paths), do: Enum.reject(paths, &(&1 == "/basketball/nba/teams"))
+  defp card_requests(requests), do: Enum.reject(requests, &(&1 == "/teams"))
 
   # Answers the next `count` requests that the gated stub holds, however
   # long they take to arrive (a fetch asks the team list first, then the
-  # schedule and the roster together). A request that never comes fails
-  # the test after 5 s, it does not hang it.
+  # games). A request that never comes fails the test after 5 s, it does
+  # not hang it.
   defp open_gate(count) do
     for _request <- 1..count do
-      assert_receive {:espn_gated, upstream}, 5_000
+      assert_receive {:nba_gated, upstream}, 5_000
       send(upstream, :go)
     end
 
     :ok
   end
 
-  # A stub that records its requests and answers the team list, and every
-  # other request with `respond`.
-  defp stub_espn_failing(respond) do
-    test = self()
-
-    Req.Test.stub(Knowseek.Cards.Espn, fn conn ->
-      send(test, {:espn_request, conn.request_path, []})
-
-      if String.ends_with?(conn.request_path, "/teams") do
-        Req.Test.json(conn, espn_fixture("teams"))
-      else
-        respond.(conn)
-      end
-    end)
+  # A stub that records its requests and answers the team list, and the
+  # games of the Knicks and the Lakers with `respond`.
+  defp stub_nba_failing(respond) do
+    stub_nba(games_nyk: respond, games_lal_live: respond)
   end
 
   describe "get/2: pending, then fresh" do
     test "a cold request returns :pending, and a later one returns the card with as_of", %{
       opts: opts
     } do
-      stub_espn()
+      stub_nba()
 
       assert %{
                status: :pending,
@@ -106,20 +96,20 @@ defmodule Knowseek.CardsTest do
     test "the request path never hits the network: the fetch runs in another process", %{
       opts: opts
     } do
-      stub_espn(gate: true)
+      stub_nba(gate: true)
 
       assert %{status: :pending} = Cards.get(knicks(), opts)
 
       # The request returned while the upstream has not answered a thing.
-      assert_receive {:espn_gated, upstream}, 5_000
+      assert_receive {:nba_gated, upstream}, 5_000
       assert upstream != self()
-      refute_received {:espn_request, "/basketball/nba/teams/18/schedule", _}
+      refute_received {:nba_request, "/games/20", _}
 
       # Still waiting for the upstream: the next request is :pending too.
       assert %{status: :pending} = Cards.get(knicks(), opts)
 
       send(upstream, :go)
-      open_gate(2)
+      open_gate(1)
       :ok = Cards.await(knicks(), opts)
       assert %{status: :fresh} = Cards.get(knicks(), opts)
     end
@@ -128,14 +118,14 @@ defmodule Knowseek.CardsTest do
       opts: opts,
       clock: clock
     } do
-      stub_espn()
+      stub_nba()
       Cards.get(lakers(), opts)
       :ok = Cards.await(lakers(), opts)
 
-      # A game in progress is fresh for 15 s.
-      assert %{status: :fresh, refresh_after_ms: 15_000} = Cards.get(lakers(), opts)
+      # A game in progress is fresh for 30 s.
+      assert %{status: :fresh, refresh_after_ms: 30_000} = Cards.get(lakers(), opts)
 
-      advance(clock, 14_000)
+      advance(clock, 28_000)
       assert %{status: :fresh, refresh_after_ms: 2_000} = Cards.get(lakers(), opts)
 
       Cards.get(knicks(), opts)
@@ -148,7 +138,7 @@ defmodule Knowseek.CardsTest do
 
   describe "get/2: single-flight" do
     test "many concurrent requests make one upstream fetch", %{opts: opts} do
-      stub_espn(gate: true)
+      stub_nba(gate: true)
       entity = knicks()
 
       results =
@@ -158,22 +148,19 @@ defmodule Knowseek.CardsTest do
 
       assert Enum.all?(results, &(&1.status == :pending))
 
-      assert_receive {:espn_gated, upstream}, 5_000
+      assert_receive {:nba_gated, upstream}, 5_000
       send(upstream, :go)
-      open_gate(2)
+      open_gate(1)
       :ok = Cards.await(entity, opts)
 
       assert %{status: :fresh} = Cards.get(entity, opts)
 
-      # One schedule and one roster request, however many callers.
-      assert Enum.sort(card_requests(requests())) == [
-               "/basketball/nba/teams/18/roster",
-               "/basketball/nba/teams/18/schedule"
-             ]
+      # One games request, however many callers.
+      assert card_requests(requests()) == ["/games/20"]
     end
 
     test "requests while the card is fresh start no fetch", %{opts: opts} do
-      stub_espn()
+      stub_nba()
       Cards.get(knicks(), opts)
       :ok = Cards.await(knicks(), opts)
       _ = requests()
@@ -188,7 +175,7 @@ defmodule Knowseek.CardsTest do
       opts: opts,
       clock: clock
     } do
-      stub_espn_failing(&Plug.Conn.send_resp(&1, 500, ""))
+      stub_nba_failing(&Plug.Conn.send_resp(&1, 500, ""))
 
       assert %{status: :pending} = Cards.get(knicks(), opts)
       :ok = Cards.await(knicks(), opts)
@@ -210,13 +197,13 @@ defmodule Knowseek.CardsTest do
     end
 
     test "a failed refresh keeps the old card as :stale", %{opts: opts, clock: clock} do
-      stub_espn()
+      stub_nba()
       Cards.get(knicks(), opts)
       :ok = Cards.await(knicks(), opts)
       assert %{status: :fresh, as_of: as_of} = Cards.get(knicks(), opts)
 
-      # The card has expired (it lasts at most six hours), and ESPN is down.
-      Req.Test.stub(Knowseek.Cards.Espn, &Plug.Conn.send_resp(&1, 500, ""))
+      # The card has expired (it lasts at most six hours), and balldontlie is down.
+      Req.Test.stub(Knowseek.Cards.Balldontlie, &Plug.Conn.send_resp(&1, 500, ""))
       advance(clock, :timer.hours(7))
 
       assert %{status: :stale, title: "New York Knicks", facts: %{record: "2-4"}} =
@@ -232,20 +219,20 @@ defmodule Knowseek.CardsTest do
       opts: opts,
       clock: clock
     } do
-      stub_espn()
+      stub_nba()
       Cards.get(lakers(), opts)
       :ok = Cards.await(lakers(), opts)
 
-      advance(clock, 16_000)
+      advance(clock, 31_000)
       assert %{status: :stale} = Cards.get(lakers(), opts)
       :ok = Cards.await(lakers(), opts)
 
       assert %{status: :fresh, as_of: as_of} = Cards.get(lakers(), opts)
-      assert as_of == DateTime.from_unix!(@start_ms + 16_000, :millisecond)
+      assert as_of == DateTime.from_unix!(@start_ms + 31_000, :millisecond)
     end
 
     test "a 429 stops every card fetch for its Retry-After", %{opts: opts, clock: clock} do
-      stub_espn_failing(fn conn ->
+      stub_nba_failing(fn conn ->
         conn |> Plug.Conn.put_resp_header("retry-after", "30") |> Plug.Conn.send_resp(429, "")
       end)
 
@@ -261,7 +248,7 @@ defmodule Knowseek.CardsTest do
       assert requests() == []
 
       # It ends, and the upstream is asked again.
-      stub_espn()
+      stub_nba()
       advance(clock, 1_001)
       assert %{status: :pending} = Cards.get(lakers(), opts)
       :ok = Cards.await(lakers(), opts)
@@ -275,37 +262,37 @@ defmodule Knowseek.CardsTest do
       start_supervised!({Cache, name: cache, clock: now, max_in_flight: 1})
       opts = [cache: cache, clock: now]
 
-      stub_espn(gate: true)
+      stub_nba(gate: true)
 
       assert %{status: :pending} = Cards.get(knicks(), opts)
-      assert_receive {:espn_gated, upstream}, 5_000
+      assert_receive {:nba_gated, upstream}, 5_000
       assert %{status: :pending} = Cards.get(lakers(), opts)
       _ = :sys.get_state(cache)
 
       # Only the Knicks' fetch runs: the Lakers' request was dropped.
       send(upstream, :go)
-      open_gate(2)
+      open_gate(1)
       :ok = Cards.await(knicks(), opts)
-      refute Enum.any?(requests(), &String.contains?(&1, "/teams/13/"))
+      refute "/games/14" in requests()
 
       # With the slot free, the Lakers are fetched on the next request.
       assert %{status: :pending} = Cards.get(lakers(), opts)
-      open_gate(2)
+      open_gate(1)
       :ok = Cards.await(lakers(), opts)
       assert %{status: :fresh} = Cards.get(lakers(), opts)
     end
   end
 
   describe "one cache per provider" do
-    alias Knowseek.Cards.Providers.{EspnNba, OpenMeteo}
+    alias Knowseek.Cards.Providers.{Nba, OpenMeteo}
 
     setup %{now: now} do
-      espn = :"cards_espn_#{System.unique_integer([:positive])}"
+      nba = :"cards_nba_#{System.unique_integer([:positive])}"
       weather = :"cards_weather_#{System.unique_integer([:positive])}"
-      start_supervised!({Cache, name: espn, clock: now}, id: espn)
+      start_supervised!({Cache, name: nba, clock: now}, id: nba)
       start_supervised!({Cache, name: weather, clock: now}, id: weather)
 
-      {:ok, opts: [cache: %{EspnNba => espn, OpenMeteo => weather}, clock: now]}
+      {:ok, opts: [cache: %{Nba => nba, OpenMeteo => weather}, clock: now]}
     end
 
     defp tokyo do
@@ -318,7 +305,7 @@ defmodule Knowseek.CardsTest do
     end
 
     defp fresh_cards(opts) do
-      stub_espn()
+      stub_nba()
       stub_open_meteo()
       weather = [intent: :weather] ++ opts
 
@@ -332,40 +319,40 @@ defmodule Knowseek.CardsTest do
       weather
     end
 
-    test "a 429 from Open-Meteo does not stop ESPN, and the other way round", %{
+    test "a 429 from Open-Meteo does not stop balldontlie, and the other way round", %{
       opts: opts,
       clock: clock
     } do
       weather = fresh_cards(opts)
       advance(clock, :timer.hours(7))
 
-      # Open-Meteo limits us; ESPN is fine: the Lakers card still loads.
+      # Open-Meteo limits us; balldontlie is fine: the Lakers card still loads.
       stub_open_meteo(&Plug.Conn.send_resp(&1, 429, ""))
       assert %{status: :stale} = Cards.get(tokyo(), weather)
       :ok = Cards.await(tokyo(), weather)
       assert %{status: :stale} = Cards.get(tokyo(), weather)
 
-      stub_espn()
+      stub_nba()
       assert %{status: :pending} = Cards.get(lakers(), opts)
       :ok = Cards.await(lakers(), opts)
       assert %{status: :fresh, type: "sports_team"} = Cards.get(lakers(), opts)
 
-      # Now ESPN limits us; weather is still allowed to refresh.
+      # Now balldontlie limits us; weather is still allowed to refresh.
       advance(clock, :timer.hours(7))
-      Req.Test.stub(Knowseek.Cards.Espn, &Plug.Conn.send_resp(&1, 429, ""))
+      Req.Test.stub(Knowseek.Cards.Balldontlie, &Plug.Conn.send_resp(&1, 429, ""))
       stub_open_meteo()
 
       assert %{status: :stale} = Cards.get(knicks(), opts)
       :ok = Cards.await(knicks(), opts)
 
-      # Open-Meteo's own cache was not stopped by ESPN's 429: it refreshes.
+      # Open-Meteo's own cache was not stopped by balldontlie's 429: it refreshes.
       assert %{status: :stale} = Cards.get(tokyo(), weather)
       :ok = Cards.await(tokyo(), weather)
       assert %{status: :fresh, type: "weather"} = Cards.get(tokyo(), weather)
     end
 
     test "an Open-Meteo 429 with nothing cached leaves a team card fresh", %{opts: opts} do
-      stub_espn()
+      stub_nba()
       stub_open_meteo(&Plug.Conn.send_resp(&1, 429, ""))
       weather = [intent: :weather] ++ opts
 
@@ -383,14 +370,14 @@ defmodule Knowseek.CardsTest do
         assert is_pid(Process.whereis(Cards.cache_name(provider)))
       end
 
-      assert Cards.cache_name(EspnNba) == Knowseek.Cards.Cache.EspnNba
+      assert Cards.cache_name(Nba) == Knowseek.Cards.Cache.Nba
       assert Cards.cache_name(OpenMeteo) == Knowseek.Cards.Cache.OpenMeteo
       assert Cards.cache_options(OpenMeteo)[:max_in_flight] == 4
-      assert Cards.cache_options(EspnNba)[:max_in_flight] == 8
+      assert Cards.cache_options(Nba)[:max_in_flight] == 8
     end
 
     test "the cache of a provider is the default when :cache is not given" do
-      stub_espn()
+      stub_nba()
       assert %{status: :pending} = Cards.get(knicks(), [])
       assert Cards.await(knicks(), []) == :ok
     end
@@ -399,7 +386,7 @@ defmodule Knowseek.CardsTest do
   describe "get/2: which entities have a card" do
     test "an entity no provider handles is :none, and nothing is fetched", %{opts: opts} do
       stub_wikidata()
-      stub_espn()
+      stub_nba()
       {:ok, candidates} = Wikidata.search("knicks", [])
       westchester = Enum.find(candidates, &(&1.label == "Westchester Knicks"))
       {:ok, [nvidia | _]} = Wikidata.search("nvidia", [])
@@ -469,7 +456,7 @@ defmodule Knowseek.CardsTest do
     end
 
     test "a team with the weather intent keeps the team card, not weather", %{opts: opts} do
-      stub_espn()
+      stub_nba()
       stub_open_meteo()
       opts = [intent: :weather] ++ opts
 
