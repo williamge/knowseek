@@ -12,7 +12,7 @@ Users could follow a query as a "topic". An Oban cron job checked the due
 topics every 15 minutes and requested discovery for them. The owner never asked
 for this feature explicitly. The one convincing use case is contemporary
 information, such as ongoing news. That needs news and feed sources, and they do
-not exist yet (tasks 003 and 004). With only Wikipedia as a source, following a
+not exist yet (tasks 003 and 004, now [#47](https://github.com/williamge/knowseek/issues/47) and [#48](https://github.com/williamge/knowseek/issues/48)). With only Wikipedia as a source, following a
 query re-fetches the same encyclopedic articles. The feature also had no users
 to belong to, no feedback in the UI, and its own open backlog (task 024).
 
@@ -72,7 +72,7 @@ Decisions on the migrations:
 - No way to follow a query. Existing topic rows are deleted. This is
   accepted: the data is a list of queries, and no user depends on it.
 - `max_age_seconds` is now only a search option.
-- Tasks 020 and 024 are marked as superseded. Task 019 no longer lists topic
-  work. Task 004 (feed source) lost its dependency on topics and needs its
+- Tasks 020 and 024 are marked as superseded. Task 019 (now [#54](https://github.com/williamge/knowseek/issues/54)) no longer lists topic
+  work. Task 004 (feed source, now [#48](https://github.com/williamge/knowseek/issues/48)) lost its dependency on topics and needs its
   scope reconsidered with task 027.
 - Task 027 holds the questions for the redesign.

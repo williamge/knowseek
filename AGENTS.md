@@ -19,7 +19,7 @@ frontend/            web UI: Vite + React + TypeScript (talks to the backend ove
 docs/
   ARCHITECTURE.md     components, data flow, data model
   decisions/          ADRs: one file per significant decision
-  tasks/              backlog: one file per task
+  notes/              research findings
 docker-compose.yml    Postgres + pgvector; `app` profile runs the release image (backend/Dockerfile)
 Makefile              all common commands
 ```
@@ -39,7 +39,7 @@ Run everything from the repository root.
 | `make worktree-rm NAME=...` | Drop a worktree's databases and remove the worktree (keeps the branch). |
 | `make ollama` | Run `scripts/ensure-ollama`: check that a native Ollama runs and pull `bge-m3` (about 1.2 GB). Does nothing when `EMBEDDINGS_ADAPTER` is not `ollama`. `setup`, `dev`, `iex`, and `start` run it. `make test` and `make check` do not. |
 | `make check-migrations` | Check migration file names: unique versions, the generator's format, none in the future. `make check` and `make check-quiet` run it first. |
-| `make check-docs` | Check task and ADR numbers, README index rows, `Status:` and `Depends on:` lines, and relative markdown links. `make check` and `make check-quiet` run it. |
+| `make check-docs` | Check ADR numbers, README index rows, and relative markdown links. `make check` and `make check-quiet` run it. |
 | `make check-shell` | ShellCheck on `scripts/` (skipped with a note if `shellcheck` is not installed). `make check` and `make check-quiet` run it. |
 | `make check-migration-roundtrip` | Roll back and re-apply the migrations your branch adds, on an empty database and on one with data from `origin/main`. Slow, so not part of `make check`; run it when you add a migration. |
 | `make check-security` | `scripts/check-security`: `mix hex.audit`, `mix deps.audit`, `mix sobelow`, `npm audit`; runs all four and fails if any fails (needs the network). CI and the daily audit run it; not part of `make check`. |
@@ -82,9 +82,49 @@ These keep the code base coherent. If a task needs you to break one, write an AD
 - Tests read the vectors exactly. `config/test.exs` turns index scans off for the test database (`enable_indexscan: "off"`), so the vector query in `Knowseek.Search` is a sequential scan and sort, not an approximate HNSW scan. Reason: every test rolls back its inserts, but the chunks stay in the HNSW index as dead entries until a vacuum, and they bloat the table, so the planner picks the HNSW scan even when one row is live. A graph full of look-alike dead vectors (the 35-chunk documents, the repeated fixture texts) often has no path to a new, different vector and returns no row. Search tests then fail at random, on a fresh CI database too, once enough earlier tests have run. Do not turn index scans back on in tests, and do not write a test that needs the HNSW scan to find a row. `with_ef_search/2` is tested by reading the settings.
 - One sanctioned exception: `test/knowseek/search_hnsw_test.exs` (tag `:hnsw_guard`; `mix test --only hnsw_guard`) is the guard for the HNSW scan (task 044, ADR 0024). It runs the real index scan against committed rows, so it isolates itself: its own connection pool (a dynamic `Knowseek.Repo` outside the SQL sandbox, with `enable_indexscan = on` and `enable_seqscan = off` for that pool only, so no other test sees them), `async: false` (ExUnit runs it alone, after every async module), a `TRUNCATE chunks, documents` before it starts (a fresh index, without the dead entries that rolled-back tests leave) and in `on_exit`, and autovacuum switched off for `chunks` meanwhile (a vacuum would remove the dead entries it needs) and restored in `on_exit` (the restore runs first, and both steps run even if one fails). It commits through `Documents.ingest/1` and checks that the plan uses `chunks_embedding_vector_cosine_ops_index`. Do not copy this pattern into other tests: a test that needs a real index scan belongs in that module. After a guard run that was killed (Ctrl-C, a CI timeout), run it again, or run `TRUNCATE chunks, documents CASCADE` and `ALTER TABLE chunks RESET (autovacuum_enabled)` in your test database: its committed rows would break other tests' counts.
 
-## How changes land
+## How work flows
 
-Work on a branch, never on `main`. Run `make check-quiet`; it must pass. Push the branch and open a pull request against `main` (fill in `.github/pull_request_template.md`). CI must be green. The owner reviews and merges. Never push to `main`.
+Work is tracked in GitHub Issues. Decisions live in `docs/decisions/` (ADRs), research findings in `docs/notes/`.
+
+### Kinds of work
+
+Every issue has one kind label:
+
+|Kind|Examples|Path|
+|---|---|---|
+|`maintenance`|dependency bumps, security advisories|CI green, owner looks it over, merge. No issue needed: the Dependabot PR or audit issue is the record.|
+|`internal`|refactor, bug fix, tooling|plan, owner approves, implement, PR, merge. If it touches the UI, owner QA on a local preview before merge.|
+|`feature`|anything a user would notice|pitch, design with the owner (as many rounds as it takes), plan, owner approves, implement, owner QA on a local preview, merge|
+|`research`|comparing models, spikes|question, findings in `docs/notes/`, owner reads. Nothing merges into the app.|
+
+### The plan gate
+
+Nothing is implemented before the owner approves a plan, except `maintenance`. A plan is short: what changes, what does not, how it is verified, and the risks. The owner approves it in chat. Then the agent posts the approved plan as a comment on the issue and adds the `plan-approved` label. Implementation does not start without that label.
+
+If the work turns out bigger or different than the plan, stop and bring back a revised plan. Do not widen scope silently.
+
+### Writing issues
+
+- Title, kind label, then the pitch: what the owner gets from it, in one to three sentences. Lead with the point.
+- Then open questions, if any.
+- No implementation detail until the plan stage. Put research in `docs/notes/` and link to it.
+
+### Status
+
+Status comes from GitHub, not from text in files:
+
+- open issue: backlog
+- `plan-approved`: planned
+- open PR with `Closes #N`: in progress or in review
+- closed: done (merging the PR closes the issue)
+
+### Pull requests
+
+Work on a branch, never on `main`. Run `make check-quiet`; it must pass. Open a PR against `main` with `Closes #N` and fill in the template. CI must be green. The owner reviews and merges. Never push to `main`.
+
+### QA for features and UI changes
+
+There is no hosted preview. Run the branch in its own worktree (`make worktree NAME=...` gives it its own databases and ports), start it with `make start`, and give the owner the URL.
 
 ### CI
 
@@ -94,5 +134,5 @@ Work on a branch, never on `main`. Run `make check-quiet`; it must pass. Push th
 
 - `make check` (or `make check-quiet`) passes.
 - New behaviour has tests. Tests do not use the network.
-- Docs and the task file are up to date.
+- Docs and the issue are up to date.
 - No secrets in the repository. Read API keys from environment variables in `config/runtime.exs`, and list them in `.env.example`.

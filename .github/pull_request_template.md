@@ -1,6 +1,4 @@
-## Task
-
-<!-- Link the task file, e.g. docs/tasks/006-discovery-status-for-callers.md. -->
+Closes #
 
 ## What changed
 
@@ -8,7 +6,7 @@
 
 ## What I left out
 
-<!-- Scope you did not do, and the follow-up task files you added. -->
+<!-- Scope you did not do, and the follow-up issues you opened. -->
 
 ## How I checked it
 
@@ -20,4 +18,3 @@
 - [ ] New behaviour has tests, and tests do not use the network
 - [ ] ADR added for any new dependency, service, schema change, or changed contract
 - [ ] `README.md`, `docs/ARCHITECTURE.md`, and `AGENTS.md` are up to date
-- [ ] The task file has `Status: done` and an `## Outcome` section

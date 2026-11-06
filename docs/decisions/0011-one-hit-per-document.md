@@ -50,4 +50,4 @@ three matching chunks made coverage `:sufficient`.
   400), and about 19 ms at `limit` 25. At larger indexes and at the maximum
   limit, search latency is unmeasured.
 - The vector query runs in a short transaction to set `hnsw.ef_search` (and, since [ADR 0024](0024-hnsw-iterative-scan.md), the iterative scan settings).
-- Answer synthesis (task 008) can use `passages` as extra context.
+- Answer synthesis ([#51](https://github.com/williamge/knowseek/issues/51)) can use `passages` as extra context.

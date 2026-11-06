@@ -68,7 +68,7 @@ Options:
 - Parallel agents share one Ollama server. It queues requests, so heavy
   ingest in many workspaces at once is slower.
 - Vectors from different adapters or models are not comparable. After a
-  switch, re-embed every chunk. Until task 017 adds a job for that, reset the
+  switch, re-embed every chunk. Until [#53](https://github.com/williamge/knowseek/issues/53) adds a job for that, reset the
   dev database. Re-ingesting does not help, because `Documents.ingest/1`
   skips a document whose body is unchanged.
 - Search makes one embedding call per query. Its worst case is about 12 s,

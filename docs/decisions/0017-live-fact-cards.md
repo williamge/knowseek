@@ -36,8 +36,8 @@ game vs BKN, injuries), then the ranked documents.
 Wikidata is the entity-resolution source: query to Wikidata item (id, label,
 description, `instance of` type, sitelink count, Wikipedia title). The
 `instance of` type routes to a card provider by entity type. Alternatives to
-Wikidata stay open to explore later (for example an LLM intent step from task
-[007](../tasks/007-query-planning.md)); Wikidata goes first.
+Wikidata stay open to explore later (for example an LLM intent step, issue
+[#50](https://github.com/williamge/knowseek/issues/50)); Wikidata goes first.
 
 Ambiguity: show the top entity's card and list the alternatives (for example
 "also: Westchester Knicks") instead of letting them compete in the ranking.
@@ -147,7 +147,7 @@ the company card (task 032, ADR 0021) and the weather card (task 033) are built 
 - Prediction markets (Polymarket, Kalshi; probes inconclusive) and sportsbook
   odds as a card extension.
 - What "following" should be (absorbs the questions of task 027).
-- General web and news search (tasks 003 and 004 stay parked).
+- General web and news search ([#47](https://github.com/williamge/knowseek/issues/47) and [#48](https://github.com/williamge/knowseek/issues/48) stay on hold).
 - How fresh and stale Wikipedia content is shown. Wikipedia text is current
   within days, but it does not carry yesterday's game (game logs are tables,
   which plain-text extracts drop), which is why live facts come from cards. The
