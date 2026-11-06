@@ -26,7 +26,7 @@ export const westchesterEntity: CardEntity = {
 
 export function teamFacts(overrides: Partial<SportsTeamFacts> = {}): SportsTeamFacts {
   return {
-    source: "ESPN",
+    source: "balldontlie",
     league: "NBA",
     record: "2-4",
     live: null,
@@ -39,7 +39,6 @@ export function teamFacts(overrides: Partial<SportsTeamFacts> = {}): SportsTeamF
       opponent_score: 98,
     },
     next_game: { date: "2026-11-03T00:30:00Z", opponent: "Brooklyn Nets", home_away: "home" },
-    injuries: [{ player: "Jose Alvarado", status: "Out" }],
     ...overrides,
   };
 }

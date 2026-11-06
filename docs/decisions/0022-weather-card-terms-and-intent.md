@@ -50,7 +50,7 @@ A place entity (a Wikidata item of a supported place type with coordinates, `Ent
 
 The weather intent is therefore a **requirement of the weather provider, not a filter on all providers**. A team does not have weather, and the query still names the team clearly, so the team card is the best answer: the weather word is ignored. A place is the opposite: `tokyo` alone is most likely a search for the city, and a weather card above those results would be noise.
 
-Mechanism: `Knowseek.Cards.Provider` gets an optional callback `intent/0`. `Cards.get/2` and `Cards.await/2` take the query's intent (option `:intent`, which `CardController` passes from `Entities.resolve/2`) and skip a provider that defines `intent/0` unless it equals the query's intent. Providers that do not define it (ESPN) apply whatever the intent was. The card is cached per place, not per query, so `tokyo weather` and `weather in tokyo` share one forecast.
+Mechanism: `Knowseek.Cards.Provider` gets an optional callback `intent/0`. `Cards.get/2` and `Cards.await/2` take the query's intent (option `:intent`, which `CardController` passes from `Entities.resolve/2`) and skip a provider that defines `intent/0` unless it equals the query's intent. Providers that do not define it (the NBA team card) apply whatever the intent was. The card is cached per place, not per query, so `tokyo weather` and `weather in tokyo` share one forecast.
 
 ### Which place: `weather in new york` is the city
 

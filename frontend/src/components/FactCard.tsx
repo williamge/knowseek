@@ -90,7 +90,7 @@ function score(own: number | null, other: number | null): string {
 }
 
 function TeamBody({ title, facts }: { title: string; facts: SportsTeamFacts }) {
-  const { live, last_game: last, next_game: next, injuries } = facts;
+  const { live, last_game: last, next_game: next } = facts;
 
   return (
     <>
@@ -138,20 +138,6 @@ function TeamBody({ title, facts }: { title: string; facts: SportsTeamFacts }) {
             <dd>
               {versus(next.home_away, next.opponent)}
               <span className="fact-card__muted"> · {gameTime(next.date)}</span>
-            </dd>
-          </div>
-        )}
-
-        {injuries.length > 0 && (
-          <div className="fact-card__row">
-            <dt>Injuries</dt>
-            <dd>
-              {injuries.map((injury, index) => (
-                <span key={injury.player}>
-                  {index > 0 && ", "}
-                  {injury.player} <span className="fact-card__muted">({injury.status})</span>
-                </span>
-              ))}
             </dd>
           </div>
         )}

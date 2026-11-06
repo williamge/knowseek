@@ -1,5 +1,5 @@
 defmodule KnowseekWeb.CardControllerTest do
-  # The Wikidata and ESPN stubs run in the caches' fetch tasks: shared Req.Test.
+  # The Wikidata and balldontlie stubs run in the caches' fetch tasks: shared Req.Test.
   use KnowseekWeb.ConnCase, async: false
 
   import ExUnit.CaptureLog
@@ -13,7 +13,7 @@ defmodule KnowseekWeb.CardControllerTest do
   @start_ms 1_800_000_000_000
 
   setup do
-    reset_espn_teams_cache()
+    reset_nba_teams_cache()
 
     clock = start_supervised!({Agent, fn -> @start_ms end})
     now = fn -> Agent.get(clock, & &1) end
@@ -33,7 +33,7 @@ defmodule KnowseekWeb.CardControllerTest do
     on_exit(fn -> Application.delete_env(:knowseek, KnowseekWeb.CardController) end)
 
     stub_wikidata()
-    stub_espn()
+    stub_nba()
     stub_open_meteo()
 
     {:ok, clock: clock, entities: entity_options, cards: card_options}
@@ -88,7 +88,7 @@ defmodule KnowseekWeb.CardControllerTest do
              } = card(conn, "knicks")
     end
 
-    test "the request path calls neither Wikidata nor ESPN", %{conn: conn} do
+    test "the request path calls neither Wikidata nor balldontlie", %{conn: conn} do
       test = self()
 
       Req.Test.stub(Wikidata, fn conn ->
@@ -105,7 +105,7 @@ defmodule KnowseekWeb.CardControllerTest do
 
       # The response came back while Wikidata had not answered.
       assert_receive {:wikidata_gated, wikidata}
-      refute_received {:espn_request, _, _}
+      refute_received {:nba_request, _, _}
       send(wikidata, :go)
     end
 
@@ -151,14 +151,15 @@ defmodule KnowseekWeb.CardControllerTest do
       assert refresh_after_ms in 2_000..60_000
 
       assert %{
-               "source" => "ESPN",
+               "source" => "balldontlie",
                "league" => "NBA",
                "record" => "2-4",
                "live" => nil,
                "last_game" => %{"result" => "L", "opponent" => "Philadelphia 76ers"},
-               "next_game" => %{"opponent" => "Brooklyn Nets", "home_away" => "home"},
-               "injuries" => [%{"player" => "Jose Alvarado", "status" => "Out"}]
+               "next_game" => %{"opponent" => "Brooklyn Nets", "home_away" => "home"}
              } = facts
+
+      refute Map.has_key?(facts, "injuries")
 
       assert {:ok, _datetime, 0} = DateTime.from_iso8601(facts["next_game"]["date"])
     end
@@ -174,7 +175,7 @@ defmodule KnowseekWeb.CardControllerTest do
   end
 
   describe "GET /api/cards: stale and unavailable" do
-    test "past its TTL with ESPN down, the card is stale and says since when",
+    test "past its TTL with balldontlie down, the card is stale and says since when",
          %{
            conn: conn,
            clock: clock
@@ -185,7 +186,7 @@ defmodule KnowseekWeb.CardControllerTest do
       settle("knicks", context)
       assert %{"status" => "fresh", "as_of" => as_of} = card(conn, "knicks")
 
-      Req.Test.stub(Knowseek.Cards.Espn, &Plug.Conn.send_resp(&1, 500, ""))
+      Req.Test.stub(Knowseek.Cards.Balldontlie, &Plug.Conn.send_resp(&1, 500, ""))
       Agent.update(clock, &(&1 + :timer.hours(7)))
 
       assert %{"status" => "stale", "card" => %{"title" => "New York Knicks"}, "as_of" => ^as_of} =
@@ -201,9 +202,9 @@ defmodule KnowseekWeb.CardControllerTest do
              } = card(conn, "knicks")
     end
 
-    test "a failing ESPN with nothing cached is unavailable, with the entity",
+    test "a failing balldontlie with nothing cached is unavailable, with the entity",
          %{conn: conn} = context do
-      Req.Test.stub(Knowseek.Cards.Espn, &Plug.Conn.send_resp(&1, 500, ""))
+      Req.Test.stub(Knowseek.Cards.Balldontlie, &Plug.Conn.send_resp(&1, 500, ""))
 
       card(conn, "knicks")
       settle("knicks", context)
@@ -474,8 +475,8 @@ defmodule KnowseekWeb.CardControllerTest do
       assert %{"status" => "none", "entity" => nil, "alternatives" => [], "card" => nil} =
                card(conn, "westchester knicks")
 
-      # No ESPN request for it.
-      refute_received {:espn_request, _, _}
+      # No balldontlie request for it.
+      refute_received {:nba_request, _, _}
     end
 
     test "a company whose Wikidata item has no CIK has no card", %{conn: conn} = context do
@@ -532,7 +533,7 @@ defmodule KnowseekWeb.CardControllerTest do
         assert %{"status" => "none", "entity" => nil, "card" => nil} = card(conn, q)
       end
 
-      refute_received {:espn_request, _, _}
+      refute_received {:nba_request, _, _}
     end
 
     test "other odd text is answered, not crashed on", %{conn: conn} = context do

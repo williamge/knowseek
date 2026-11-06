@@ -53,8 +53,9 @@ config :knowseek, Knowseek.Embeddings.Ollama,
     retry_log_level: false
   ]
 
-config :knowseek, Knowseek.Cards.Espn,
-  req_options: [plug: {Req.Test, Knowseek.Cards.Espn}, retry: false]
+config :knowseek, Knowseek.Cards.Balldontlie,
+  api_key: "test-key",
+  req_options: [plug: {Req.Test, Knowseek.Cards.Balldontlie}, retry: false]
 
 config :knowseek, Knowseek.Cards.Edgar,
   req_options: [plug: {Req.Test, Knowseek.Cards.Edgar}, retry: false]
@@ -62,9 +63,9 @@ config :knowseek, Knowseek.Cards.Edgar,
 config :knowseek, Knowseek.Cards.OpenMeteo,
   req_options: [plug: {Req.Test, Knowseek.Cards.OpenMeteo}, retry: false]
 
-# A failed ESPN team list is refetched by the next request (no backoff), so a
+# A failed NBA team list is refetched by the next request (no backoff), so a
 # test can show that a bad answer is not cached as a success.
-config :knowseek, Knowseek.Cards.Providers.EspnNba, teams_backoff: 0
+config :knowseek, Knowseek.Cards.Providers.Nba, teams_backoff: 0
 
 config :knowseek, Knowseek.Embeddings.Voyage,
   api_key: "test-key",

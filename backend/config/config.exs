@@ -142,16 +142,16 @@ config :knowseek, Knowseek.Entities.Wikidata,
 
 # Live fact cards (ADR 0017, task 031). `providers` implement
 # Knowseek.Cards.Provider and are tried in order. `backoff` and `timeout`
-# (milliseconds) go to Knowseek.Cache: a failed ESPN fetch is not retried for
-# 10 s (ESPN caches for 3 s), and a fetch (two parallel requests of 4 s at
-# most) is killed after 12 s. Every provider has its own cache (a rate limit
-# stops all fetches of a cache): `cache` holds the start options of each, and
-# `caches` the options of one provider, merged over them. Weather keys are one
-# per place a user asks for, so its cache is bigger and its in-flight cap is
-# the one that bounds the calls to Open-Meteo.
+# (milliseconds) go to Knowseek.Cache: a failed fetch is not retried for
+# 10 s, and a fetch (at most a few requests of 4 s) is killed after 12 s.
+# Every provider has its own cache (a rate limit stops all fetches of a
+# cache): `cache` holds the start options of each, and `caches` the options
+# of one provider, merged over them. Weather keys are one per place a user
+# asks for, so its cache is bigger and its in-flight cap is the one that
+# bounds the calls to Open-Meteo.
 config :knowseek, Knowseek.Cards,
   providers: [
-    Knowseek.Cards.Providers.EspnNba,
+    Knowseek.Cards.Providers.Nba,
     Knowseek.Cards.Providers.OpenMeteo,
     Knowseek.Cards.Providers.Company
   ],
@@ -159,16 +159,19 @@ config :knowseek, Knowseek.Cards,
   timeout: :timer.seconds(12),
   cache: [max_entries: 1_000, max_in_flight: 8, reserve_for_refresh: 2],
   caches: [
-    {Knowseek.Cards.Providers.EspnNba, [max_entries: 100]},
+    {Knowseek.Cards.Providers.Nba, [max_entries: 100]},
     {Knowseek.Cards.Providers.Company,
      [max_entries: 500, max_in_flight: 4, reserve_for_refresh: 1]},
     {Knowseek.Cards.Providers.OpenMeteo,
      [max_entries: 2_000, max_in_flight: 4, reserve_for_refresh: 1]}
   ]
 
-# ESPN's public site API. `receive_timeout` is per request.
-config :knowseek, Knowseek.Cards.Espn,
-  base_url: "https://site.api.espn.com/apis/site/v2/sports",
+# The balldontlie NBA API (ADR 0028). `api_key` comes from
+# BALLDONTLIE_API_KEY (config/runtime.exs); without it there is no NBA card.
+# `receive_timeout` is per request.
+config :knowseek, Knowseek.Cards.Balldontlie,
+  base_url: "https://api.balldontlie.io/v1",
+  api_key: nil,
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
   receive_timeout: 4_000,
   req_options: []

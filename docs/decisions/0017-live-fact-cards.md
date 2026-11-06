@@ -53,6 +53,9 @@ Each sits behind a swappable source behaviour with its module chosen by config
 (architecture rule 4):
 
 - **Sports team** ("knicks"): ESPN's public site API. Undocumented, no key.
+  (Superseded by [0028](0028-nba-card-source.md): Disney's terms forbid
+  scripted access; the NBA card uses balldontlie's free tier, with a key per
+  operator and no injuries.)
 - **Public company** ("nvda"): a Yahoo-style chart endpoint. Unofficial, needs
   a browser User-Agent, and was rate limited (HTTP 429) in the verification
   probes. A keyed provider such as Finnhub or Alpha Vantage is the documented

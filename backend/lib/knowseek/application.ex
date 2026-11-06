@@ -32,8 +32,8 @@ defmodule Knowseek.Application do
       ] ++
         card_caches() ++
         [
-          # The ESPN team list: one key, one long TTL.
-          {Knowseek.Cache, name: Knowseek.Cards.EspnTeams, max_entries: 10},
+          # The NBA team list: one key, one long TTL.
+          {Knowseek.Cache, name: Knowseek.Cards.NbaTeams, max_entries: 10},
           # Per-client request limits of the anonymous endpoints (ADR 0023).
           {Knowseek.RateLimiter, [name: Knowseek.RateLimiter] ++ rate_limiter_options()},
           # Start to serve requests, typically the last entry

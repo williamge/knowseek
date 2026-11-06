@@ -515,9 +515,10 @@ two-layer split is taken.
     peer's old `fetched_at`, or a forged one, changes what this instance
     fetches.
   - Entity and card caches are in memory and per node; they are cheap to
-    refill (a Wikidata call, a card refresh) and need no sharing. Wikidata and
-    ESPN rate limits are per source address, so several nodes on one home
-    network share one budget (`[INFERENCE]`).
+    refill (a Wikidata call, a card refresh) and need no sharing. Wikidata
+    rate limits are per source address, so several nodes on one home network
+    share one budget (`[INFERENCE]`); balldontlie's (the NBA card) are per
+    key, and each operator has their own.
 - [ ] **8. Schema and version skew between instances.**
   - Instances will not upgrade at the same time, and between people they may
     never run the same version. Every record (or log header) needs a format

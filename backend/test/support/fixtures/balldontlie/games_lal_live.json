@@ -1,0 +1,139 @@
+{
+  "data": [
+    {
+      "id": 18447020,
+      "date": "2026-10-27",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 120,
+      "visitor_team_score": 110,
+      "datetime": "2026-10-27T02:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 14,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Los Angeles",
+        "name": "Lakers",
+        "full_name": "Los Angeles Lakers",
+        "abbreviation": "LAL"
+      },
+      "visitor_team": {
+        "id": 24,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Phoenix",
+        "name": "Suns",
+        "full_name": "Phoenix Suns",
+        "abbreviation": "PHX"
+      }
+    },
+    {
+      "id": 18447041,
+      "date": "2026-10-29",
+      "season": 2026,
+      "status": "Final",
+      "status_state": "final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 101,
+      "visitor_team_score": 104,
+      "datetime": "2026-10-29T02:30:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 14,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Los Angeles",
+        "name": "Lakers",
+        "full_name": "Los Angeles Lakers",
+        "abbreviation": "LAL"
+      },
+      "visitor_team": {
+        "id": 26,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Sacramento",
+        "name": "Kings",
+        "full_name": "Sacramento Kings",
+        "abbreviation": "SAC"
+      }
+    },
+    {
+      "id": 18447066,
+      "date": "2026-10-31",
+      "season": 2026,
+      "status": "3rd Qtr",
+      "status_state": "in_progress",
+      "period": 3,
+      "time": "4:32",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 85,
+      "visitor_team_score": 80,
+      "datetime": "2026-10-31T02:00:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 10,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Golden State",
+        "name": "Warriors",
+        "full_name": "Golden State Warriors",
+        "abbreviation": "GSW"
+      },
+      "visitor_team": {
+        "id": 14,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Los Angeles",
+        "name": "Lakers",
+        "full_name": "Los Angeles Lakers",
+        "abbreviation": "LAL"
+      }
+    },
+    {
+      "id": 18447101,
+      "date": "2026-11-02",
+      "season": 2026,
+      "status": "9:00 pm ET",
+      "status_state": "scheduled",
+      "period": 0,
+      "time": " ",
+      "postseason": false,
+      "postponed": false,
+      "home_team_score": 0,
+      "visitor_team_score": 0,
+      "datetime": "2026-11-02T02:00:00.000Z",
+      "ist_stage": null,
+      "home_team": {
+        "id": 14,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Los Angeles",
+        "name": "Lakers",
+        "full_name": "Los Angeles Lakers",
+        "abbreviation": "LAL"
+      },
+      "visitor_team": {
+        "id": 7,
+        "conference": "West",
+        "division": "Southwest",
+        "city": "Dallas",
+        "name": "Mavericks",
+        "full_name": "Dallas Mavericks",
+        "abbreviation": "DAL"
+      }
+    }
+  ],
+  "meta": {
+    "per_page": 100
+  }
+}

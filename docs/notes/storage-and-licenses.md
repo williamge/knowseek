@@ -4,7 +4,7 @@ Issue [#61](https://github.com/williamge/knowseek/issues/61). Not legal advice. 
 
 ## Answer
 
-- **Today:** Wikipedia, Wikidata, the SEC and Open-Meteo are fine or fine with small fixes. **ESPN is a problem**: Disney's terms forbid scripted access.
+- **Today:** Wikipedia, Wikidata, the SEC, Open-Meteo and balldontlie are fine or fine with small fixes. ESPN was a problem (Disney's terms forbid scripted access); the NBA card moved to balldontlie ([ADR 0028](../decisions/0028-nba-card-source.md)).
 - **Keep a license on every document** (`license`, `attribution`, `modified`, `share`). Sharing (#58) filters on it; unknown means not shared.
 - **New sources pass the checklist in (c).** Community and public-sector sources mostly pass. Commercial publishers and search APIs mostly fail. So do Stack Exchange and Fandom, whose site terms forbid automated indexing even though their text is CC BY-SA.
 - **Peers get text or pointers, never vectors.** Each peer embeds locally, which sidesteps whether an embedding is an adaptation.
@@ -23,7 +23,7 @@ From `backend/priv/repo/migrations`, `backend/lib` and `backend/config` at `main
 | Alias URLs | `document_aliases` | Our URL canonicalization | With the document | Facts (URLs) | **Fine.** |
 | Discovery jobs: `{"query": ...}` | `oban_jobs.args` | The user's query | Pruned after 7 days (`Oban.Plugins.Pruner`) | Our own data (privacy, not licensing) | **Fine.** |
 | Entity cache: ids, labels, descriptions, types, coordinates, CIK, tickers | ETS, in memory | Wikidata `wbsearchentities` and `wbgetentities` | 24 h TTL, at most 5,000 entries, lost on restart | CC0 [5] | **Fine.** |
-| NBA team card | ETS, in memory | ESPN's undocumented site API (`site.api.espn.com`) | 15 s (live game) to 6 h; team list 24 h | Disney Terms of Use [6], linked from espn.com | **Problem.** The terms forbid scripted access ("access, monitor, copy or extract … using a robot, spider, script, or other automated means") and grant "personal, noncommercial use only", with no right to redistribute [6]. Keeping the data only in memory doesn't help: the access itself breaks the terms. Scores are facts and probably not copyrightable `[INFERENCE]`, but the terms are a contract. Next step: a source with usable terms, as ADR 0021 did for prices. |
+| NBA team card | ETS, in memory | balldontlie free API (`api.balldontlie.io`), a key per operator ([ADR 0028](../decisions/0028-nba-card-source.md)); until #65, ESPN's undocumented site API | 30 s (live game) to 6 h; team list 24 h | balldontlie terms [32]: any lawful use, caching and display allowed, no credit required; keys may not be shared. ESPN's were Disney's Terms of Use [6], which forbid scripted access | **Fine** with the operator's own free key (5 requests a minute). Without a key there is no NBA card. |
 | Weather card | ETS, in memory | Open-Meteo free API | 5 to 15 min | CC BY 4.0, free API non-commercial, < 10,000 calls a day [7] | **Fine** as built (credit and license link shown, ADR 0022), **if** the deployment is non-commercial. |
 | Company card | ETS, in memory | SEC EDGAR (`data.sec.gov`) | 1 h | "Public information", may be copied [8]. At most 10 requests a second, and no "unclassified" bots [8] | **Fine; conditional** on identification. The default User-Agent `Knowseek/0.1 (self-hosted instance)` has no contact address, so an operator who serves others should set `SEC_USER_AGENT` (ADR 0021). |
 
@@ -104,7 +104,7 @@ Knowseek's AGPL covers our code, not the content. Content licenses apply separat
 |---|---|
 | **Full text** (with the `license` and `attribution` record) | Wikipedia and other Wikimedia wikis, Wikidata, Federal Register, Project Gutenberg (US public domain), Global Voices, OpenAlex metadata, arXiv metadata, Europe PMC and OpenAlex works with an open license, OSM data (under ODbL only) |
 | **Pointer** (URL and title) | arXiv papers, Europe PMC non-OA, Library of Congress items that aren't public domain, Open Library, Stack Exchange (if ever added with consent) |
-| **Never** | Card caches (ESPN, Open-Meteo, SEC: live, in memory, not documents), Tavily, Brave, Exa, NYT, Guardian, Fandom, manual documents with no license, embeddings (peers re-embed) |
+| **Never** | Card caches (balldontlie, Open-Meteo, SEC: live, in memory, not documents), Tavily, Brave, Exa, NYT, Guardian, Fandom, manual documents with no license, embeddings (peers re-embed) |
 
 ## Unverified
 
@@ -149,3 +149,4 @@ Knowseek's AGPL covers our code, not the content. Content licenses apply separat
 29. [CC BY-SA 4.0 legal code](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en): 1(k) "Share means to provide material to the public"; 3(a)(1)(B) "indicate if You modified the Licensed Material"; 3(a)(2) "providing a URI or hyperlink to a resource that includes the required information"; 3(b)(1) "a Creative Commons license with the same License Elements, this version or later"; 3(b)(3) "You may not offer or impose any additional or different terms or conditions".
 30. [CC: using CC-licensed works for AI training](https://creativecommons.org/using-cc-licensed-works-for-ai-training-2/): "CC licenses apply only when copyright permission is required."; "triggered only when works or adaptations of works are publicly shared."
 31. [#61 comment](https://github.com/williamge/knowseek/issues/61) (2026-11-06): Brave, Exa, Tavily, NYT, The Guardian and Global Voices, each quoted from its own terms.
+32. [balldontlie Terms of Service](https://www.balldontlie.io/terms) (read for #65): "You may use Data for any lawful personal or commercial purpose"; "copying, caching, storing, archiving, modifying, combining, analyzing, publishing, displaying"; "No attribution … is required"; "API keys and account credentials may not be shared".

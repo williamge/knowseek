@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.Provider do
   @moduledoc """
-  Behaviour for a source of live facts about one kind of entity: ESPN for
-  NBA teams now, SEC EDGAR and Open-Meteo later (tasks 032 and 033).
+  Behaviour for a source of live facts about one kind of entity: balldontlie
+  for NBA teams, SEC EDGAR for companies, Open-Meteo for the weather.
 
   A provider is read-only: it calls its upstream and returns a card. It never
   writes to the database and never caches (`Knowseek.Cards` does, with
