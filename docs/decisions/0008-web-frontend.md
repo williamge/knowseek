@@ -18,9 +18,9 @@ to the Phoenix API, so no CORS configuration is needed.
 The UI keeps its state in the URL, so a search is a link.
 
 Discovery runs in the background and the API cannot report when it finishes
-(task 006). The UI polls `GET /api/documents` after a search that enqueued
+([#49](https://github.com/williamge/knowseek/issues/49)). The UI polls `GET /api/documents` after a search that enqueued
 discovery, and searches again when new documents appear. This is a stand-in.
-Task 006 replaces it with a status endpoint or push.
+Issue [#49](https://github.com/williamge/knowseek/issues/49) replaces it with a status endpoint or push.
 
 ## Consequences
 

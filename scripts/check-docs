@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Checks that the backlog, the ADRs, and the markdown links agree with each other.
+# Checks that the ADRs, their index, and the markdown links agree with each other.
 #
 # Fails when:
-#   - two task files or two ADR files share a number,
-#   - a task or ADR file has no row in docs/tasks/README.md or
-#     docs/decisions/README.md, a row points to a missing file, the row's number
-#     differs from the file name, or the rows are not in number order,
-#   - a task file has no `- Status:` line, or its value is not one of the values
-#     in use (see TASK_STATUS below),
-#   - a task's `- Depends on:` line is missing or names a task that does not exist,
+#   - two ADR files share a number,
+#   - an ADR file has no row in docs/decisions/README.md, a row points to a
+#     missing file, the row's number differs from the file name, or the rows
+#     are not in number order,
 #   - a relative markdown link in README.md, AGENTS.md, SECURITY.md, or
 #     docs/**/*.md points to a file that does not exist, or to a heading anchor
 #     that does not exist in a markdown target.
@@ -29,11 +26,6 @@ fail() {
   echo "check-docs: $1" >&2
   status=1
 }
-
-# `- Status:` values in use in docs/tasks. The text after the value (a reason or
-# a branch name in parentheses, a period) is free.
-TASK_STATUS="^(open|done|parked|in progress|folded into [0-9]{3}|merged into [0-9]{3}|won't do)([^a-z0-9].*)?$"
-TASK_STATUS_LIST="open, in progress (<branch>), done, parked (<reason>), folded into NNN, merged into NNN, won't do"
 
 # check_numbered <label> <dir> <readme> <file-glob-regex> <excluded-name>
 # Checks unique numbers, README rows <-> files, and row order for one index.
@@ -83,35 +75,7 @@ $rows
 EOF
 }
 
-check_numbered "task" docs/tasks docs/tasks/README.md '^[0-9]{3}-.*\.md$' "none"
 check_numbered "ADR" docs/decisions docs/decisions/README.md '^[0-9]{4}-.*\.md$' "0000-template.md"
-
-# Task files: Status and Depends on.
-for path in docs/tasks/[0-9][0-9][0-9]-*.md; do
-  name="$(basename "$path")"
-
-  status_line="$(grep -m1 '^- Status:' "$path" || true)"
-  if [ -z "$status_line" ]; then
-    fail "$name: no '- Status: <value>' line. Values: $TASK_STATUS_LIST"
-  else
-    value="${status_line#- Status:}"
-    value="${value# }"
-    if ! [[ "$value" =~ $TASK_STATUS ]]; then
-      fail "$name: Status '$value' is not a known value. Values: $TASK_STATUS_LIST"
-    fi
-  fi
-
-  depends_line="$(grep -m1 '^- Depends on:' "$path" || true)"
-  if [ -z "$depends_line" ]; then
-    fail "$name: no '- Depends on: none' (or task numbers) line"
-  else
-    for number in $(printf '%s\n' "$depends_line" | grep -oE '[0-9]{3}' || true); do
-      if ! ls docs/tasks/"$number"-*.md > /dev/null 2>&1; then
-        fail "$name: 'Depends on' names task $number, which has no file in docs/tasks"
-      fi
-    done
-  fi
-done
 
 # Heading anchors of a markdown file, one per line, in GitHub's format:
 # lowercase, punctuation dropped, spaces to dashes. Headings in fenced code

@@ -18,7 +18,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
 - A web UI (`frontend/`) searches and shows results as discovery adds them.
 
-See [`docs/tasks/`](docs/tasks/) for the backlog.
+See [GitHub Issues](https://github.com/williamge/knowseek/issues) for the backlog.
 
 ## Quick start
 
@@ -32,7 +32,7 @@ make check   # what CI runs
 
 The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`, `make iex`, and `make start` run `scripts/ensure-ollama` first. It prints a short status line when all is well, and the fix when Ollama is missing or stopped. There is no silent fallback: if Ollama is down while the server runs, search and ingest return an error (HTTP 503 from the API), and a discovery job whose documents all fail to ingest is retried by Oban.
 
-To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents (task 017).
+To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents ([#53](https://github.com/williamge/knowseek/issues/53)).
 
 `make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001). `make worktree NAME=...` creates a second checkout next to this one with its own databases and port pair (see `AGENTS.md`).
 
@@ -132,5 +132,6 @@ Test fixtures contain excerpts of Wikipedia (CC BY-SA 4.0) and Wikidata (CC0). S
 - [`AGENTS.md`](AGENTS.md): how to work in this repo (for humans and coding agents)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): components, data flow, data model
 - [`docs/decisions/`](docs/decisions/): architecture decision records
-- [`docs/tasks/`](docs/tasks/): the task backlog
+- [`docs/notes/`](docs/notes/): research findings
+- [GitHub Issues](https://github.com/williamge/knowseek/issues): the backlog
 - [`frontend/README.md`](frontend/README.md): the web UI

@@ -1,15 +1,9 @@
-# 048. Local-first instances that share what they find
+# Local-first instances that share what they find
 
-- Status: open
-- Area: product design + `Knowseek.Documents`, storage engine, deployment
-- Depends on: none
-
-This is a design agenda, not an implementation task, and it is not an ADR.
-It writes no code. The owner has made the decisions listed under "Owner
-decisions (2026-11-05)" and "Earlier owner decisions (own devices)". The
-two-layer split under "Proposed direction (not decided)" is a proposal, not a
-decision. Everything else is an open question with tradeoffs. No other
-task's status changes because of this file.
+This was task 048. Issue [#58](https://github.com/williamge/knowseek/issues/58) tracks the work.
+Nothing in this note is decided except the section "Owner decisions (2026-11-05)"
+(and the earlier own-devices decisions it builds on). Everything else is a
+proposal, a measurement, or an open question.
 
 ## Goal
 
@@ -373,7 +367,7 @@ two-layer split is taken.
     text) to the export and let the receiver skip
     embedding. Only safe if both nodes used the same model, and nothing records
     the model today. It needs the model label on each chunk
-    (`chunks.embedding_model`), which task [017](017-re-embed-job.md) scopes
+    (`chunks.embedding_model`), which task [#53](https://github.com/williamge/knowseek/issues/53) scopes
     ("Record the embedding model on each chunk") and which the owner's notes
     propose as a separate step, 017a (there is no such file in the repo yet).
     It also needs a new way to give `ingest/1` ready vectors, with the same
@@ -1083,6 +1077,6 @@ private-document filtering.
   "Later: open sharing with incentives", not designed).
 - End-to-end encrypted cloud sync, or any sync service that Knowseek runs.
 - Changing the embedding model, the vector size, or the index type
-  (tasks [017](017-re-embed-job.md) and ADR 0004 cover them).
+  (tasks [#53](https://github.com/williamge/knowseek/issues/53) and ADR 0004 cover them).
 - Any code. This file is a design agenda; implementation tasks come after the
   owner's decisions.

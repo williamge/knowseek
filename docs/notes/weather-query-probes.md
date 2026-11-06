@@ -1,44 +1,8 @@
-# 043. Smarter weather queries
+# Weather query probes
 
-- Status: open
-- Area: query understanding for the weather card (`Knowseek.Entities.Intent`, `Knowseek.Cards`, web UI)
-- Depends on: 034
-
-This is a design task, to be decided in a design session with the owner. Write
-no code first, like task 028 (done; file removed, see git history). It is abstract
-on purpose: a problem statement, evidence, and open questions. It is not a
-design.
-
-## Goal
-
-Weather questions phrased the way people ask them should get a weather answer,
-including the ones that name no resolvable place ("weather in my city",
-"weather near me", "will it rain tomorrow").
-
-The owner typed `weather in my city`. They did not get what they meant: the
-page showed ordinary Wikipedia search results and no weather card.
-
-## Context
-
-What exists:
-
-- `Knowseek.Entities.Intent.split/1` is plain code, not an LLM. It recognises
-  two shapes only, ignoring case and extra spaces: `weather in <place>` and
-  `<place> weather`. Anything else, including a bare `weather`, has no intent
-  and is returned whole.
-- `Knowseek.Entities.resolve/2` looks up the text that is left over in
-  Wikidata and picks the first candidate that has a kind (`kind/1`). A
-  weather card needs the intent `:weather` and a `:place` entity with
-  coordinates. A place alone ("tokyo") gives no weather card.
-- When nothing resolves, the card endpoint answers `none` and the web UI
-  shows only the ordinary search results.
-- The weather card is task 033 (done; file removed, see git history) (GitHub PR #32), merged
-  on `main`, next to the sports-team card.
-- Task [034](034-weather-location-context.md) plans browser-location context
-  for a bare `weather`. It overlaps this task: decisions about where the
-  user's location comes from should be made together.
-- Task [007](007-query-planning.md) (LLM query planning) may replace the
-  intent split. The module doc of `Intent` says so.
+From task 043, 2026-11-02. Issue [#57](https://github.com/williamge/knowseek/issues/57) tracks the work.
+What weather-shaped queries get from the intent split, Wikidata and the card
+endpoint.
 
 ## Evidence
 
@@ -127,43 +91,3 @@ Only what the evidence shows.
 7. Every query, even one that has nothing to do with a place, causes a Wikidata
    lookup of the whole text. Wikidata answered busy twice in 22 searches. That is a cost and a rate-limit risk to keep in mind in the
    design.
-
-## Open questions
-
-Not answered here. For the design session with the owner.
-
-- **Where the user's location comes from** for `my city`, `here`, `near me`,
-  and a bare `weather`: browser geolocation with a permission prompt, a
-  saved home place, an IP-based guess, or something else. Privacy, accuracy,
-  and what the backend may know or log. How this fits task 034.
-- **What to show when the location is unknown:** ask for it, show a prompt in
-  the card, or show nothing.
-- **Time ranges** (today, tomorrow, the weekend, hourly): are they in scope,
-  and should the card answer them or only show the current conditions?
-- **Question-shaped queries** (`will it rain tomorrow`, `is it cold
-  outside`) versus keyword queries (`tokyo forecast`): should both get an
-  answer, and what does an answer look like?
-- **Other weather intents:** rain, snow, wind, UV, air quality.
-- **Typos and aliases** (`nyc`, `wether`): how far to go, and where the alias
-  list lives.
-- **Multi-place queries** (`tokyo and osaka`): one card per place, the first
-  place, or nothing.
-- **How this relates to LLM query planning** (task [007](007-query-planning.md))
-  versus plain deterministic rules: cost, latency, failure modes, and whether
-  the plain rules stay as the fast path.
-- **Units** (Celsius or Fahrenheit) and whether the user chooses them.
-- **Reuse of the location context** by other cards later.
-
-## Scope
-
-To be decided in a design session; write no code first.
-
-## Acceptance criteria
-
-- The decisions are recorded in an ADR (to be written in the design session;
-  none exists yet).
-- This task is split into implementation tasks, with their own numbers.
-
-## Out of scope
-
-Changes to the card UI before the design is agreed.

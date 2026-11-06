@@ -47,7 +47,7 @@ All modules live in `backend/lib/knowseek/`.
 
 `frontend/` holds a single-page app. In development, Vite serves it and proxies `/api` to the Phoenix API, so the browser sees one origin and the API needs no CORS. The app keeps its state in the URL (`/?q=...&doc=...`), so searches can be shared.
 
-Because the API does not yet tell callers when discovery finishes (task 006), the UI watches the index. After a search that enqueued discovery, it polls `GET /api/documents` for new document ids. When some arrive, it searches again and marks the new results. It stops when no new documents arrive for a while, or after 90 seconds. Task 006 replaces this polling. See `docs/decisions/0008-web-frontend.md`.
+Because the API does not yet tell callers when discovery finishes ([#49](https://github.com/williamge/knowseek/issues/49)), the UI watches the index. After a search that enqueued discovery, it polls `GET /api/documents` for new document ids. When some arrive, it searches again and marks the new results. It stops when no new documents arrive for a while, or after 90 seconds. Issue [#49](https://github.com/williamge/knowseek/issues/49) replaces this polling. See `docs/decisions/0008-web-frontend.md`.
 
 ## Data model
 
@@ -107,7 +107,7 @@ score  = best_chunk_rrf_score * factor
 
 ## Live fact cards (built for NBA teams, weather and companies)
 
-[ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Built: entity resolution (task 030, `Knowseek.Entities`, `Knowseek.Cache`) and the card framework with the NBA team card (task 031, `Knowseek.Cards`, `GET /api/cards`, the card above the results in the UI). The weather card (task 033, ADR 0022) is built below. The company card (task 032, ADR 0021) is built below. Not built: a company price (ADR 0021), weather for bare "weather" (task 034), other leagues, and push instead of polling. The design:
+[ADR 0017](decisions/0017-live-fact-cards.md) decides that a query about an entity with live state gets a card of structured facts above the ranked results. Built: entity resolution (task 030, `Knowseek.Entities`, `Knowseek.Cache`) and the card framework with the NBA team card (task 031, `Knowseek.Cards`, `GET /api/cards`, the card above the results in the UI). The weather card (task 033, ADR 0022) is built below. The company card (task 032, ADR 0021) is built below. Not built: a company price (ADR 0021), weather for bare "weather" ([#55](https://github.com/williamge/knowseek/issues/55)), other leagues, and push instead of polling. The design:
 
 - Entities are resolved through Wikidata (task 030). Cards come from swappable provider behaviours: ESPN (teams), Open-Meteo (weather) and the SEC's EDGAR (companies).
 - The endpoint is cache-only. It reads in-memory caches and never calls a provider or Wikidata in the request path. Its response has `status` (`fresh`, `stale`, `pending`, `unavailable`, `none`), `as_of`, `refresh_after_ms` and the card data.
@@ -228,4 +228,4 @@ Neither runs from the application. A scheduled `REINDEX` is not built; add it if
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 - Dead HNSW entries (deleted or replaced chunks that no vacuum has removed yet) no longer empty the vector half of a search (iterative scan, [ADR 0024](decisions/0024-hnsw-iterative-scan.md)), but a query pays time for the ones it walks past, and the scan stops at `max_scan_tuples` (20,000) entries, so a list can still come back short when more than that many dead entries sit near one query. The scan does not repair the graph: only `VACUUM` and `REINDEX` do (see "Vector index health"). Autovacuum is not tuned for `chunks`.
 
-Each limitation has a task in `docs/tasks/`.
+Open work is tracked in [GitHub Issues](https://github.com/williamge/knowseek/issues).
