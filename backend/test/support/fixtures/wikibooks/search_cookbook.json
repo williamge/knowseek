@@ -1,0 +1,19 @@
+{
+  "batchcomplete": true,
+  "continue": {
+    "sroffset": 1,
+    "continue": "-||"
+  },
+  "query": {
+    "searchinfo": {
+      "totalhits": 678
+    },
+    "search": [
+      {
+        "ns": 102,
+        "title": "Cookbook:Hard Cooked Eggs",
+        "pageid": 123791
+      }
+    ]
+  }
+}

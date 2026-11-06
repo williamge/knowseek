@@ -5,11 +5,17 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   `Knowseek.Discovery.Sources.Wikibooks` are thin modules over it: each
   passes its `t:site/0`.
 
-  Searches page titles and text in the main namespace (`list=search`), then
-  fetches the plain text extract of each of the top results
-  (`prop=extracts`). MediaWiki returns only one whole-page extract per
-  request, so one discovery run fetches its pages one at a time. Every
-  request sends `maxlag`, so the API refuses work when its database replicas
+  Searches page titles and text (`list=search`) in the main namespace, or in
+  the site's `search_namespaces`, then fetches the plain text extract of each
+  of the top results (`prop=extracts`). A site with `search_namespaces`
+  sends one search per namespace, in that order, and keeps the top results
+  of the first, then of the next, without duplicates, cut to `limit`: one
+  search over several namespaces ranks main-namespace pages first (ADR
+  0029). The source returns an error when any of its searches fails.
+
+  MediaWiki returns only one whole-page extract per request, so one
+  discovery run fetches its pages one at a time. Every request sends
+  `maxlag`, so the API refuses work when its database replicas
   lag, and runs as a `:background` caller of the shared Wikimedia slots
   (`Knowseek.Wikimedia`, ADR 0027). Req's retries, and their waits, keep the
   slot.
@@ -55,7 +61,8 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   `base_url` (its `api.php`), `license` (SPDX id of its text), `credit` (the
   name in the attribution), `config` (the application env key of its
   options, the source module) and, optionally, `skip_compilations` (default
-  `false`, see the module doc).
+  `false`) and `search_namespaces` (default `[0]`, the main namespace; see
+  the module doc).
   """
   @type site :: %{
           required(:name) => String.t(),
@@ -63,7 +70,8 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
           required(:license) => String.t(),
           required(:credit) => String.t(),
           required(:config) => module(),
-          optional(:skip_compilations) => boolean()
+          optional(:skip_compilations) => boolean(),
+          optional(:search_namespaces) => [non_neg_integer()]
         }
 
   @defaults [
@@ -88,17 +96,33 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   def discover(query, site) do
     config = config(site)
 
-    with {:ok, pageids} <- search(query, config) do
+    with {:ok, pageids} <- search_all(query, site, config) do
       collect_pages(pageids, site, config)
     end
   end
 
-  defp search(query, config) do
+  # One search per namespace; the earlier namespace's results come first.
+  defp search_all(query, site, config) do
+    site
+    |> Map.get(:search_namespaces, [0])
+    |> Enum.reduce_while({:ok, []}, fn namespace, {:ok, pageids} ->
+      case search(query, namespace, config) do
+        {:ok, found} -> {:cont, {:ok, pageids ++ found}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, pageids} -> {:ok, pageids |> Enum.uniq() |> Enum.take(config[:limit])}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp search(query, namespace, config) do
     params = [
       list: "search",
       srsearch: search_text(query),
       srlimit: config[:limit],
-      srnamespace: 0,
+      srnamespace: namespace,
       srprop: ""
     ]
 

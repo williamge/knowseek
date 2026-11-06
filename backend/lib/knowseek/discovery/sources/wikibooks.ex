@@ -11,6 +11,12 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   from the book's chapters, since the chapters are pages of their own
   (`skip_compilations`, see `MediaWiki`).
 
+  It searches the Cookbook namespace (102, recipes such as
+  *Cookbook:Hard Cooked Eggs*) first, then the main namespace, and keeps
+  the Cookbook pages first (`search_namespaces`, see `MediaWiki`; ADR 0029).
+  A question that matches no recipe gets the main-namespace pages, as
+  before; titles keep their `Cookbook:` prefix.
+
   Candidates are `CC-BY-SA-4.0`, credited to "Wikibooks" with a link to the
   page, `modified: true` and `share: "full"` (ADR 0026). Their
   `monthly_views` are Wikibooks page views: the same unit as Wikipedia's,
@@ -35,7 +41,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
     license: "CC-BY-SA-4.0",
     credit: "Wikibooks",
     config: __MODULE__,
-    skip_compilations: true
+    skip_compilations: true,
+    search_namespaces: [102, 0]
   }
 
   @impl true

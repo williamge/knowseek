@@ -14,7 +14,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 
 - Ingest documents into a Postgres + pgvector index (chunked and embedded).
 - Hybrid search (full-text + vector) with a coverage assessment.
-- Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles. For a question ("how do I fix a flat tire", or anything ending with `?`) it also searches Wikibooks (ADR 0029).
+- Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles. For a question ("how do I fix a flat tire", or anything ending with `?`) it also searches Wikibooks, its Cookbook recipes first ("how do I cook eggs" finds *Cookbook:Hard Cooked Eggs*; ADR 0029).
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
 - A web UI (`frontend/`) searches and shows results as discovery adds them.
 
