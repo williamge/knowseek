@@ -9,6 +9,11 @@ defmodule Knowseek.Discovery.Source do
   Register sources in config:
 
       config :knowseek, Knowseek.Discovery, sources: [MySource]
+
+  A source sets the license fields per document (ADR 0026): `:license` (SPDX
+  id), `:attribution` (`%{url:, credit:, authors:}`), `:modified` and `:share`
+  (`"full"`, `"pointer"` or `"none"`). Left out, a new document is unknown and
+  never shared.
   """
 
   @typedoc "A document a source found. Same shape as `Knowseek.Documents.ingest/1` attrs, minus `:source`."
@@ -19,7 +24,11 @@ defmodule Knowseek.Discovery.Source do
           optional(:published_at) => DateTime.t(),
           optional(:metadata) => map(),
           optional(:monthly_views) => non_neg_integer(),
-          optional(:source_updated_at) => DateTime.t()
+          optional(:source_updated_at) => DateTime.t(),
+          optional(:license) => String.t(),
+          optional(:attribution) => %{url: String.t(), credit: String.t(), authors: [String.t()]},
+          optional(:modified) => boolean(),
+          optional(:share) => String.t()
         }
 
   @doc "Short stable name. Stored in `documents.source`."

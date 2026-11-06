@@ -14,8 +14,28 @@ export interface Passage {
   score: number;
 }
 
+/** Who to credit for a document, and where (ADR 0026). */
+export interface Attribution {
+  url: string;
+  credit: string;
+  authors: string[];
+}
+
+/** What a peer may receive of a document: its text, its URL and title, or nothing. */
+export type Share = "full" | "pointer" | "none";
+
+/** A document's license fields (ADR 0026), on documents and on search hits. */
+export interface LicenseFields {
+  /** SPDX id, e.g. "CC-BY-SA-4.0"; "LicenseRef-unknown" when not known. */
+  license: string;
+  attribution: Attribution | null;
+  /** The text differs from the source's (e.g. a shortened extract). */
+  modified: boolean;
+  share: Share;
+}
+
 /** One search hit: a document, shown by its best matching chunk. */
-export interface Hit {
+export interface Hit extends LicenseFields {
   document_id: string;
   chunk_id: string;
   url: string;
@@ -40,7 +60,7 @@ export interface SearchResult {
   hits: Hit[];
 }
 
-export interface KnowseekDocument {
+export interface KnowseekDocument extends LicenseFields {
   id: string;
   url: string;
   title: string | null;

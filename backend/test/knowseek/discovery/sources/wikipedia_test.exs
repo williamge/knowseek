@@ -56,6 +56,21 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert hnsw.source_updated_at == ~U[2026-08-13 02:48:09Z]
     end
 
+    test "carries CC BY-SA 4.0 with credit to the page, modified, shared in full" do
+      stub_api()
+
+      assert {:ok, [vector_db | _]} = Wikipedia.discover("pgvector", [])
+
+      assert %{
+               license: "CC-BY-SA-4.0",
+               attribution: %{url: url, credit: "Wikipedia", authors: []},
+               modified: true,
+               share: "full"
+             } = vector_db
+
+      assert url == vector_db.url
+    end
+
     test "searches articles, then fetches each page's plain text, with a User-Agent" do
       stub_api()
 

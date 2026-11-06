@@ -55,7 +55,7 @@ From `backend/priv/repo/migrations`, `backend/lib` and `backend/config` at `main
 
 ## 3. A license on every document (question b)
 
-**Yes.** Licenses vary *within* a source (Fandom per wiki, Stack Exchange by post date, Europe PMC and OpenAlex per work, Gutenberg per book), so a per-source rule is not enough. Proposal only, no code:
+**Yes.** Licenses vary *within* a source (Fandom per wiki, Stack Exchange by post date, Europe PMC and OpenAlex per work, Gutenberg per book), so a per-source rule is not enough. Built in #68 as below; see [ADR 0026](../decisions/0026-per-document-license-fields.md):
 
 | Field | Example | Why |
 |---|---|---|
@@ -64,7 +64,7 @@ From `backend/priv/repo/migrations`, `backend/lib` and `backend/config` at `main
 | `modified` | `true` for Wikipedia (a plain-text extract, maybe shortened) | BY 4.0 3(a)(1)(B) [29] |
 | `share` | `full`, `pointer` or `none` | Site terms that aren't in the license (arXiv, the Stack Exchange AUP, Tavily) |
 
-The source module sets these at ingest. Missing means `LicenseRef-unknown` and `none`, which covers manual documents. Existing Wikipedia rows can be backfilled with a constant. Columns rather than `metadata` keys, because sharing filters on them `[INFERENCE]`. Chunks and embeddings inherit from their document.
+The source module sets these at ingest. Missing means `LicenseRef-unknown` and `none`, which covers manual documents. Existing Wikipedia rows are backfilled with a constant. Columns rather than `metadata` keys, because sharing filters on them. Chunks and embeddings inherit from their document.
 
 ## 4. Test for a new source (question c)
 

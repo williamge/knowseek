@@ -1,5 +1,5 @@
 defmodule KnowseekWeb.DocumentJSON do
-  alias Knowseek.Documents.Document
+  alias Knowseek.Documents.{Attribution, Document}
 
   @doc "A list has no bodies. `show/1` returns the full document."
   def index(%{documents: documents}), do: %{data: Enum.map(documents, &summary/1)}
@@ -15,7 +15,17 @@ defmodule KnowseekWeb.DocumentJSON do
       published_at: document.published_at,
       fetched_at: document.fetched_at,
       source_updated_at: document.source_updated_at,
+      license: document.license,
+      attribution: attribution(document.attribution),
+      modified: document.modified,
+      share: document.share,
       metadata: document.metadata
     }
   end
+
+  @doc "`{url, credit, authors}`, or `nil` when the document has no attribution."
+  def attribution(nil), do: nil
+
+  def attribution(%Attribution{} = attribution),
+    do: Map.take(attribution, [:url, :credit, :authors])
 end

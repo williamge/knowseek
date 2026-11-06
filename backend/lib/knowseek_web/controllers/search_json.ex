@@ -1,5 +1,6 @@
 defmodule KnowseekWeb.SearchJSON do
   alias Knowseek.Search.Hit
+  alias KnowseekWeb.DocumentJSON
 
   def show(%{result: result}) do
     %{
@@ -26,6 +27,10 @@ defmodule KnowseekWeb.SearchJSON do
       published_at: hit.published_at,
       fetched_at: hit.fetched_at,
       source_updated_at: hit.source_updated_at,
+      license: hit.license,
+      attribution: DocumentJSON.attribution(hit.attribution),
+      modified: hit.modified,
+      share: hit.share,
       score: hit.score,
       keyword_rank: hit.keyword_rank,
       semantic_rank: hit.semantic_rank,

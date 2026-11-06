@@ -15,6 +15,8 @@ defmodule Knowseek.Search.Hit do
     * `keyword_rank` - 1-based rank in the full-text results, or `nil`.
     * `semantic_rank` - 1-based rank in the vector results, or `nil`.
     * `similarity` - cosine similarity to the query (-1.0 to 1.0), or `nil`.
+    * `license`, `attribution`, `modified`, `share` - the document's license
+      fields (`Knowseek.Documents.Document`, ADR 0026).
 
   A hit is relevant when it matched the full-text search, or when its
   similarity is at least `min_similarity`. See `relevant?/2`.
@@ -31,6 +33,10 @@ defmodule Knowseek.Search.Hit do
           published_at: DateTime.t() | nil,
           fetched_at: DateTime.t(),
           source_updated_at: DateTime.t() | nil,
+          license: String.t(),
+          attribution: Knowseek.Documents.Attribution.t() | nil,
+          modified: boolean(),
+          share: String.t(),
           score: float(),
           keyword_rank: pos_integer() | nil,
           semantic_rank: pos_integer() | nil,
@@ -47,6 +53,10 @@ defmodule Knowseek.Search.Hit do
     :published_at,
     :fetched_at,
     :source_updated_at,
+    :license,
+    :attribution,
+    :modified,
+    :share,
     :score,
     :keyword_rank,
     :semantic_rank,
