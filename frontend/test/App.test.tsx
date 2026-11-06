@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
+import type { KnowseekDocument } from "../src/types";
 import { document as doc, hit, mockApi, result } from "./fixtures";
 
 const FAST = { intervalMs: 10, timeoutMs: 2000, quietChecks: 2 };
@@ -189,5 +190,61 @@ describe("App", () => {
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  const wikipedia = {
+    source: "wikipedia",
+    url: "https://en.wikipedia.org/wiki/Octopus",
+    license: "CC-BY-SA-4.0",
+    attribution: { url: "https://en.wikipedia.org/wiki/Octopus", credit: "Wikipedia", authors: [] },
+    modified: true,
+    share: "full" as const,
+  };
+
+  async function openReader(document: KnowseekDocument) {
+    window.history.replaceState(null, "", "/?q=octopus&doc=doc-1");
+    mockApi({
+      "POST /search": () => result({ hits: [hit({ document_id: "doc-1", title: "Doc one" })] }),
+      "GET /documents/doc-1": () => document,
+    });
+    render(<App watch={FAST} />);
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("heading", { level: 1 });
+    return within(dialog);
+  }
+
+  it("credits Wikipedia text under its title with the license and the extract note", async () => {
+    const reader = await openReader(doc(wikipedia));
+
+    expect(await reader.findByText(/^Text from/)).toHaveTextContent(
+      "Text from Wikipedia ↗ under CC BY-SA 4.0 ↗. Plain-text extract, may be shortened.",
+    );
+    expect(reader.getByRole("link", { name: "Wikipedia ↗" })).toHaveAttribute(
+      "href",
+      "https://en.wikipedia.org/wiki/Octopus",
+    );
+    expect(reader.getByRole("link", { name: "CC BY-SA 4.0 ↗" })).toHaveAttribute(
+      "href",
+      "https://creativecommons.org/licenses/by-sa/4.0/",
+    );
+    // Under the title, before the text.
+    const notice = reader.getByText(/^Text from/);
+    expect(reader.getByRole("heading", { level: 1 }).nextElementSibling).toBe(notice);
+  });
+
+  it("leaves out the extract note when the text is not modified", async () => {
+    const reader = await openReader(doc({ ...wikipedia, modified: false }));
+
+    expect(await reader.findByText(/^Text from/)).toHaveTextContent(
+      /^Text from Wikipedia ↗ under CC BY-SA 4.0 ↗\.$/,
+    );
+  });
+
+  it("shows no license line when the license is unknown", async () => {
+    const reader = await openReader(doc());
+
+    await reader.findByText("Second paragraph", { exact: false });
+    expect(reader.queryByText(/^Text (from|under)/)).not.toBeInTheDocument();
+    expect(reader.queryByRole("link", { name: /CC BY/ })).not.toBeInTheDocument();
   });
 });

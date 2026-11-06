@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import { displayHost, isWebUrl, timeAgo } from "../lib/format";
+import { displayHost, isWebUrl, licenseInfo, timeAgo } from "../lib/format";
 import type { KnowseekDocument } from "../types";
 import { Highlighted } from "./Highlighted";
 
@@ -86,9 +86,40 @@ function DocumentBody({ document, query }: { document: KnowseekDocument; query: 
         )}
       </p>
       <h1>{document.title || "Untitled"}</h1>
+      <LicenseNotice document={document} />
       {paragraphs.map((paragraph, index) => (
         <p key={index}>{query ? <Highlighted text={paragraph} query={query} /> : paragraph}</p>
       ))}
     </article>
+  );
+}
+
+/** Who to credit and under which license (CC BY-SA 3(a)), under the title. Nothing when the license is unknown. */
+function LicenseNotice({ document }: { document: KnowseekDocument }) {
+  const license = licenseInfo(document.license);
+  if (!license) return null;
+  const { attribution } = document;
+
+  return (
+    <p className="reader__license">
+      Text
+      {attribution && (
+        <>
+          {" from "}
+          {isWebUrl(attribution.url) ? (
+            <a href={attribution.url} target="_blank" rel="noreferrer">
+              {attribution.credit} ↗
+            </a>
+          ) : (
+            attribution.credit
+          )}
+        </>
+      )}{" "}
+      under{" "}
+      <a href={license.url} target="_blank" rel="noreferrer">
+        {license.name} ↗
+      </a>
+      .{document.modified && " Plain-text extract, may be shortened."}
+    </p>
   );
 }

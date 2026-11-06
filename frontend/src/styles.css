@@ -788,6 +788,12 @@ kbd {
   line-height: 1.7;
 }
 
+.reader__doc .reader__license {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 @keyframes fade {
   from {
     opacity: 0;

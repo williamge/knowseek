@@ -15,7 +15,7 @@ From `backend/priv/repo/migrations`, `backend/lib` and `backend/config` at `main
 
 | Data | Where | Source | Kept | License or terms | Verdict |
 |---|---|---|---|---|---|
-| Wikipedia documents: title, URL, plain-text body (cut at 40,000 chars), `metadata.pageid` | `documents` (`source = "wikipedia"`) | MediaWiki Action API, en.wikipedia (`Discovery.Sources.Wikipedia`) | Forever; re-ingest replaces | CC BY-SA 4.0 or GFDL [1] | **Conditional.** Keeping and embedding are fine. Showing the text to anyone but the owner is "Share" [29], which needs a license notice and a "modified" note [1][29]. The reader shows only `source`, a link to the page and the fetch time: add "CC BY-SA 4.0" with a link and "plain-text extract, may be shortened". |
+| Wikipedia documents: title, URL, plain-text body (cut at 40,000 chars), `metadata.pageid` | `documents` (`source = "wikipedia"`) | MediaWiki Action API, en.wikipedia (`Discovery.Sources.Wikipedia`) | Forever; re-ingest replaces | CC BY-SA 4.0 or GFDL [1] | **Conditional.** Keeping and embedding are fine. Showing the text to anyone but the owner is "Share" [29], which needs a license notice and a "modified" note [1][29]. The reader shows both under the title (#67): "Text from Wikipedia under CC BY-SA 4.0. Plain-text extract, may be shortened." |
 | Manual documents | `documents` (`POST /api/documents`) | Whatever the caller posts | Forever | Unknown | **Conditional.** The operator is responsible. Never share them by default. |
 | Chunks | `chunks.content` | Verbatim pieces of a document body | Deleted with the document | Same as the document | Same verdict as the document. |
 | Embeddings | `chunks.embedding` | bge-m3 through local Ollama (default); Hashing; Voyage (opt-in) | Deleted with the chunk | Same as the document | **Fine** with Ollama or Hashing. **Conditional** with Voyage: chunk text goes to Voyage, which stores it and trains on it unless the customer opts out, and opting out needs a payment method [9]. CC BY-SA text allows this; a source whose terms ban ML must never go through Voyage. |
@@ -74,7 +74,7 @@ A source is added only if every box is ticked, with a link and a quote for each 
 - [ ] **Permanent storage allowed.** Not "transient", not "delete within N hours".
 - [ ] **Indexing and ML not banned.** Treat local embedding as ML.
 - [ ] **License known per document**, from the API response or a fixed rule (by date, per wiki, per work). Unknown means `share: none`.
-- [ ] **Attribution possible** from what we store (URL, credit, authors if needed).
+- [ ] **Attribution possible** from what we store (URL, credit, authors if needed). A new license id gets a display name and link in `frontend/src/lib/format.ts` (`LICENSES`); without one the reader shows no license line.
 - [ ] **Search API** that answers a free-text query, under a rate limit we can keep with single flight and backoff. No key, or a free key.
 - [ ] **Breadth:** three sample queries that Wikipedia answers badly and this source answers well.
 - [ ] **Courtesy:** a User-Agent with contact info; honour 429, `Retry-After` and `maxlag`; respect the concurrency limit.
