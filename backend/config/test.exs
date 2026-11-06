@@ -82,6 +82,9 @@ config :knowseek, Knowseek.Discovery, sources: []
 config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
   req_options: [plug: {Req.Test, Knowseek.Discovery.Sources.Wikipedia}, retry: false]
 
+config :knowseek, Knowseek.Discovery.Sources.Wikibooks,
+  req_options: [plug: {Req.Test, Knowseek.Discovery.Sources.Wikibooks}, retry: false]
+
 config :knowseek, Knowseek.Entities.Wikidata,
   req_options: [plug: {Req.Test, Knowseek.Entities.Wikidata}, retry: false]
 

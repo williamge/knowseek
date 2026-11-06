@@ -61,10 +61,13 @@ config :knowseek, Knowseek.Search,
   prior_saturation_views: 1_000_000
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
-config :knowseek, Knowseek.Discovery, sources: [Knowseek.Discovery.Sources.Wikipedia]
+# Wikibooks runs only for questions (ADR 0029).
+config :knowseek, Knowseek.Discovery,
+  sources: [Knowseek.Discovery.Sources.Wikipedia, Knowseek.Discovery.Sources.Wikibooks]
 
 # Wikimedia asks for at most 3 requests at once across all its sites. Every
-# Wikipedia and Wikidata request takes one of `max_concurrent` slots (ADR 0027).
+# Wikipedia, Wikibooks and Wikidata request takes one of `max_concurrent`
+# slots (ADR 0027).
 # Discovery jobs (background) hold at most `background_max`, so a slot stays
 # free for entity lookups; those go first. A request with no free slot waits:
 # the `discovery` queue runs 5 jobs and the entity cache 4 resolutions.

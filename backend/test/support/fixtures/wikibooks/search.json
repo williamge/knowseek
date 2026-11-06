@@ -1,0 +1,24 @@
+{
+  "batchcomplete": true,
+  "continue": {
+    "sroffset": 2,
+    "continue": "-||"
+  },
+  "query": {
+    "searchinfo": {
+      "totalhits": 66
+    },
+    "search": [
+      {
+        "ns": 0,
+        "title": "Bicycles/Maintenance and Repair/Wheels and Tires/Fixing a flat",
+        "pageid": 3567
+      },
+      {
+        "ns": 0,
+        "title": "Tomos Moped/Repair",
+        "pageid": 12404
+      }
+    ]
+  }
+}

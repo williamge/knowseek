@@ -12,8 +12,8 @@ defmodule Knowseek.Wikimedia do
     * `:interactive` - a user is waiting (the entity lookups of
       `Knowseek.Entities.Wikidata`). It may use every slot, and a freed slot
       goes to the oldest interactive waiter first.
-    * `:background` - nobody is waiting (the discovery jobs of
-      `Knowseek.Discovery.Sources.Wikipedia`). It may hold at most
+    * `:background` - nobody is waiting (the discovery jobs of the
+      `Knowseek.Discovery.Sources.MediaWiki` sources). It may hold at most
       `:background_max` slots, so the others stay free for interactive
       requests, and it gets a freed slot only when no interactive request
       waits.

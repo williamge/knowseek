@@ -6,6 +6,9 @@ Third-party content in this repository:
 - backend/test/support/fixtures/wikipedia/: excerpts of English Wikipedia
   articles, CC BY-SA 4.0. Source, attribution, and page-history links are in
   that directory's README.md. These files are not under the AGPL.
+- backend/test/support/fixtures/wikibooks/: shortened excerpts of English
+  Wikibooks pages, CC BY-SA 4.0. Source, attribution, and page-history links
+  are in that directory's README.md. These files are not under the AGPL.
 - backend/test/support/fixtures/wikidata/: Wikidata API responses, CC0 1.0.
   See that directory's README.md.
 
