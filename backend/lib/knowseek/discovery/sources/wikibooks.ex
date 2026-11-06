@@ -7,7 +7,9 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
 
   It runs only for a question (`question?/1`): for "Barack Obama" its search
   returns off-topic book pages, so it sends no request and returns no
-  candidates.
+  candidates. It skips compilations such as print versions, pages built
+  from the book's chapters, since the chapters are pages of their own
+  (`skip_compilations`, see `MediaWiki`).
 
   Candidates are `CC-BY-SA-4.0`, credited to "Wikibooks" with a link to the
   page, `modified: true` and `share: "full"` (ADR 0026). Their
@@ -32,7 +34,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
     base_url: "https://en.wikibooks.org/w/api.php",
     license: "CC-BY-SA-4.0",
     credit: "Wikibooks",
-    config: __MODULE__
+    config: __MODULE__,
+    skip_compilations: true
   }
 
   @impl true

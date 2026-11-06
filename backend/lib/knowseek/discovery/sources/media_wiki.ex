@@ -22,6 +22,13 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   fails, the other pages are still returned. The source returns an error
   only when the search fails or every page fetch fails.
 
+  A site with `skip_compilations: true` also skips compilations: pages that
+  transclude 2 or more main-namespace pages (`prop=templates` with
+  `tlnamespace=0`, same request), such as a Wikibooks print version built
+  from its chapters. Their text is other pages' text, which is fetched on its
+  own, and as one long document it outranks the chapter that answers the
+  query (ADR 0029). Other sites send the same request as before.
+
   Each candidate carries `:monthly_views`, the page's views per 30 days, from
   the same request as the text (`prop=pageviews`, the average of the last 60
   days that have data). It is left out when the API has no figure. See ADR
@@ -46,15 +53,17 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   @typedoc """
   One MediaWiki site: `name` (the source name, stored in `documents.source`),
   `base_url` (its `api.php`), `license` (SPDX id of its text), `credit` (the
-  name in the attribution) and `config` (the application env key of its
-  options, the source module).
+  name in the attribution), `config` (the application env key of its
+  options, the source module) and, optionally, `skip_compilations` (default
+  `false`, see the module doc).
   """
   @type site :: %{
-          name: String.t(),
-          base_url: String.t(),
-          license: String.t(),
-          credit: String.t(),
-          config: module()
+          required(:name) => String.t(),
+          required(:base_url) => String.t(),
+          required(:license) => String.t(),
+          required(:credit) => String.t(),
+          required(:config) => module(),
+          optional(:skip_compilations) => boolean()
         }
 
   @defaults [
@@ -69,6 +78,9 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
 
   # The PageViewInfo extension returns at most 60 daily figures per page.
   @pageview_days 60
+
+  # A page that transcludes this many main-namespace pages is a compilation.
+  @compilation_min_pages 2
 
   @doc "Finds the top pages of `site` for `query`. See the module doc."
   @spec discover(String.t(), site()) ::
@@ -129,20 +141,24 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   end
 
   defp fetch_page(pageid, site, config) do
-    params = [
-      prop: "extracts|info|pageprops|pageviews|revisions",
-      rvprop: "timestamp",
-      explaintext: 1,
-      exsectionformat: "plain",
-      inprop: "url",
-      ppprop: "disambiguation",
-      pvipdays: @pageview_days,
-      pageids: pageid
-    ]
+    params =
+      [
+        prop: "extracts|info|pageprops|pageviews|revisions",
+        rvprop: "timestamp",
+        explaintext: 1,
+        exsectionformat: "plain",
+        inprop: "url",
+        ppprop: "disambiguation",
+        pvipdays: @pageview_days,
+        pageids: pageid
+      ]
+      |> put_compilation_params(site)
 
     case api_get(params, config) do
       {:ok, %{"query" => %{"pages" => [page | _rest]}}} ->
-        {:ok, to_candidate(page, site, config[:max_chars])}
+        if compilation?(page, site),
+          do: {:ok, nil},
+          else: {:ok, to_candidate(page, site, config[:max_chars])}
 
       {:ok, _body} ->
         {:error, :unexpected_body}
@@ -151,6 +167,21 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
         {:error, reason}
     end
   end
+
+  # Asks for the main-namespace pages the page transcludes, enough of them to
+  # tell a compilation.
+  defp put_compilation_params(params, %{skip_compilations: true}) do
+    params
+    |> Keyword.update!(:prop, &(&1 <> "|templates"))
+    |> Keyword.merge(tlnamespace: 0, tllimit: @compilation_min_pages)
+  end
+
+  defp put_compilation_params(params, _site), do: params
+
+  defp compilation?(page, %{skip_compilations: true}),
+    do: length(page["templates"] || []) >= @compilation_min_pages
+
+  defp compilation?(_page, _site), do: false
 
   # Disambiguation pages only list links to other pages.
   defp to_candidate(%{"pageprops" => %{"disambiguation" => _}}, _site, _max_chars), do: nil

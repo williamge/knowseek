@@ -1,0 +1,104 @@
+{
+  "continue": {
+    "tlcontinue": "448201|0|Tomos_Moped/Protection",
+    "continue": "||extracts|info|pageprops|pageviews|revisions"
+  },
+  "query": {
+    "pages": [
+      {
+        "pageid": 448201,
+        "ns": 0,
+        "title": "Tomos Moped/Printable version",
+        "extract": "\nRepair\n\n\nHow do I replace the piston and cylinder?\nTake off side fairings.   Remove airbox with one large philips screw and detach from carburetor by unscrewing clamp. \nTurn on fuel flow and remove carburetor where it attaches to intake with philips screw. Let carburetor hang to the side. Unbolt oil injection from intake manifold with one small (size?) bolt.\nUnbolt exhaust at bottom of engine and consider completely removing exhaust from moped.\nOn cylinder head, remove spark plug wire and pull spark plug. Unbolt head from cylinder via 11mm bolts and washer. Wiggle cylinder head completely off engine, pulling it past piston and rings. Stuff paper or cloth in remaining hole to keep debris out of engine.\nUnbolt intake manifold from cylinder and remove reed valve. Replace intake and reed valve on new cylinder along with appropriate gaskets.\nRemove piston by unclipping 2 retainer rings on wrist pin. Slide out wrist pin, tapping if necessary. Remove piston.\nPut new rings on new piston by gently working them down over top of piston. Check documentation for ring arrangement. Often, pistons will have a finger in the groove to keep ring alignment at preferred angles. \nSlide piston into new cylinder by compressing rings one at a time. ",
+        "contentmodel": "wikitext",
+        "pagelanguage": "en",
+        "pagelanguagehtmlcode": "en",
+        "pagelanguagedir": "ltr",
+        "touched": "2026-03-26T19:12:41Z",
+        "lastrevid": 4089614,
+        "length": 13,
+        "new": true,
+        "fullurl": "https://en.wikibooks.org/wiki/Tomos_Moped/Printable_version",
+        "editurl": "https://en.wikibooks.org/w/index.php?title=Tomos_Moped/Printable_version&action=edit",
+        "canonicalurl": "https://en.wikibooks.org/wiki/Tomos_Moped/Printable_version",
+        "pageviews": {
+          "2026-09-07": 3,
+          "2026-09-08": 0,
+          "2026-09-09": 0,
+          "2026-09-10": null,
+          "2026-09-11": 0,
+          "2026-09-12": 0,
+          "2026-09-13": 0,
+          "2026-09-14": 2,
+          "2026-09-15": 0,
+          "2026-09-16": 3,
+          "2026-09-17": null,
+          "2026-09-18": 0,
+          "2026-09-19": 0,
+          "2026-09-20": 0,
+          "2026-09-21": 0,
+          "2026-09-22": 0,
+          "2026-09-23": 0,
+          "2026-09-24": 0,
+          "2026-09-25": 0,
+          "2026-09-26": 1,
+          "2026-09-27": 0,
+          "2026-09-28": 0,
+          "2026-09-29": 1,
+          "2026-09-30": 0,
+          "2026-10-01": 0,
+          "2026-10-02": null,
+          "2026-10-03": null,
+          "2026-10-04": 0,
+          "2026-10-05": 1,
+          "2026-10-06": 0,
+          "2026-10-07": 0,
+          "2026-10-08": 0,
+          "2026-10-09": null,
+          "2026-10-10": null,
+          "2026-10-11": 0,
+          "2026-10-12": 0,
+          "2026-10-13": 1,
+          "2026-10-14": 1,
+          "2026-10-15": 1,
+          "2026-10-16": 1,
+          "2026-10-17": 0,
+          "2026-10-18": null,
+          "2026-10-19": 1,
+          "2026-10-20": null,
+          "2026-10-21": 1,
+          "2026-10-22": 0,
+          "2026-10-23": 1,
+          "2026-10-24": 0,
+          "2026-10-25": 0,
+          "2026-10-26": null,
+          "2026-10-27": 0,
+          "2026-10-28": 0,
+          "2026-10-29": 1,
+          "2026-10-30": 0,
+          "2026-10-31": 0,
+          "2026-11-01": 1,
+          "2026-11-02": 0,
+          "2026-11-03": null,
+          "2026-11-04": 0,
+          "2026-11-05": 0
+        },
+        "revisions": [
+          {
+            "timestamp": "2022-08-08T06:54:58Z"
+          }
+        ],
+        "templates": [
+          {
+            "ns": 0,
+            "title": "Tomos Moped"
+          },
+          {
+            "ns": 0,
+            "title": "Tomos Moped/Mobile Toolset"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -42,6 +42,18 @@ But Wikibooks is small (99,158 content pages) and uneven: for a name like
    These ask for a method, a reason or advice. "What is X" and "who" ask what
    something is, which Wikipedia answers. Wikipedia runs for every query.
 4. **Page views are kept, on their own scale** (below).
+5. **Compilations are skipped.** A Wikibooks page that transcludes 2 or more
+   main-namespace pages is built from other pages, such as a print version
+   (its whole source can be `{{Printable}}`, which pulls in every chapter).
+   Its text is the chapters' text, which is fetched on its own, and as one
+   long document it outranks the chapter that answers the query: found in QA,
+   where *Tomos Moped/Printable version* outranked *Tomos Moped/Repair*. The
+   page request adds `prop=templates` with `tlnamespace=0&tllimit=2` (no extra
+   request); content pages list none. The rule names a structure, not titles,
+   so it holds for any print or "all chapters" page whatever it is called. A
+   page that transcludes a single shared page is kept. Only Wikibooks opts in
+   (`skip_compilations` in its site); Wikipedia's request is unchanged.
+   Revisit if it skips the wrong pages on another site.
 
 ### Where the gate lives
 
@@ -100,8 +112,9 @@ Quotes read 2026-11-06 (the how-to note), checked again live where marked.
   which the namespace-0 search does not cover ("sourdough bread" in 102 finds
   *Cookbook:San Francisco Sourdough Bread*; "how do i bake sourdough bread" in
   0 finds off-topic pages). Searching it is a follow-up.
-- "Print version" pages hold whole books; they are cut at 40,000 characters
-  like any long page.
+- Compilations are found by structure. A compilation that copies its chapters'
+  text instead of transcluding them is not caught; a content page that
+  transcludes 2 or more main-namespace pages is skipped.
 - A query starting with "can" or "should" that is not a question ("can
   opener") also asks Wikibooks; a question without a question word or `?`
   ("fix a flat tire") does not.

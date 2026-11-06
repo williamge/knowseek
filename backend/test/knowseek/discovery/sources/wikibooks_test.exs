@@ -84,6 +84,64 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
 
       refute_received {:wikibooks_request, _host, _params}
     end
+
+    test "skips a compilation: a page that transcludes 2 or more main-namespace pages" do
+      stub_wikibooks()
+
+      # The search's third result is the Tomos Moped print version.
+      assert {:ok, candidates} = Wikibooks.discover("how do i fix a flat tire", [])
+
+      assert Enum.map(candidates, & &1.title) == [
+               "Bicycles/Maintenance and Repair/Wheels and Tires/Fixing a flat",
+               "Tomos Moped/Repair"
+             ]
+
+      assert_received {:wikibooks_request, _host,
+                       %{"pageids" => "448201", "tlnamespace" => "0", "tllimit" => "2"} = params}
+
+      assert params["prop"] =~ "templates"
+    end
+
+    test "keeps a page that transcludes only one main-namespace page" do
+      Req.Test.stub(Wikibooks, fn conn ->
+        case Plug.Conn.fetch_query_params(conn).query_params do
+          %{"list" => "search"} ->
+            Req.Test.json(conn, fixture("wikibooks", "search.json"))
+
+          %{"pageids" => "448201"} ->
+            Req.Test.json(conn, fixture("wikibooks", "page_448201.json"))
+
+          %{"pageids" => id} ->
+            body = fixture("wikibooks", "page_#{id}.json")
+            shared = [%{"ns" => 0, "title" => "Bicycles/Shared notice"}]
+
+            Req.Test.json(
+              conn,
+              put_in(body, ["query", "pages", Access.at(0), "templates"], shared)
+            )
+        end
+      end)
+
+      assert {:ok, [_flat, _moped]} = Wikibooks.discover("how do i fix a flat tire", [])
+    end
+
+    test "Wikipedia does not ask for transclusions and keeps every page" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        params = Plug.Conn.fetch_query_params(conn).query_params
+        send(self(), {:wikipedia_request, params})
+
+        case params do
+          %{"list" => "search"} -> Req.Test.json(conn, fixture("wikipedia", "search.json"))
+          %{"pageids" => id} -> Req.Test.json(conn, fixture("wikipedia", "page_#{id}.json"))
+        end
+      end)
+
+      assert {:ok, [_one, _two]} = Wikipedia.discover("flat tire", [])
+
+      assert_received {:wikipedia_request, %{"pageids" => _id} = params}
+      refute params["prop"] =~ "templates"
+      refute Map.has_key?(params, "tlnamespace")
+    end
   end
 
   describe "with Discovery.run/2" do

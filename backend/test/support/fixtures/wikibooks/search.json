@@ -1,7 +1,7 @@
 {
   "batchcomplete": true,
   "continue": {
-    "sroffset": 2,
+    "sroffset": 3,
     "continue": "-||"
   },
   "query": {
@@ -18,6 +18,11 @@
         "ns": 0,
         "title": "Tomos Moped/Repair",
         "pageid": 12404
+      },
+      {
+        "ns": 0,
+        "title": "Tomos Moped/Printable version",
+        "pageid": 448201
       }
     ]
   }
