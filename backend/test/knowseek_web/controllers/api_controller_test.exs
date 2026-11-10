@@ -1,5 +1,5 @@
 defmodule KnowseekWeb.ApiControllerTest do
-  use KnowseekWeb.ConnCase, async: true
+  use KnowseekWeb.ConnCase, async: false
 
   alias Knowseek.Discovery.SeekWorker
 

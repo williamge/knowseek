@@ -1,5 +1,5 @@
 defmodule Knowseek.LookupTest do
-  use Knowseek.DataCase, async: true
+  use Knowseek.DataCase, async: false
 
   alias Knowseek.Discovery.SeekWorker
   alias Knowseek.Lookup

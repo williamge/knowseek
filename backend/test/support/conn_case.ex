@@ -9,10 +9,8 @@ defmodule KnowseekWeb.ConnCase do
 
   Finally, if the test case interacts with the database,
   we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use KnowseekWeb.ConnCase, async: true`, although
-  this option is not recommended for other databases.
+  are reverted at the end of every test. A test that uses the
+  database must not be async (see `Knowseek.DataCase.setup_sandbox/1`).
   """
 
   use ExUnit.CaseTemplate
@@ -29,7 +27,7 @@ defmodule KnowseekWeb.ConnCase do
       import Phoenix.ConnTest
       import KnowseekWeb.ConnCase
       import Knowseek.Fixtures
-      use Oban.Testing, repo: Knowseek.Repo
+      use Oban.Testing, repo: Knowseek.Repo, engine: Oban.Engines.Lite
     end
   end
 

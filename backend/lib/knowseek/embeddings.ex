@@ -96,7 +96,7 @@ defmodule Knowseek.Embeddings do
   def dimensions, do: Keyword.fetch!(config(), :dimensions)
 
   # Enforces the adapter contract, so a bad adapter fails loudly instead of
-  # silently dropping chunks (Enum.zip) or failing later in Postgres.
+  # silently dropping chunks (Enum.zip) or failing later in the database.
   defp validate(vectors, count, dimensions) do
     cond do
       length(vectors) != count ->

@@ -17,6 +17,10 @@ defmodule Knowseek.Fixtures do
     document
   end
 
+  @doc "The stored embedding of `chunk` (a list of floats), read from `chunk_vectors`."
+  def chunk_embedding(%Knowseek.Documents.Chunk{seq: seq}),
+    do: Knowseek.Repo.get!(Knowseek.Documents.ChunkVector, seq).embedding
+
   @wikidata_fixtures Path.expand("fixtures/wikidata", __DIR__)
 
   @doc """

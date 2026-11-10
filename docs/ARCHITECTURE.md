@@ -7,7 +7,7 @@ flowchart LR
     web([Web UI]) -->|/api, same origin| client([Client])
     client -->|POST /api/search| lookup[Knowseek.Lookup]
     lookup --> search[Knowseek.Search]
-    search -->|full-text + vector| pg[(Postgres + pgvector)]
+    search -->|full-text + vector| db[(SQLite: FTS5 + sqlite-vec)]
     search --> coverage{Coverage}
     coverage -->|sufficient| client
     coverage -->|partial / none| enqueue[Discovery.request]
@@ -15,7 +15,7 @@ flowchart LR
     seek --> sources[[Discovery sources]]
     sources -->|candidates| ingest[Documents.ingest]
     ingest --> embed[Embeddings]
-    ingest --> pg
+    ingest --> db
 ```
 
 A search returns right away with whatever the index has. Discovery runs in the background, so its results are available to later searches, not to the search that triggered it. (Pushing late results to the caller is a backlog task.)
@@ -27,7 +27,8 @@ All modules live in `backend/lib/knowseek/`.
 | Module | Responsibility |
 | --- | --- |
 | `Knowseek.Lookup` | Entry point for a query. Searches, then requests discovery if coverage is not sufficient. |
-| `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (`tsvector`) and vector (cosine, HNSW) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). Then a bounded prior from the document's `monthly_views` multiplies that score and the hits are sorted again (see "Ranking prior"). The vector query runs in a transaction that sets `hnsw.ef_search` and an iterative index scan, so that dead index entries do not empty or shorten its list (see "Vector index health", [ADR 0024](decisions/0024-hnsw-iterative-scan.md)). |
+| `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (FTS5 `chunks_fts`, ranked by `bm25`, with the query built by `Search.FtsQuery`) and vector (sqlite-vec `chunk_vectors`, cosine, an exact scan) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). Then a bounded prior from the document's `monthly_views` multiplies that score and the hits are sorted again (see "Ranking prior"). See "Search index" and [ADR 0030](decisions/0030-sqlite-single-datastore.md). |
+| `Knowseek.Search.FtsQuery` | Pure: turns the query text into an FTS5 `MATCH` expression, the way Postgres's `websearch_to_tsquery` read it. Every word is quoted (no user text reaches FTS5 as syntax) and ANDed; Postgres's English stop words are dropped outside phrases; `"a phrase"`, `or` and `-word` are translated. `nil` when nothing is left: the search then has no keyword list. |
 | `Knowseek.Search.Coverage` | Pure heuristic that classifies a hit list as `:sufficient`, `:partial`, or `:none`. Each hit is one document, so it counts documents with a relevant, fresh hit. With `max_age_seconds`, it counts only documents whose `fetched_at` is within that many seconds. |
 | `Knowseek.Documents` | The only write path into the index. Validates, canonicalizes the URL, chunks, embeds, and stores documents. Re-ingesting a URL updates it. `source_updated_at` (when the source says the page was last edited) is stored like `monthly_views`: a candidate without it leaves the stored value alone, and an unchanged body still updates it, because the field means "the source says last edited" and not "our text changed". The license fields (`license`, `attribution`, `modified`, `share`, [ADR 0026](decisions/0026-per-document-license-fields.md)) follow the same rule; a new document without them is `LicenseRef-unknown` and `share: none`. A body that is long enough (`min_alias_body_length/0`) and already stored under another URL is not a new document: the URL becomes an alias of the stored one, and only that document's `fetched_at` moves (a document that has only a `urn:` URL takes the real URL instead). An alias URL that later serves a different body loses its alias and becomes a new document. An unchanged body at a document's own URL is not re-chunked or re-embedded, but the other fields and `fetched_at` are updated. See `docs/decisions/0013-url-canonicalization-and-aliases.md`. |
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
@@ -67,11 +68,11 @@ erDiagram
         string content_hash "sha256 of body, indexed"
         timestamp published_at
         timestamp fetched_at
-        jsonb metadata
+        text metadata "JSON"
         timestamp source_updated_at "nullable; when the source says the page was last edited (Wikipedia: latest revision time), set at ingest (task 038)"
         bigint monthly_views "nullable; page views per 30 days, set at ingest (ADR 0018)"
         string license "SPDX id; LicenseRef-unknown by default (ADR 0026)"
-        jsonb attribution "nullable; url, credit, authors (ADR 0026)"
+        text attribution "JSON, nullable; url, credit, authors (ADR 0026)"
         boolean modified "text differs from the source's; default false (ADR 0026)"
         string share "full, pointer or none (CHECK); default none (ADR 0026)"
     }
@@ -81,16 +82,31 @@ erDiagram
         text url "unique, canonical; another URL with the same body"
     }
     chunks {
-        uuid id
-        uuid document_id
+        integer seq "INTEGER PRIMARY KEY; the key of chunks_fts and chunk_vectors"
+        uuid id "unique; the id the API shows"
+        uuid document_id "on delete cascade"
         int position
         text content
-        vector embedding "vector(1024), HNSW cosine index"
-        tsvector search_vector "generated from content, GIN index"
+    }
+    chunks ||--|| chunk_vectors : "seq = rowid"
+    chunks ||--|| chunks_fts : "seq = rowid"
+    chunk_vectors {
+        integer rowid "chunks.seq"
+        float embedding "float[1024], cosine (sqlite-vec vec0)"
+    }
+    chunks_fts {
+        integer rowid "chunks.seq"
+        text content "FTS5 external content over chunks.content, porter unicode61"
     }
 ```
 
-Oban stores its jobs in `oban_jobs` in the same database.
+The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in development, `DATABASE_PATH` in a release. UUIDs and timestamps are TEXT, maps JSON TEXT. Oban stores its jobs in `oban_jobs` in the same file.
+
+### Search index
+
+`chunks_fts` and `chunk_vectors` are virtual tables keyed on `chunks.seq`. `chunks_fts` is an FTS5 external-content table (the text is stored once, in `chunks`); `chunk_vectors` is a sqlite-vec `vec0` table of float32 vectors. Triggers on `chunks` keep both in step: an insert adds the full-text entry, a delete (also through the cascade from `documents`) removes the full-text entry and the vector, an update of `content` replaces the full-text entry. `Documents.ingest/1` inserts the chunks with `RETURNING seq, position` and then their vectors, in one transaction. There is no approximate index: a vector search compares the query with every vector (about 2 ms per 1,000 chunks on sqlite-vec 0.1.9), so there are no dead entries and nothing to vacuum or reindex. The vector list is capped at 4,096 candidates (sqlite-vec's `k` limit).
+
+`Knowseek.Repo` loads the sqlite-vec extension (v0.1.9, `priv/sqlite_vec/vec0`) into every connection; `mix sqlite_vec.fetch` downloads it and checks its SHA-256. Every transaction starts IMMEDIATE (one writer at a time; a reader never waits, WAL mode).
 
 ## Background jobs (Oban)
 
@@ -177,7 +193,8 @@ What the layers do not do:
 - `Knowseek.Embeddings`: `adapter`, `dimensions` (must match the migration).
 - `Knowseek.Embeddings.Ollama`: `base_url`, `model`, `max_batch_size`, `req_options`. Set from `OLLAMA_URL` and `OLLAMA_MODEL` in `config/runtime.exs`.
 - `Knowseek.Embeddings.Voyage`: `model`, batch limits, `req_options`. `api_key` comes from `VOYAGE_API_KEY` in `config/runtime.exs`.
-- `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee), `iterative_scan` (`:strict_order`, the default, or `:off`) and `max_scan_tuples` (20,000): the HNSW scan settings of the vector query (see "Vector index health"), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`, `prior_weight` (0.3), `prior_saturation_views` (1,000,000; see "Ranking prior"). `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
+- `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee; the vector list at most 4,096), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`, `prior_weight` (0.3), `prior_saturation_views` (1,000,000; see "Ranking prior"). `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
+- `Knowseek.Repo`: the SQLite file (`database`), WAL, `busy_timeout` (5 s), `journal_size_limit` (64 MB), `default_transaction_mode: :immediate` (`config/config.exs`; the path in `config/dev.exs`, `config/test.exs` and, from `DATABASE_PATH`, `config/runtime.exs`).
 - `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
 - `Knowseek.Discovery.Sources.Wikipedia` and `Knowseek.Discovery.Sources.Wikibooks` (each its own key): `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`), `cache` (start options of the cache: `max_entries` 5000, `max_in_flight` 4, `reserve_for_refresh` 1, `empty_values` `[:none]`). `Knowseek.Cache` also takes `clock`, for tests.
@@ -194,49 +211,9 @@ Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
 ## Deployment
 
-The backend builds into a Mix release image (`backend/Dockerfile`). `docker compose --profile app up --build` runs it next to the compose Postgres. The container creates its database, runs the migrations (`Knowseek.Release.migrate/0`, which includes `CREATE EXTENSION vector`), and serves the API. Environment variables are listed in `README.md`. The image has no web UI yet (task 018). See `docs/decisions/0014-release-and-container.md`.
+The backend builds into a Mix release image (`backend/Dockerfile`). `docker compose --profile app up --build` runs it, with the database file in the `appdata` volume (`DATABASE_PATH`). The container creates the file, runs the migrations (`Knowseek.Release.migrate/0`), and serves the API. The image builder fetches the Linux sqlite-vec build for its architecture (`mix sqlite_vec.fetch`) into the release's `priv`. Environment variables are listed in `README.md`. The image has no web UI yet (task 018). See `docs/decisions/0014-release-and-container.md`.
 
 Behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy's network (for example `TRUSTED_PROXIES=10.0.0.0/8`) and let the proxy append the client address to `X-Forwarded-For`. Without it every client has the proxy's address and they share one rate-limit budget; the same is true behind Docker's published port with `docker compose --profile app up`, where `TRUSTED_PROXIES` in `.env` reaches the container. Do not list a network that a client can reach directly: a trusted socket address lets its sender choose its rate-limit key. See ADR 0023.
-
-### Vector index health
-
-`chunks_embedding_vector_cosine_ops_index` (HNSW) keeps an entry for every chunk until a vacuum removes it. A deleted chunk, or one replaced by a re-ingest with a changed body (all of a document's chunks are replaced), leaves a dead entry. A vector scan still visits dead entries and Postgres drops them afterwards, so a plain scan loses them from its `hnsw.ef_search` budget and can return a short or an empty list (task 044 (task 044, done; file removed, see git history), [ADR 0024](decisions/0024-hnsw-iterative-scan.md)). The planner uses this index from roughly 25,000 chunks with dense 1024-dimension vectors; below that the vector query is an exact scan and dead entries do not matter.
-
-`Knowseek.Search` sets `hnsw.iterative_scan = strict_order` and `hnsw.max_scan_tuples = 20000` next to `hnsw.ef_search` in the vector query's transaction (`config :knowseek, Knowseek.Search`, keys `iterative_scan` and `max_scan_tuples`), so a scan that comes up short keeps walking the graph, in exact order. It costs about nothing on a clean index. It costs time in proportion to the dead entries it walks past (about 80 ms at 20,000, the cap), and it does not repair the graph's recall: `VACUUM` and `REINDEX` do.
-
-It needs pgvector 0.8 or later (the `pgvector/pgvector:pg17` image has 0.8.x; measured on 0.8.7). The application checks this at start: `Knowseek.Search.PgvectorCheck` (a supervisor child after the Repo) reads `SELECT extversion FROM pg_extension WHERE extname = 'vector'` and refuses to start when the extension is missing or below 0.8.0, with a message that names `iterative_scan: :off`. The check runs when the application starts, not in `mix ecto.migrate` or `Knowseek.Release.migrate/0` (they do not start it), so the migration that creates the extension is never blocked; start the application only after migrating. An invalid `iterative_scan` or `max_scan_tuples` also stops the start. On an older pgvector, `iterative_scan: :off` sets nothing and the application starts, without the protection. Without the check, an older pgvector would reject the setting and every search would fail with `invalid configuration parameter name "hnsw.iterative_scan"`.
-
-Check the index from `psql` (`docker compose exec db psql -U postgres knowseek_dev`, or the production database):
-
-```sql
--- Dead rows and the last vacuum. n_dead_tup is the heap's estimate; the
--- index holds a dead entry for each of them until a vacuum runs.
-SELECT relname, n_live_tup, n_dead_tup, last_autovacuum, last_vacuum
-FROM pg_stat_user_tables WHERE relname = 'chunks';
-
--- Size of the index and the table. A healthy HNSW index here is about 8 KB
--- per live chunk (313 MB for 40,000 chunks). Far more means dead entries.
-SELECT pg_size_pretty(pg_relation_size('chunks_embedding_vector_cosine_ops_index')) AS hnsw_index,
-       pg_size_pretty(pg_table_size('chunks')) AS table_size;
-```
-
-Autovacuum starts at `50 + 0.2 * reltuples` dead rows (about 8,000 at 40,000 chunks), so thousands of dead entries are normal between runs, and it can run late under heavy churn. Act when `n_dead_tup` stays high (several times the live count, or `last_autovacuum` is old while documents are being replaced) or when the index is much larger than 8 KB per live chunk. First look for a long-running transaction that holds vacuum back (`SELECT pid, state, xact_start FROM pg_stat_activity WHERE xact_start < now() - interval '1 hour'`). Then repair:
-
-```sql
--- Removes the dead entries. Reads and writes continue. Measured: 0.3 s for 450
--- dead entries in 40,000 chunks; 11 s for 5,000 dead entries among 1,000 live
--- chunks (slow, and under CPU load). It does not return disk space.
-VACUUM chunks;
-
--- Rebuilds the index: restores graph quality after heavy churn and returns disk
--- space. Reads and writes continue; it needs room for a second copy of the index.
--- Measured: 150 s for 40,000 chunks (313 MB, default maintenance_work_mem, which
--- is too small for the graph; a larger value builds faster). Task 044: an index
--- of 164 MB (20,000 dead entries among 1,000 live chunks) became 8.2 MB.
-REINDEX INDEX CONCURRENTLY chunks_embedding_vector_cosine_ops_index;
-```
-
-Neither runs from the application. A scheduled `REINDEX` is not built; add it if the check above shows dead entries piling up.
 
 ## Known limitations
 
@@ -245,6 +222,7 @@ Neither runs from the application. A scheduled `REINDEX` is not built; add it if
 - Discovery sources are Wikipedia and, for questions, Wikibooks (its books and its Cookbook recipes), so discovery finds encyclopedic data and some how-to pages.
 - No authentication and no users. The anonymous endpoints are rate-limited per client address (ADR 0023), which does not stop a flood from many addresses.
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
-- Dead HNSW entries (deleted or replaced chunks that no vacuum has removed yet) no longer empty the vector half of a search (iterative scan, [ADR 0024](decisions/0024-hnsw-iterative-scan.md)), but a query pays time for the ones it walks past, and the scan stops at `max_scan_tuples` (20,000) entries, so a list can still come back short when more than that many dead entries sit near one query. The scan does not repair the graph: only `VACUUM` and `REINDEX` do (see "Vector index health"). Autovacuum is not tuned for `chunks`.
+- Vector search is an exact scan: its time grows with the chunk count (about 200 ms at 100,000 chunks on sqlite-vec 0.1.9). Past that it needs int8 vectors or an approximate index ([#79](https://github.com/williamge/knowseek/issues/79)).
+- One writer at a time (SQLite). Ingests queue for the write lock; searches never wait.
 
 Open work is tracked in [GitHub Issues](https://github.com/williamge/knowseek/issues).

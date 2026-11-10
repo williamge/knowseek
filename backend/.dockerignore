@@ -42,3 +42,8 @@ erl_crash.dump
 # Local environment files must never enter an image
 .env
 .env.*
+
+# Local SQLite files and this machine's sqlite-vec build. The image fetches
+# the Linux build itself (Dockerfile).
+/data/
+/priv/sqlite_vec/

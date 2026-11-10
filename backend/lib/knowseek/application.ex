@@ -9,16 +9,11 @@ defmodule Knowseek.Application do
   def start(_type, _args) do
     # A typo in the trusted proxies stops the start instead of trusting the wrong hosts.
     :ok = validate_trusted_proxies()
-    # A typo in the HNSW scan settings stops the start instead of failing every search.
-    :ok = Knowseek.Search.validate_config!()
 
     children =
       [
         KnowseekWeb.Telemetry,
         Knowseek.Repo,
-        # After the Repo: stops the start when the database's pgvector is too old
-        # for the iterative scan (ADR 0024). Starts nothing.
-        Knowseek.Search.PgvectorCheck,
         {DNSCluster, query: Application.get_env(:knowseek, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Knowseek.PubSub},
         # Before its callers (discovery jobs, the entity cache): every

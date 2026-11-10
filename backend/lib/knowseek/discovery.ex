@@ -7,19 +7,22 @@ defmodule Knowseek.Discovery do
   candidates and ingests them.
 
   Requests for the same normalized query within one hour are deduplicated.
+  The insert runs in a transaction: Oban's SQLite engine checks uniqueness
+  and inserts in two statements, and only the transaction's write lock
+  (taken up front, ADR 0030) keeps two requests from both inserting.
   """
   require Logger
 
   alias Knowseek.Discovery.SeekWorker
   alias Knowseek.Documents
+  alias Knowseek.Repo
 
   @type summary :: %{ingested: non_neg_integer(), failed: non_neg_integer()}
 
   @spec request(String.t()) :: {:ok, Oban.Job.t()} | {:error, term()}
   def request(query) when is_binary(query) do
-    %{"query" => normalize(query)}
-    |> SeekWorker.new()
-    |> Oban.insert()
+    job = SeekWorker.new(%{"query" => normalize(query)})
+    Repo.transact(fn -> Oban.insert(job) end)
   end
 
   @doc "Runs every source for `query` and ingests the results."

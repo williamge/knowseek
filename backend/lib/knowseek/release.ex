@@ -3,25 +3,22 @@ defmodule Knowseek.Release do
   Release tasks that run without Mix: `bin/migrate` calls `migrate/0`.
 
   The container starts with `bin/migrate && bin/server` (see
-  `docs/decisions/0014-release-and-container.md`).
+  `docs/decisions/0014-release-and-container.md`). The database is the SQLite
+  file at `DATABASE_PATH` (ADR 0030).
   """
   require Logger
 
   @app :knowseek
 
   @doc """
-  Creates the database if it is missing, then runs all pending migrations.
+  Creates the database file (and its directory) if it is missing, then runs
+  all pending migrations.
   """
   def migrate, do: migrate(repos())
 
   @doc """
-  Like `migrate/0`, for the given repos.
-
-  Creating is best effort. A database that exists already needs no create
-  permission. If it is missing and the user may not create it, a warning is
-  logged and the migration step fails with the real connection error. The first
-  migration runs `CREATE EXTENSION vector`, which needs a superuser or an
-  already enabled extension.
+  Like `migrate/0`, for the given repos. A file that cannot be created (a
+  directory that is not writable) raises, so `bin/migrate` fails.
   """
   def migrate(repos) when is_list(repos) do
     load_app()
@@ -44,7 +41,6 @@ defmodule Knowseek.Release do
     case repo.__adapter__().storage_up(repo.config()) do
       :ok -> Logger.info("Created database for #{inspect(repo)}")
       {:error, :already_up} -> :ok
-      {:error, reason} -> Logger.warning("Could not create database: #{inspect(reason)}")
     end
   end
 
@@ -53,8 +49,6 @@ defmodule Knowseek.Release do
   end
 
   defp load_app do
-    # Many platforms require SSL when connecting to the database
-    Application.ensure_all_started(:ssl)
     Application.ensure_loaded(@app)
   end
 end

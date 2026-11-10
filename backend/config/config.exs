@@ -11,19 +11,28 @@ config :knowseek,
   ecto_repos: [Knowseek.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
-# Register the pgvector Postgrex extension (see lib/knowseek/postgrex_types.ex).
-config :knowseek, Knowseek.Repo, types: Knowseek.PostgrexTypes
+# One SQLite file (ADR 0030; the path is in dev.exs, test.exs and runtime.exs).
+# WAL lets searches read while one ingest writes. Every transaction starts
+# IMMEDIATE, so it takes the write lock up front: a deferred transaction that
+# reads first and then writes fails with "database busy" when another writer
+# got in between, and the busy timeout does not help it. The WAL file is
+# truncated back to `journal_size_limit` after a checkpoint.
+config :knowseek, Knowseek.Repo,
+  journal_mode: :wal,
+  busy_timeout: 5_000,
+  journal_size_limit: 64 * 1024 * 1024,
+  default_transaction_mode: :immediate
 
 # Background jobs. Queues:
 #   * discovery - seek new data from external sources for a query
 config :knowseek, Oban,
-  engine: Oban.Engines.Basic,
+  engine: Oban.Engines.Lite,
   repo: Knowseek.Repo,
   queues: [discovery: 5],
   plugins: [{Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60}]
 
-# Embedding provider. `dimensions` must match the `vector(N)` column size
-# in the chunks table migration. The default is a local Ollama (ADR 0016);
+# Embedding provider. `dimensions` must match the `float[N]` size of
+# `chunk_vectors.embedding` in the migration. The default is a local Ollama (ADR 0016);
 # config/test.exs pins Hashing. config/runtime.exs reads EMBEDDINGS_ADAPTER to
 # switch to Hashing or Voyage (see docs/decisions/0007-embedding-providers.md).
 config :knowseek, Knowseek.Embeddings,
@@ -36,14 +45,6 @@ config :knowseek, Knowseek.Embeddings,
 # `candidate_factor`: each ranked list fetches `limit * candidate_factor`
 # chunks, so grouping them by document still fills `limit` hits.
 # `max_passages`: the most extra chunks a hit carries in `passages`.
-# `iterative_scan` and `max_scan_tuples`: the HNSW scan of the vector query
-# keeps walking the graph when dead entries (chunks deleted or replaced, not
-# yet vacuumed) leave it short of rows (ADR 0024). `iterative_scan` is
-# `:strict_order` (rows in exact order) or `:off`; `:off` sets nothing, and is
-# the only value that works on pgvector older than 0.8 (the application does
-# not start on an older one otherwise, and not on an invalid value).
-# `max_scan_tuples` caps how many index entries one query visits (pgvector's
-# default).
 # `prior_weight` and `prior_saturation_views`: the document prior (ADR 0018).
 # A document's score is multiplied by 1 + prior_weight * min(1,
 # log10(1 + views) / log10(1 + prior_saturation_views)), at most +30% by
@@ -51,8 +52,6 @@ config :knowseek, Knowseek.Embeddings,
 config :knowseek, Knowseek.Search,
   default_limit: 10,
   candidate_factor: 40,
-  iterative_scan: :strict_order,
-  max_scan_tuples: 20_000,
   max_passages: 3,
   min_similarity: 0.5,
   min_strong_hits: 3,

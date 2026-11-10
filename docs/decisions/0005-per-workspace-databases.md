@@ -1,11 +1,17 @@
 # 0005. One database per Conductor workspace
 
-- Status: Accepted (amended 2026-11-05: Conductor removed)
+- Status: Accepted (amended 2026-11-05: Conductor removed; amended 2026-11-10 by [0030](0030-sqlite-single-datastore.md): SQLite files)
 
 > Update (2026-11-05): Conductor is no longer used. Per-checkout databases
 > stay: they are named from `KNOWSEEK_WORKSPACE` only (set by `make worktree`,
 > ADR 0010); the `CONDUCTOR_WORKSPACE_NAME` fallback and the Conductor archive
 > script were removed. Read "workspace" below as "checkout".
+
+> Update (2026-11-10, [ADR 0030](0030-sqlite-single-datastore.md)): the
+> database is now SQLite. Each checkout keeps its own databases, as files in
+> its own `backend/data/` (`knowseek_dev.db`, `knowseek_test.db`), so there is
+> no shared Postgres container and nothing is named from `KNOWSEEK_WORKSPACE`;
+> removing the worktree removes its databases.
 - Date: 2026-10-30
 
 ## Context

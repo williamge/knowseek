@@ -2,14 +2,13 @@ defmodule Knowseek.ReleaseTest do
   # Not async: it switches the sandbox pool to :auto for the whole suite.
   use ExUnit.Case, async: false
 
-  import ExUnit.CaptureLog
-
-  alias Ecto.Adapters.Postgres
   alias Ecto.Adapters.SQL
   alias Ecto.Adapters.SQL.Sandbox
   alias Knowseek.Release
   alias Knowseek.ReleaseRepo
   alias Knowseek.Repo
+
+  @moduletag :tmp_dir
 
   setup do
     Sandbox.mode(Repo, :auto)
@@ -24,24 +23,17 @@ defmodule Knowseek.ReleaseTest do
     end)
   end
 
-  # Points ReleaseRepo at `database`, as `username` (default: the test user).
-  defp configure_release_repo(database, overrides \\ []) do
-    base = Keyword.take(Repo.config(), [:username, :password, :hostname, :port, :types])
+  # Points ReleaseRepo at the SQLite file `path`.
+  defp configure_release_repo(path) do
+    Application.put_env(:knowseek, ReleaseRepo,
+      database: path,
+      priv: "priv/repo",
+      pool_size: 1,
+      load_extensions: [Repo.sqlite_vec()]
+    )
 
-    config =
-      base
-      |> Keyword.put(:database, database)
-      |> Keyword.put(:priv, "priv/repo")
-      |> Keyword.merge(overrides)
-
-    Application.put_env(:knowseek, ReleaseRepo, config)
     on_exit(fn -> Application.delete_env(:knowseek, ReleaseRepo) end)
-    config
-  end
-
-  defp database_exists?(name) do
-    %{rows: rows} = SQL.query!(Repo, "SELECT 1 FROM pg_database WHERE datname = $1", [name])
-    rows != []
+    path
   end
 
   defp migration_count do
@@ -52,30 +44,6 @@ defmodule Knowseek.ReleaseTest do
       end)
 
     count
-  end
-
-  # A role that may log in and migrate the test database but not create databases.
-  defp restricted_role do
-    role = "knowseek_release_test_role_#{System.unique_integer([:positive])}"
-
-    SQL.query!(Repo, "CREATE ROLE #{role} LOGIN PASSWORD 'pw' NOCREATEDB NOSUPERUSER", [])
-    SQL.query!(Repo, "GRANT ALL ON SCHEMA public TO #{role}", [])
-    SQL.query!(Repo, "GRANT ALL ON ALL TABLES IN SCHEMA public TO #{role}", [])
-
-    on_exit(fn ->
-      SQL.query!(Repo, "REVOKE ALL ON ALL TABLES IN SCHEMA public FROM #{role}", [])
-      SQL.query!(Repo, "REVOKE ALL ON SCHEMA public FROM #{role}", [])
-      SQL.query!(Repo, "DROP ROLE #{role}", [])
-    end)
-
-    role
-  end
-
-  defp throwaway_database do
-    name = "knowseek_release_test_#{System.unique_integer([:positive])}"
-    config = configure_release_repo(name)
-    on_exit(fn -> Postgres.storage_down(config) end)
-    name
   end
 
   describe "migrate/0" do
@@ -91,63 +59,50 @@ defmodule Knowseek.ReleaseTest do
   end
 
   describe "migrate/1" do
-    test "creates a missing database, then migrates it" do
-      name = throwaway_database()
-      refute database_exists?(name)
+    test "creates a missing database file and its directory, then migrates it", %{tmp_dir: dir} do
+      path = configure_release_repo(Path.join([dir, "data", "knowseek.db"]))
+      refute File.exists?(path)
 
       assert Release.migrate([ReleaseRepo]) == :ok
 
-      assert database_exists?(name)
+      assert File.exists?(path)
       assert migration_count() > 0
     end
 
-    test "migrates an existing database without recreating it" do
-      name = throwaway_database()
+    test "migrates an existing database without recreating it", %{tmp_dir: dir} do
+      configure_release_repo(Path.join(dir, "knowseek.db"))
       assert Release.migrate([ReleaseRepo]) == :ok
       count = migration_count()
 
-      assert Release.migrate([ReleaseRepo]) == :ok
-
-      assert database_exists?(name)
-      assert migration_count() == count
-    end
-
-    test "leaves an existing database alone when the user may not create databases" do
-      role = restricted_role()
-      configure_release_repo(Repo.config()[:database], username: role, password: "pw")
-
-      log = capture_log(fn -> assert Release.migrate([ReleaseRepo]) == :ok end)
-
-      refute log =~ "Could not create database"
-      assert migration_count() > 0
-    end
-
-    test "logs a warning, then fails in the migration step, when it may not create the database" do
-      role = restricted_role()
-      name = "knowseek_release_test_#{System.unique_integer([:positive])}"
-      # A short queue makes the failing migration step give up quickly.
-      configure_release_repo(name,
-        username: role,
-        password: "pw",
-        queue_target: 200,
-        queue_interval: 200
-      )
-
-      log =
-        capture_log(fn ->
-          assert_raise DBConnection.ConnectionError, fn ->
-            Release.migrate([ReleaseRepo])
-          end
+      # A table that a recreated file would not have.
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(ReleaseRepo, fn repo ->
+          SQL.query!(repo, "CREATE TABLE marker (x INTEGER)", [])
         end)
 
-      assert log =~ "Could not create database"
-      refute database_exists?(name)
+      assert Release.migrate([ReleaseRepo]) == :ok
+
+      assert migration_count() == count
+
+      {:ok, %{rows: [[1]]}, _} =
+        Ecto.Migrator.with_repo(ReleaseRepo, fn repo ->
+          SQL.query!(repo, "SELECT count(*) FROM sqlite_master WHERE name = 'marker'", [])
+        end)
+    end
+
+    test "fails when the file cannot be created", %{tmp_dir: dir} do
+      # A regular file where the directory should be.
+      blocker = Path.join(dir, "not_a_directory")
+      File.write!(blocker, "")
+      configure_release_repo(Path.join(blocker, "knowseek.db"))
+
+      assert_raise MatchError, fn -> Release.migrate([ReleaseRepo]) end
     end
   end
 
   describe "rollback/2" do
-    test "reverts migrations down to the given version" do
-      throwaway_database()
+    test "reverts migrations down to the given version", %{tmp_dir: dir} do
+      configure_release_repo(Path.join(dir, "knowseek.db"))
       assert Release.migrate([ReleaseRepo]) == :ok
 
       {:ok, first, _} =

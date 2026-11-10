@@ -8,10 +8,10 @@ write a new ADR that supersedes it and set the old one's status to
 | ADR | Decision |
 | --- | --- |
 | [0001](0001-elixir-phoenix-backend.md) | Elixir + Phoenix for the backend |
-| [0002](0002-postgres-pgvector.md) | Postgres + pgvector as the single datastore |
+| [0002](0002-postgres-pgvector.md) | Postgres + pgvector as the single datastore (superseded by 0030) |
 | [0003](0003-hybrid-search.md) | Hybrid search with reciprocal rank fusion |
 | [0004](0004-embeddings.md) | Pluggable embeddings, fixed at 1024 dimensions |
-| [0005](0005-per-workspace-databases.md) | One database per checkout, named from `KNOWSEEK_WORKSPACE` (Conductor removed 2026-11-05) |
+| [0005](0005-per-workspace-databases.md) | One database per checkout (Conductor removed 2026-11-05; SQLite files in each checkout since 0030) |
 | [0006](0006-freshness-aware-coverage.md) | Freshness-aware coverage; per-topic refresh checks |
 | [0007](0007-embedding-providers.md) | Embedding providers: Ollama locally, Voyage AI hosted |
 | [0008](0008-web-frontend.md) | Web frontend in Vite, React, and TypeScript |
@@ -30,8 +30,9 @@ write a new ADR that supersedes it and set the old one's status to
 | [0021](0021-company-card-source.md) | Company card: facts from SEC EDGAR, price out of scope (no usable source of quotes) |
 | [0022](0022-weather-card-terms-and-intent.md) | Weather card: Open-Meteo non-commercial terms and attribution, and a place has a weather card only for the weather intent |
 | [0023](0023-rate-limiting-anonymous-endpoints.md) | Rate limiting for anonymous endpoints (per-client token bucket) and a fairness rule in the cache |
-| [0024](0024-hnsw-iterative-scan.md) | Search: HNSW iterative scan (`strict_order`, `max_scan_tuples` 20,000) so dead index entries do not empty the vector list; pgvector 0.8 or later |
+| [0024](0024-hnsw-iterative-scan.md) | Search: HNSW iterative scan (`strict_order`, `max_scan_tuples` 20,000) so dead index entries do not empty the vector list; pgvector 0.8 or later (superseded by 0030) |
 | [0026](0026-per-document-license-fields.md) | Every document records its `license`, `attribution`, `modified` and `share`, set by its source at ingest; unknown means never shared |
 | [0027](0027-wikimedia-concurrency-cap.md) | Wikimedia: at most 3 requests at once across Wikipedia and Wikidata, entity lookups first |
 | [0028](0028-nba-card-source.md) | NBA card: balldontlie's free tier with a key per operator, replacing ESPN (whose terms forbid scripted access); no injuries |
 | [0029](0029-wikibooks-source.md) | Wikibooks discovery source over a shared MediaWiki module, only for question-shaped queries; page views kept on Wikibooks' own scale |
+| [0030](0030-sqlite-single-datastore.md) | SQLite as the single datastore: sqlite-vec (exact scan) for vectors, FTS5 with bm25 for full text, Oban Lite; one file per checkout, no Docker for development |

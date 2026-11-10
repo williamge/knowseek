@@ -188,7 +188,7 @@ defmodule Knowseek.Embeddings.VoyageTest do
 
       assert {:ok, document} = Documents.ingest(%{body: "Some text.", source: "test"})
       assert [chunk] = Repo.preload(document, :chunks).chunks
-      assert Pgvector.to_list(chunk.embedding) == vector(0, Embeddings.dimensions())
+      assert chunk_embedding(chunk) == vector(0, Embeddings.dimensions())
       assert_received {:input_type, "document"}
     end
 

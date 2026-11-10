@@ -95,17 +95,52 @@ defmodule Knowseek.SearchTest do
       assert {:ok, %{hits: hits}} = Search.search("elixir", limit: 2)
       assert length(hits) == 2
     end
+
+    test "a question with stop words still matches by keyword" do
+      match = document_fixture(body: "The sky looks blue because air scatters blue light.")
+      document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+
+      assert {:ok, %{hits: [hit | _]}} = Search.search("why is the sky blue")
+      assert hit.document_id == match.id
+      assert hit.keyword_rank == 1
+    end
+
+    test "FTS5 syntax in the query is read as words, not as operators" do
+      match = document_fixture(body: "What's new in Elixir: a release with new features.")
+
+      assert {:ok, %{hits: [hit]}} = Search.search("what's new...")
+      assert hit.document_id == match.id
+      assert hit.keyword_rank == 1
+
+      for query <- [~s("), "*", "-", "or", "NEAR(", "a AND", "cats:dogs", "(", "^x", "\"\" OR"] do
+        assert {:ok, _} = Search.search(query), inspect(query)
+      end
+    end
+
+    test "a quoted phrase matches only the words in that order" do
+      phrase = document_fixture(body: "The octopus has three hearts.")
+      document_fixture(body: "Three octopus hearts were found.")
+
+      assert {:ok, %{hits: hits}} = Search.search(~s("three hearts"))
+      assert [keyword_hit] = Enum.filter(hits, & &1.keyword_rank)
+      assert keyword_hit.document_id == phrase.id
+    end
+
+    test "-word excludes the chunks that contain it from the keyword matches" do
+      hearts = document_fixture(body: "The octopus has three hearts.")
+      document_fixture(body: "The octopus has nine brains.")
+
+      assert {:ok, %{hits: hits}} = Search.search("octopus -brains")
+      assert [keyword_hit] = Enum.filter(hits, & &1.keyword_rank)
+      assert keyword_hit.document_id == hearts.id
+    end
   end
 
-  describe "search/2 on an index that earlier tests left full of dead entries" do
-    # Every test rolls back its inserts, but the chunks stay in the HNSW index as
-    # dead entries until a vacuum, and they bloat the table, so the planner picks
-    # the HNSW scan even when one row is live. A graph full of look-alike dead
-    # vectors then often has no path to a new, unlike vector, and the scan returns
-    # nothing. config/test.exs turns index scans off for the test database, so
-    # the vector list is exact. Without that setting this test failed in 19 of 20
-    # runs, each on a fresh database.
-    test "finds a document although the index holds hundreds of dead look-alike chunks" do
+  describe "search/2 after rolled-back writes" do
+    # Rolled-back chunks must leave nothing behind in the full-text and vector
+    # tables. (On Postgres this test guarded against dead HNSW entries; ADR
+    # 0024, superseded by ADR 0030.)
+    test "finds a document although hundreds of look-alike chunks were rolled back" do
       {:error, :rolled_back} =
         Repo.transaction(fn ->
           for i <- 1..10,
@@ -253,11 +288,10 @@ defmodule Knowseek.SearchTest do
 
     test "a popular but clearly less relevant document does not outrank a relevant one" do
       # "Clearly less relevant" has to hold in both ranked lists. The popular page
-      # has the two query words far apart, so its ts_rank_cd (0.02) is below the
-      # notes' (0.1) and it ranks last by keyword. With the words side by side it
-      # tied with the 20 notes, and where a tie landed depended on the order of
-      # the rows in the heap: the page could take keyword rank 2 and win. So the
-      # test also inserts the documents in several orders.
+      # has the two query words far apart in a long text, so its bm25 is below
+      # the notes' and it ranks last by keyword. Where ties land must not depend
+      # on the order of the rows, so the test also inserts the documents in
+      # several orders.
       for order <- [:popular_first, :popular_in_the_middle, :popular_last] do
         Repo.delete_all(Knowseek.Documents.Document)
 
@@ -341,89 +375,6 @@ defmodule Knowseek.SearchTest do
       assert Enum.map(grouped, & &1.chunk_id) == ["a1", "b1", "c1"]
       assert [%{chunk_id: "a2"}] = hd(grouped).passages
     end
-  end
-
-  describe "ef_search/1 and with_ef_search/2" do
-    test "has a floor of 40, scales with the candidates, and caps at 1000" do
-      assert Search.ef_search(1) == 40
-      assert Search.ef_search(40) == 40
-      assert Search.ef_search(400) == 400
-      assert Search.ef_search(1000) == 1000
-      assert Search.ef_search(50_000) == 1000
-    end
-
-    test "applies the setting inside the transaction" do
-      read = fn -> Repo.query!("SELECT current_setting('hnsw.ef_search', true)").rows end
-
-      assert [["400"]] = Search.with_ef_search(400, read)
-    end
-
-    test "applies the iterative scan settings from the config, strict_order and 20,000 by default" do
-      assert [["strict_order", "20000"]] = Search.with_ef_search(400, &read_scan_settings/0)
-
-      put_search_config(max_scan_tuples: 5_000)
-      assert [["strict_order", "5000"]] = Search.with_ef_search(400, &read_scan_settings/0)
-    end
-
-    test "sets nothing for iterative_scan: :off, which keeps an older pgvector working" do
-      put_search_config(iterative_scan: :off, max_scan_tuples: 5_000)
-
-      # pgvector's own defaults. This assertion deliberately documents pgvector's
-      # behaviour: if a later pgvector changes a default, update it here and in ADR 0024.
-      assert [["off", "20000"]] = Search.with_ef_search(400, &read_scan_settings/0)
-    end
-
-    test "rejects an invalid iterative scan config instead of searching without it" do
-      put_search_config(iterative_scan: :sometimes)
-      assert_raise ArgumentError, ~r/iterative_scan must be one of/, fn -> Search.search("x") end
-
-      put_search_config(iterative_scan: :strict_order, max_scan_tuples: 0)
-
-      assert_raise ArgumentError, ~r/max_scan_tuples a positive integer/, fn ->
-        Search.search("x")
-      end
-    end
-
-    test "validate_config!/0, which the application calls at boot, accepts the defaults and rejects the same values" do
-      assert Search.validate_config!() == :ok
-
-      put_search_config(iterative_scan: :off, max_scan_tuples: -1)
-      assert Search.validate_config!() == :ok
-
-      for {mode, max} <- [
-            {:sometimes, 20_000},
-            {"strict_order", 20_000},
-            {nil, 20_000},
-            {:relaxed_order, 20_000},
-            {:strict_order, 0},
-            {:strict_order, -5},
-            {:strict_order, 1.5},
-            {:strict_order, "20000"},
-            {:strict_order, nil}
-          ] do
-        put_search_config(iterative_scan: mode, max_scan_tuples: max)
-
-        assert_raise ArgumentError, ~r/invalid Knowseek.Search config/, fn ->
-          Search.validate_config!()
-        end
-      end
-    end
-  end
-
-  # Reads the settings as pgvector reports them. pgvector defines `hnsw.*` when
-  # it is loaded, so load it first (a bare `current_setting` fails before that).
-  defp read_scan_settings do
-    Repo.query!("SELECT '[0]'::vector")
-
-    Repo.query!(
-      "SELECT current_setting('hnsw.iterative_scan'), current_setting('hnsw.max_scan_tuples')"
-    ).rows
-  end
-
-  defp put_search_config(overrides) do
-    env = Application.fetch_env!(:knowseek, Search)
-    on_exit(fn -> Application.put_env(:knowseek, Search, env) end)
-    Application.put_env(:knowseek, Search, Keyword.merge(env, overrides))
   end
 
   describe "Coverage.assess/2" do

@@ -27,9 +27,10 @@ ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
-# install build dependencies
+# install build dependencies (ca-certificates: `mix sqlite_vec.fetch` downloads
+# over HTTPS)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
+  && apt-get install -y --no-install-recommends build-essential git ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
@@ -56,6 +57,11 @@ RUN mix deps.compile
 COPY priv priv
 
 COPY lib lib
+
+# The sqlite-vec extension for this image's architecture (linux x86_64 or
+# aarch64), checked against its pinned SHA-256, into priv/sqlite_vec, which
+# the release ships. .dockerignore keeps a local build out (ADR 0030).
+RUN mix sqlite_vec.fetch
 
 # Compile the release
 RUN mix compile
@@ -85,6 +91,12 @@ ENV LC_ALL=en_US.UTF-8
 WORKDIR "/app"
 RUN chown nobody /app
 
+# The SQLite database lives in /data (a volume; compose mounts `appdata`).
+# The directory belongs to nobody, so a new named volume does too.
+RUN mkdir /data && chown nobody /data
+VOLUME ["/data"]
+ENV DATABASE_PATH=/data/knowseek.db
+
 # set runner ENV
 ENV MIX_ENV="prod"
 
@@ -98,6 +110,6 @@ USER nobody
 # above and adding an entrypoint. See https://github.com/krallin/tini for details
 # ENTRYPOINT ["/tini", "--"]
 
-# Create the database if needed, run migrations, then serve. `exec` makes the
-# server PID 1 so it receives SIGTERM. A failed migration stops the container.
+# Create the database file if needed, run migrations, then serve. `exec` makes
+# the server PID 1 so it receives SIGTERM. A failed migration stops the container.
 CMD ["/bin/sh", "-c", "/app/bin/migrate && exec /app/bin/server"]
