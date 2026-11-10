@@ -8,7 +8,7 @@ defmodule Knowseek.Documents do
   """
   import Ecto.Query
 
-  alias Knowseek.Documents.{Chunk, Chunker, Document, DocumentAlias}
+  alias Knowseek.Documents.{Chunk, Chunker, ChunkVector, Document, DocumentAlias}
   alias Knowseek.Embeddings
   alias Knowseek.Repo
 
@@ -195,25 +195,35 @@ defmodule Knowseek.Documents do
   defp upsert_document(%Document{} = existing, attrs),
     do: existing |> Document.ingest_changeset(attrs) |> Repo.update()
 
+  # Deleting the old chunks also deletes their full-text and vector rows
+  # (triggers on `chunks`). The new chunks get their `seq` from SQLite, and
+  # their vectors are stored under it. RETURNING has no defined row order, so
+  # the rows are matched by position.
   defp replace_chunks(document, contents_and_vectors) do
     Repo.delete_all(from c in Chunk, where: c.document_id == ^document.id)
     now = DateTime.utc_now(:second)
+    indexed = Enum.with_index(contents_and_vectors)
 
     rows =
-      contents_and_vectors
-      |> Enum.with_index()
-      |> Enum.map(fn {{content, vector}, position} ->
+      Enum.map(indexed, fn {{content, _vector}, position} ->
         %{
           document_id: document.id,
           position: position,
           content: content,
-          embedding: Pgvector.new(vector),
           inserted_at: now,
           updated_at: now
         }
       end)
 
-    Repo.insert_all(Chunk, rows)
+    {_count, inserted} = Repo.insert_all(Chunk, rows, returning: [:seq, :position])
+    seq_at = Map.new(inserted, &{&1.position, &1.seq})
+
+    vectors =
+      Enum.map(indexed, fn {{_content, vector}, position} ->
+        %{rowid: Map.fetch!(seq_at, position), embedding: vector}
+      end)
+
+    Repo.insert_all(ChunkVector, vectors)
   end
 
   @spec get_document(Ecto.UUID.t()) :: Document.t() | nil

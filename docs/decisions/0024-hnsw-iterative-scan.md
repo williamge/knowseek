@@ -1,6 +1,6 @@
 # 0024. Search: HNSW iterative scan
 
-- Status: Accepted
+- Status: Superseded by [0030](0030-sqlite-single-datastore.md) (no HNSW index on SQLite: the vector search is an exact scan)
 - Date: 2026-11-04
 
 Related: task 044 (done; file removed, see git history) (the experiment

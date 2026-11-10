@@ -6,13 +6,13 @@ You send a query: a question, a subject, or a description of what you want to kn
 
 ## Status and security
 
-There is no authentication yet (task 009, parked). Do not expose the API to the public internet. `/dev/dashboard` exists only in the dev environment. Postgres is published on `127.0.0.1` only. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+There is no authentication yet (task 009, parked). Do not expose the API to the public internet. `/dev/dashboard` exists only in the dev environment. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
 Early skeleton. The end-to-end path works with local stand-ins:
 
-- Ingest documents into a Postgres + pgvector index (chunked and embedded).
+- Ingest documents into a SQLite index (chunked and embedded): FTS5 for full text, sqlite-vec for vectors, one file per instance ([ADR 0030](docs/decisions/0030-sqlite-single-datastore.md)).
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles. For a question ("how do I fix a flat tire", or anything ending with `?`) it also searches Wikibooks, its Cookbook recipes first ("how do I cook eggs" finds *Cookbook:Hard Cooked Eggs*; ADR 0029).
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
@@ -22,10 +22,10 @@ See [GitHub Issues](https://github.com/williamge/knowseek/issues) for the backlo
 
 ## Quick start
 
-Requirements: Docker, Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works), Node.js 22 or later for the web UI, and [Ollama](https://ollama.com) running on the host (`brew install ollama`, `brew services start ollama`).
+Requirements: Elixir 1.20 / OTP 28 (see `.tool-versions`; `mise install` works), Node.js 22 or later for the web UI, and [Ollama](https://ollama.com) running on the host (`brew install ollama`, `brew services start ollama`). No database server and no Docker: the database is a SQLite file in `backend/data/`. `make setup` downloads the sqlite-vec extension once (pinned by SHA-256; built for macOS arm64 and Linux x86_64/aarch64). Docker is only for the release image.
 
 ```sh
-make setup   # start Postgres, check Ollama, fetch deps, create + migrate databases
+make setup   # check Ollama, fetch deps and sqlite-vec, create + migrate the SQLite databases
 make start   # API on http://localhost:4000 and web UI on http://localhost:4001, in one terminal; Ctrl-C stops both
 make check   # what CI runs
 ```
@@ -34,7 +34,7 @@ The first run pulls the `bge-m3` model (about 1.2 GB). `make setup`, `make dev`,
 
 To run without Ollama, set `EMBEDDINGS_ADAPTER=hashing` in `.env`. Search then matches words, not meaning. After you switch an existing database between adapters, run `make db-reset`: the stored vectors are not comparable, and re-ingest skips unchanged documents ([#53](https://github.com/williamge/knowseek/issues/53)).
 
-`make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001). `make worktree NAME=...` creates a second checkout next to this one with its own databases and port pair (see `AGENTS.md`).
+`make dev` (API) and `make web` (web UI) also run separately, on `$PORT` and `$PORT + 1` (default 4000 and 4001). `make worktree NAME=...` creates a second checkout next to this one with its own database files and port pair (see `AGENTS.md`).
 
 Open the web UI, type a query, and press Enter. If the index covers the query weakly, the page keeps watching and adds new results when discovery finishes.
 
@@ -42,50 +42,49 @@ Try it:
 
 ```sh
 curl -X POST localhost:4000/api/documents -H 'content-type: application/json' \
-  -d '{"document": {"title": "pgvector", "body": "pgvector adds vector similarity search to Postgres."}}'
+  -d '{"document": {"title": "sqlite-vec", "body": "sqlite-vec adds vector similarity search to SQLite."}}'
 
 curl -X POST localhost:4000/api/search -H 'content-type: application/json' \
-  -d '{"query": "postgres vector search"}'
+  -d '{"query": "sqlite vector search"}'
 ```
 
 ## Run in a container
 
-The backend builds into a release image (`backend/Dockerfile`, Elixir 1.20 / OTP 28 on Debian trixie). The `app` service in `docker-compose.yml` runs it next to the Postgres service. It sits behind a compose profile, so `make dev` and `make db-up` still start only Postgres.
+The backend builds into a release image (`backend/Dockerfile`, Elixir 1.20 / OTP 28 on Debian trixie, with the Linux sqlite-vec build of its architecture). The `app` service in `docker-compose.yml` runs it. It sits behind a compose profile; development does not use compose.
 
 ```sh
 docker compose --profile app up --build   # API on http://localhost:4000 (or $APP_PORT)
 curl localhost:4000/api/health            # {"status":"ok","database":"ok"}
 ```
 
-On start, the container creates its database if it is missing, runs the migrations, then serves. The database is `knowseek_prod`, plus `_<workspace>` from `KNOWSEEK_WORKSPACE` in `.env` (for example `knowseek_prod_my-branch`; dashes work), or `$APP_DB_NAME` if you set it. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
+On start, the container creates its database file if it is missing, runs the migrations, then serves. The file is `/data/knowseek.db`, plus `_<workspace>` from `KNOWSEEK_WORKSPACE` in `.env` (for example `/data/knowseek_my-branch.db`), in the `appdata` volume. The API listens on `127.0.0.1` only, on `$APP_PORT` (default 4000). Set `APP_PORT` when `make dev` runs too.
 
-**One app container per compose project.** The compose project is `knowseek` for every worktree, and so is the `app` service. Running `docker compose --profile app up` in a second worktree replaces the first worktree's `app` container. The image tag (`knowseek-app:<workspace>`) and the database follow the workspace, so nothing is corrupted: the new container runs the new worktree's code against its own database. To run two at once you need two compose projects, which this repository does not set up.
+**One app container per compose project.** The compose project is `knowseek` for every worktree, and so is the `app` service. Running `docker compose --profile app up` in a second worktree replaces the first worktree's `app` container. The image tag (`knowseek-app:<workspace>`) and the database file follow the workspace, so nothing is corrupted: the new container runs the new worktree's code against its own file. To run two at once you need two compose projects, which this repository does not set up.
 
 Stop and clean up:
 
 ```sh
 docker compose --profile app stop app   # stop the app, keep the container
 docker compose --profile app rm -sf app # remove the app container only
-docker compose --profile app down       # remove app and db containers (volume kept)
+docker compose --profile app down       # remove the app container (the appdata volume is kept)
 ```
 
-`make db-down` runs the last command. Plain `docker compose down` does not: it skips services of an inactive profile, stops `db`, and leaves a running `app` container without a database. Never use `docker compose down -v`: it deletes the Postgres volume with every database in it.
+Never use `docker compose down -v`: it deletes the `appdata` volume with every database file in it.
 
 The web UI is not in the image yet (task 018). The container serves only the JSON API.
 
 ### Environment variables
 
-The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`, the first five are already set for the compose database.
+The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`, the first five are already set.
 
 | Variable | Required | Default | Example |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | yes (prod) | none; compose sets `ecto://postgres:postgres@db/$APP_DB_NAME` | `ecto://user:pass@host/knowseek` |
+| `DATABASE_PATH` | yes (prod) | the image sets `/data/knowseek.db`; compose sets `/data/knowseek_<workspace>.db` | `/var/lib/knowseek/knowseek.db` |
 | `SECRET_KEY_BASE` | yes (prod) | none; compose has an insecure local-only default | output of `mix phx.gen.secret` |
 | `PHX_SERVER` | yes in a release | none; `bin/server` and compose set `true` | `true` |
 | `PHX_HOST` | no | `example.com`; compose uses `localhost` | `knowseek.example.com` |
 | `PORT` | no | `4000` | `4000` |
 | `POOL_SIZE` | no | `10` | `20` |
-| `ECTO_IPV6` | no | off | `true` |
 | `DNS_CLUSTER_QUERY` | no | off | `knowseek.internal` |
 | `EMBEDDINGS_ADAPTER` | no | `ollama` | `hashing`, `voyage` |
 | `OLLAMA_URL` | no | `http://localhost:11434`; compose reads `APP_OLLAMA_URL`, default `http://host.docker.internal:11434` | `http://host.docker.internal:11434` |
@@ -100,12 +99,12 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 
 `BALLDONTLIE_API_KEY` turns on the NBA team card. Sign up for a free account at [balldontlie.io](https://www.balldontlie.io) and copy the key from the dashboard; balldontlie's terms do not let you share it. The free tier allows 5 requests a minute: enough for a few cards, and a live game refreshes every 30 s. Without the key a team query has no card ([ADR 0028](docs/decisions/0028-nba-card-source.md)).
 
-`TRUSTED_PROXIES` and `BALLDONTLIE_API_KEY` are also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_DB_NAME` (default `knowseek_prod_<workspace>`), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
+`TRUSTED_PROXIES` and `BALLDONTLIE_API_KEY` are also forwarded by compose. Compose only: `APP_PORT` (host port on 127.0.0.1, default 4000), `APP_OLLAMA_URL`. They can go in `.env`, which compose reads.
 
 Notes:
 
 - Production sets `force_ssl` with `x_forwarded_proto`: a request over plain HTTP for any host other than `localhost` or `127.0.0.1` gets a redirect to HTTPS. `GET /api/health` is excluded, so a probe can reach it by IP or service name over HTTP. Run the container behind a TLS-terminating proxy that sets `X-Forwarded-Proto`.
-- Migration `create_index_tables` runs `CREATE EXTENSION IF NOT EXISTS vector`. The compose database user is a superuser, so this works. On a managed Postgres, enable the `vector` extension first (or use a user that may create it), and create the database yourself if the user cannot.
+- The database is one SQLite file (WAL mode: the `-wal` and `-shm` files beside it belong to it). Keep it on a local disk, not a network file system. Back it up with `sqlite3 <file> "VACUUM INTO 'backup.db'"` or the backup API, not by copying the file while the app runs. The image ships the sqlite-vec extension in the release (`priv/sqlite_vec/vec0.so`).
 - Ollama on the host: Docker Desktop reaches it at `host.docker.internal`. On Linux, start Ollama with `OLLAMA_HOST=0.0.0.0` so it listens beyond loopback.
 - The container never reads `.env` from the repository. Compose does, to fill `${...}` values.
 

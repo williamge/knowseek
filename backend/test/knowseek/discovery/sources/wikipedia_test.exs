@@ -1,5 +1,5 @@
 defmodule Knowseek.Discovery.Sources.WikipediaTest do
-  use Knowseek.DataCase, async: true
+  use Knowseek.DataCase, async: false
 
   alias Knowseek.Discovery
   alias Knowseek.Discovery.Sources.Wikipedia

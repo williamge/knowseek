@@ -1,8 +1,8 @@
 defmodule Knowseek.DocumentsTest do
-  use Knowseek.DataCase, async: true
+  use Knowseek.DataCase, async: false
 
   alias Knowseek.Documents
-  alias Knowseek.Documents.{Attribution, Chunk, Document, DocumentAlias}
+  alias Knowseek.Documents.{Attribution, Chunk, Document, DocumentAlias, Vector}
 
   describe "ingest/1" do
     test "stores the document with embedded chunks" do
@@ -15,8 +15,8 @@ defmodule Knowseek.DocumentsTest do
         })
 
       assert document.content_hash == Document.hash_body("First paragraph.\n\nSecond paragraph.")
-      assert [%Chunk{position: 0, embedding: embedding}] = chunks(document)
-      assert embedding |> Pgvector.to_list() |> length() == Knowseek.Embeddings.dimensions()
+      assert [%Chunk{position: 0} = chunk] = chunks(document)
+      assert chunk |> chunk_embedding() |> length() == Knowseek.Embeddings.dimensions()
     end
 
     test "generates a URL when none is given" do
@@ -175,6 +175,40 @@ defmodule Knowseek.DocumentsTest do
         })
 
       assert Documents.get_document(original.id).monthly_views == 500
+    end
+  end
+
+  describe "the search tables" do
+    # chunks_fts and chunk_vectors key on chunks.seq; triggers on chunks keep
+    # them in step, also when a document delete cascades (ADR 0030).
+    test "hold exactly the chunks' rows after ingest, re-ingest and delete" do
+      # 900 or more characters each: the chunker makes one chunk per paragraph.
+      paragraphs = fn words -> Enum.map_join(words, "\n\n", &String.duplicate("#{&1} ", 150)) end
+
+      a = document_fixture(body: paragraphs.(~w(first second)))
+      b = document_fixture(body: "Another document.")
+      assert_search_tables_in_step(3)
+
+      {:ok, _} =
+        Documents.ingest(%{url: a.url, body: paragraphs.(~w(alpha bravo delta)), source: "test"})
+
+      assert_search_tables_in_step(4)
+
+      Repo.delete!(b)
+      assert_search_tables_in_step(3)
+
+      Repo.delete_all(Document)
+      assert_search_tables_in_step(0)
+    end
+
+    test "store each chunk's vector under its seq" do
+      body = Enum.map_join(~w(octopus bread), "\n\n", &String.duplicate("#{&1} ", 150))
+      document = document_fixture(body: body)
+
+      for chunk <- chunks(document) do
+        {:ok, [vector]} = Knowseek.Embeddings.embed([chunk.content], input_type: :document)
+        assert chunk_embedding(chunk) == vector |> Vector.encode() |> Vector.decode()
+      end
     end
   end
 
@@ -623,6 +657,19 @@ defmodule Knowseek.DocumentsTest do
 
   defp chunks(document),
     do: Repo.all(from c in Chunk, where: c.document_id == ^document.id, order_by: c.position)
+
+  # Every chunk has one vector and one full-text entry, and no other rows
+  # exist. The FTS5 integrity check (rank 1) compares the index with chunks.
+  defp assert_search_tables_in_step(count) do
+    seqs = Repo.all(from c in Chunk, select: c.seq, order_by: c.seq)
+    assert length(seqs) == count
+
+    assert Repo.query!("SELECT rowid FROM chunk_vectors ORDER BY rowid").rows ==
+             Enum.map(seqs, &[&1])
+
+    assert %{rows: [[^count]]} = Repo.query!("SELECT count(*) FROM chunks_fts_docsize")
+    Repo.query!("INSERT INTO chunks_fts(chunks_fts, rank) VALUES ('integrity-check', 1)")
+  end
 
   # A candidate as a source builds it: no `:monthly_views` key without a figure.
   defp doc(url, nil), do: %{url: url, body: "same body", source: "test"}

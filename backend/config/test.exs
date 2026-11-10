@@ -2,33 +2,19 @@ import Config
 
 # Configure your database
 #
-# The MIX_TEST_PARTITION environment variable can be used
-# to provide built-in test partitioning in CI environment.
-# Run `mix help test` for more information.
+# One SQLite file per checkout (see config/dev.exs). The MIX_TEST_PARTITION
+# environment variable adds a suffix (`mix help test`);
+# scripts/check-migration-roundtrip sets DATABASE_PATH instead.
 #
-# Each checkout can have its own test database (see config/dev.exs).
-db_suffix =
-  case System.get_env("KNOWSEEK_WORKSPACE") do
-    nil -> ""
-    name -> "_" <> String.replace(String.downcase(name), ~r/[^a-z0-9]+/, "_")
-  end
-
+# Tests that use the database are not async: the SQL sandbox has one owner at
+# a time, because SQLite has one writer and every transaction (the sandbox's
+# too) starts IMMEDIATE (ADR 0030).
 config :knowseek, Knowseek.Repo,
-  # Index scans are off, so the vector query in Knowseek.Search is an exact
-  # sequential scan and sort, never an approximate HNSW scan. Every test rolls
-  # back its inserts, but the rolled-back chunks stay in the HNSW index as dead
-  # entries until a vacuum, and they bloat the table, so the planner picks the
-  # HNSW scan even when one row is live. A graph full of look-alike dead vectors
-  # then often has no path to a new, different vector and returns no row, and
-  # the search tests fail at random (see AGENTS.md, "Testing rules").
-  parameters: [enable_indexscan: "off"],
-  username: System.get_env("PGUSER", "postgres"),
-  password: System.get_env("PGPASSWORD", "postgres"),
-  hostname: System.get_env("PGHOST", "localhost"),
-  port: String.to_integer(System.get_env("PGPORT", "5432")),
-  database: "knowseek_test#{db_suffix}#{System.get_env("MIX_TEST_PARTITION")}",
+  database:
+    System.get_env("DATABASE_PATH") ||
+      Path.expand("../data/knowseek_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2
+  pool_size: 5
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

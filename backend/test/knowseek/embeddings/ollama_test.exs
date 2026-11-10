@@ -118,7 +118,7 @@ defmodule Knowseek.Embeddings.OllamaTest do
 
       assert {:ok, document} = Documents.ingest(%{body: "Some text.", source: "test"})
       assert [chunk] = Repo.preload(document, :chunks).chunks
-      assert Pgvector.to_list(chunk.embedding) == vector(0, dimensions)
+      assert chunk_embedding(chunk) == vector(0, dimensions)
     end
 
     test "rejects a model with the wrong vector size" do

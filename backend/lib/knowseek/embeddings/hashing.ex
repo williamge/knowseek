@@ -25,7 +25,7 @@ defmodule Knowseek.Embeddings.Hashing do
     norm = counts |> Map.values() |> Enum.map(&(&1 * &1)) |> Enum.sum() |> :math.sqrt()
 
     if norm == 0.0 do
-      # pgvector cannot compute cosine distance for a zero vector.
+      # Cosine distance is undefined for a zero vector.
       [1.0 | List.duplicate(0.0, dimensions - 1)]
     else
       for i <- 0..(dimensions - 1), do: Map.get(counts, i, 0) / norm

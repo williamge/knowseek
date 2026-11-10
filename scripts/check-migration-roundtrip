@@ -13,6 +13,11 @@
 #      ITS seeds with ITS code (the data the base branch creates);
 #   2. migrate with this branch's migrations on top of that data, run this
 #      branch's seeds, roll the added migrations back, and migrate again.
+#   Skipped when the branch deletes migrations that the base has: then it
+#   replaces the history with a new baseline (ADR 0030, the SQLite baseline
+#   that replaced the Postgres migrations), so no database of the base can be
+#   migrated by this branch on purpose. Phase A still runs the new baseline
+#   forward, back and forward again.
 #
 # Irreversible migrations. A rollback runs `down`, so a migration without one
 # fails this check. When that is deliberate, make the FIRST LINE of the file
@@ -23,10 +28,10 @@
 # older than it (a rollback cannot jump over a migration), and says so. The
 # migration still runs forward. The reason is required.
 #
-# Database: knowseek_test[_<workspace>]_migcheck, dropped before and after (the
-# MIX_TEST_PARTITION suffix `_migcheck` is set here, so the dev and test
-# databases are never touched). Run it through `make check-migration-roundtrip`
-# so .env (KNOWSEEK_WORKSPACE) is loaded and each worktree gets its own database.
+# Database: a SQLite file in a temporary directory (DATABASE_PATH, which
+# config/test.exs reads), deleted afterwards, so the dev and test databases are
+# never touched. The base checkout uses the same file, and a copy of this
+# checkout's sqlite-vec build (backend/priv/sqlite_vec).
 #
 # Usage: scripts/check-migration-roundtrip [base-ref]   (default: $BASE or origin/main)
 
@@ -38,9 +43,9 @@ migrations_dir="backend/priv/repo/migrations"
 base_ref="${1:-${BASE:-origin/main}}"
 
 export MIX_ENV=test
-export MIX_TEST_PARTITION=_migcheck
 
-tmp=""
+tmp="$(mktemp -d)"
+export DATABASE_PATH="$tmp/migcheck.db"
 base_tree=""
 
 step() { printf '\n==> %s\n' "$*"; }
@@ -57,7 +62,7 @@ mix_in() {
 }
 
 drop_database() {
-  mix_in "$backend" ecto.drop --quiet > /dev/null 2>&1 || true
+  rm -f "$DATABASE_PATH" "$DATABASE_PATH-wal" "$DATABASE_PATH-shm"
 }
 
 cleanup() {
@@ -66,10 +71,7 @@ cleanup() {
   if [ -n "$base_tree" ]; then
     git -C "$root" worktree remove --force "$base_tree" > /dev/null 2>&1 || true
   fi
-  if [ -n "$tmp" ]; then
-    rm -rf "$tmp"
-  fi
-  drop_database
+  rm -rf "$tmp"
   exit "$code"
 }
 trap cleanup EXIT
@@ -88,6 +90,15 @@ for path in "$backend"/priv/repo/migrations/*.exs; do
   fi
 done
 added="$(printf '%s' "$added" | sed '/^$/d' | sort)"
+
+# Migrations of the merge base that this branch deletes.
+removed=""
+for name in $base_names; do
+  if [ ! -f "$backend/priv/repo/migrations/$name" ]; then
+    removed="$removed$name"$'\n'
+  fi
+done
+removed="$(printf '%s' "$removed" | sed '/^$/d' | sort)"
 
 if [ -z "$added" ]; then
   echo "No migrations added since $(git -C "$root" rev-parse --short "$merge_base") ($base_ref): checking that every migration applies to an empty database."
@@ -158,11 +169,25 @@ if [ -z "$added" ]; then
   exit 0
 fi
 
+if [ -n "$removed" ]; then
+  echo
+  echo "This branch deletes $(printf '%s\n' "$removed" | wc -l | tr -d ' ') migrations of the base and adds a new baseline:"
+  printf '%s\n' "$removed" | sed 's/^/  - /'
+  echo "A database created by the base cannot be migrated by this branch, by design, so Phase B (data from the base) is skipped."
+  echo
+  echo "check-migration-roundtrip: OK (new baseline; empty database only)"
+  exit 0
+fi
+
 step "Phase B: data created by the base branch ($merge_base)"
 recreate_database
-tmp="$(mktemp -d)"
 base_tree="$tmp/base"
 git -C "$root" worktree add --detach "$base_tree" "$merge_base" > /dev/null 2>&1 || die "cannot check out $merge_base into $base_tree"
+
+# The base loads the same sqlite-vec build; copying it saves a download.
+if [ -d "$backend/priv/sqlite_vec" ]; then
+  cp -R "$backend/priv/sqlite_vec" "$base_tree/backend/priv/"
+fi
 
 # Reuse the dependencies, and their compiled form, of this checkout when the lock
 # files are the same: only the application itself is compiled again. (Mix

@@ -18,55 +18,53 @@ BASE ?= origin/main
 # shell environment wins over .env.
 LOAD_ENV = saved="$$(export -p)"; if [ -f .env ]; then set -a; . ./.env; set +a; eval "$$saved"; fi
 
-.PHONY: help setup db-up db-down db-reset ollama start api-run dev web iex test check check-migrations check-migration-roundtrip check-docs check-shell check-security check-secrets check-quiet web-check fmt worktree worktree-rm
+.PHONY: help setup db-reset ollama start api-run dev web iex test check check-migrations check-migration-roundtrip check-docs check-shell check-security check-secrets check-quiet web-check fmt worktree worktree-rm
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*## ' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
-setup: db-up ollama ## Install deps and create + migrate the dev and test databases
+# The database is a SQLite file per checkout: backend/data/knowseek_dev.db and
+# knowseek_test.db (git-ignored, ADR 0030). Nothing runs in Docker for
+# development. `mix ecto.migrate` first fetches the sqlite-vec extension
+# (`mix sqlite_vec.fetch`, pinned by SHA-256; needs the network once).
+setup: ollama ## Install deps, fetch sqlite-vec, and create + migrate the dev and test databases
 	@command -v mise >/dev/null && mise install || true
 	$(LOAD_ENV); cd backend && mix deps.get && mix ecto.setup
 	$(LOAD_ENV); cd backend && MIX_ENV=test mix do ecto.create --quiet + ecto.migrate --quiet
 	cd frontend && npm install
 
-db-up: ## Start Postgres (pgvector) in Docker
-	docker compose up -d --wait db
-
-db-down: ## Stop Postgres and the app container (data is kept in a Docker volume)
-	docker compose --profile app down
-
-db-reset: db-up ollama ## Drop and recreate the dev database
+db-reset: ollama ## Delete and recreate the dev database (backend/data/knowseek_dev.db), with the seeds
 	$(LOAD_ENV); cd backend && mix ecto.reset
 
 # The defaults match Knowseek.Embeddings.Ollama. Does nothing for other adapters.
-# Runs after db-up in dev, iex, start, and setup. Not part of test or check.
+# Runs in dev, iex, start, db-reset, and setup. Not part of test or check.
 ollama: ## Check that Ollama runs and pull $OLLAMA_MODEL (skipped if EMBEDDINGS_ADAPTER is not ollama)
 	@$(LOAD_ENV); scripts/ensure-ollama
 
-start: db-up ollama ## Run the API and the web UI together in one terminal (Ctrl-C stops both)
+start: ollama ## Run the API and the web UI together in one terminal (Ctrl-C stops both)
 	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
 	@$(LOAD_ENV); PORT=$(PORT) exec scripts/start
 
 api-run: # internal: used by scripts/start
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
-dev: db-up ollama ## Run the API server on $PORT (from the environment, then .env, then 4000)
+dev: ollama ## Run the API server on $PORT (from the environment, then .env, then 4000)
 	$(LOAD_ENV); cd backend && mix do ecto.create --quiet + ecto.migrate --quiet
 	$(LOAD_ENV); cd backend && PORT=$(PORT) mix phx.server
 
 web: ## Run the web UI on $PORT+1 (proxies /api to the API on $PORT). Run `make dev` too.
 	cd frontend && API_PORT=$(PORT) WEB_PORT=$$(($(PORT) + 1)) npm run dev
 
-iex: db-up ollama ## Run the API server inside an IEx shell
+iex: ollama ## Run the API server inside an IEx shell
 	$(LOAD_ENV); cd backend && PORT=$(PORT) iex -S mix phx.server
 
-test: db-up ## Run the test suite. Single file: make test ARGS=test/knowseek/search_test.exs
+test: ## Run the test suite. Single file: make test ARGS=test/knowseek/search_test.exs
 	$(LOAD_ENV); cd backend && mix test $(ARGS)
 
 check-migrations: ## Check migration file names: unique versions, generator format, none in the future
 	@scripts/check-migrations
 
-check-migration-roundtrip: db-up ## Roll back and re-apply the migrations this branch adds, on an empty database and on one with data from origin/main (slow, not part of check; CI runs it)
+check-migration-roundtrip: ## Roll back and re-apply the migrations this branch adds, on an empty database and on one with data from origin/main (slow, not part of check; CI runs it)
 	@$(LOAD_ENV); scripts/check-migration-roundtrip
 
 check-docs: ## Check task/ADR numbers, README index rows, Status and Depends on lines, and relative markdown links
@@ -81,10 +79,10 @@ check-security: ## Dependency and static security scans: hex.audit, deps.audit, 
 check-secrets: ## Scan the whole git history for secrets with gitleaks (needs Docker; not part of check; CI runs it)
 	@scripts/check-secrets
 
-check: db-up check-migrations check-docs check-shell web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
+check: check-migrations check-docs check-shell web-check ## Backend (compile, format, credo, test) and frontend (types, format, test). Run before you finish a task.
 	$(LOAD_ENV); cd backend && mix precommit
 
-check-quiet: db-up check-migrations check-docs check-shell ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
+check-quiet: check-migrations check-docs check-shell ## Same as check, but print only failures (full logs: backend/_build/check.log, backend/_build/web-check.log)
 	@mkdir -p backend/_build
 	@if $(MAKE) --no-print-directory web-check > backend/_build/web-check.log 2>&1; then \
 		echo "make check (web): OK"; \
@@ -106,9 +104,10 @@ fmt: ## Format Elixir and web UI code
 	cd backend && mix format
 	cd frontend && npm run format
 
-# One worktree per branch, with its own databases and port pair, so several
-# checkouts can run at once. KNOWSEEK_WORKSPACE in the worktree's .env names the
-# databases (see backend/config/dev.exs); PORT picks the API port (web: PORT+1).
+# One worktree per branch, with its own database files (in its own backend/data/)
+# and port pair, so several checkouts can run at once. PORT in the worktree's
+# .env picks the API port (web: PORT+1); KNOWSEEK_WORKSPACE names its image and
+# database in the compose app container.
 # Runs from any checkout. The branch starts at BASE (default origin/main).
 worktree: ## Create a worktree + branch + databases + port pair: make worktree NAME=my-branch
 	@[[ "$(NAME)" =~ ^[a-z0-9][a-z0-9-]{0,30}$$ ]] || { echo "Usage: make worktree NAME=<lowercase-letters-digits-dashes, max 31 chars>"; exit 1; }
@@ -127,12 +126,11 @@ worktree: ## Create a worktree + branch + databases + port pair: make worktree N
 	[ -n "$$port" ] || { echo "No free port pair in 4100..4900. Remove a worktree or set PORT in $(WORKTREES)/$(NAME)/.env"; exit 1; }; \
 	echo "PORT=$$port" >> "$(WORKTREES)/$(NAME)/.env"
 	@$(MAKE) -C "$(WORKTREES)/$(NAME)" setup || { echo "Setup failed. The worktree exists: fix the problem, then run 'make setup' inside $(WORKTREES)/$(NAME)"; exit 1; }
-	@db="$$(printf '%s' "$(NAME)" | tr -cs 'a-z0-9\n' '_')"; port="$$(sed -n 's/^PORT=//p' "$(WORKTREES)/$(NAME)/.env" | tail -n 1)"; \
+	@port="$$(sed -n 's/^PORT=//p' "$(WORKTREES)/$(NAME)/.env" | tail -n 1)"; \
 	echo "Worktree ready: $(WORKTREES)/$(NAME)"; \
-	echo "  databases: knowseek_dev_$$db, knowseek_test_$$db"; \
+	echo "  databases: backend/data/knowseek_dev.db, backend/data/knowseek_test.db"; \
 	echo "  ports:     API $$port (make dev), web UI $$((port + 1)) (make web)"
 
-worktree-rm: ## Drop a worktree's databases and remove it (keeps the branch): make worktree-rm NAME=...
+worktree-rm: ## Remove a worktree and its database files (keeps the branch): make worktree-rm NAME=...
 	@test -d "$(WORKTREES)/$(NAME)" || { echo "No worktree at $(WORKTREES)/$(NAME)"; exit 1; }
-	cd "$(WORKTREES)/$(NAME)/backend" && KNOWSEEK_WORKSPACE="$(NAME)" mix ecto.drop --quiet && KNOWSEEK_WORKSPACE="$(NAME)" MIX_ENV=test mix ecto.drop --quiet
 	git worktree remove --force "$(WORKTREES)/$(NAME)"

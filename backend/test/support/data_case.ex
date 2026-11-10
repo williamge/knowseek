@@ -8,10 +8,9 @@ defmodule Knowseek.DataCase do
 
   Finally, if the test case interacts with the database,
   we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use Knowseek.DataCase, async: true`, although
-  this option is not recommended for other databases.
+  are reverted at the end of every test. A test that uses the
+  database must not be async (SQLite, ADR 0030): see
+  `setup_sandbox/1`.
   """
 
   use ExUnit.CaseTemplate
@@ -27,7 +26,7 @@ defmodule Knowseek.DataCase do
       import Ecto.Query
       import Knowseek.DataCase
       import Knowseek.Fixtures
-      use Oban.Testing, repo: Knowseek.Repo
+      use Oban.Testing, repo: Knowseek.Repo, engine: Oban.Engines.Lite
     end
   end
 
@@ -38,10 +37,18 @@ defmodule Knowseek.DataCase do
 
   @doc """
   Sets up the sandbox based on the test tags.
+
+  Only a test that is not async gets a sandbox connection, in shared mode.
+  SQLite has one writer, and the sandbox holds a transaction (IMMEDIATE, so
+  with the write lock) for the whole test, so two owners at once would wait
+  on each other. An async test gets no connection: if it touches the
+  database, it fails with an ownership error.
   """
   def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Knowseek.Repo, shared: not tags[:async])
-    on_exit(fn -> Sandbox.stop_owner(pid) end)
+    if !tags[:async] do
+      pid = Sandbox.start_owner!(Knowseek.Repo, shared: true)
+      on_exit(fn -> Sandbox.stop_owner(pid) end)
+    end
   end
 
   @doc """

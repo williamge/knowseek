@@ -58,11 +58,7 @@ updates:
     commit-message:
       prefix: "docker"
 
-  # docker-compose.yml (the pgvector image).
-  - package-ecosystem: docker-compose
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: "docker"
+  # docker-compose.yml builds backend/Dockerfile and pulls no image of its own
+  # (ADR 0030 removed the Postgres service), so it has no entry. sqlite-vec is
+  # a GitHub release binary that Dependabot cannot see: bump its version and
+  # SHA-256 digests by hand in backend/lib/mix/tasks/sqlite_vec.fetch.ex.

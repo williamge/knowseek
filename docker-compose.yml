@@ -1,50 +1,34 @@
-# Local infrastructure. One Postgres instance serves every checkout; each
-# checkout can use its own databases (see backend/config/dev.exs).
+# The API as a release container (backend/Dockerfile). Development does not
+# need Docker: the database is a SQLite file per checkout (ADR 0030).
 name: knowseek
 
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "127.0.0.1:${PGPORT:-5432}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-
-  # The API as a release container (backend/Dockerfile). Not started by
-  # `make dev` or `make db-up`: it needs the `app` profile.
+  # Not started by `make dev`: it needs the `app` profile.
   #   docker compose --profile app up --build
-  # It creates its own database (APP_DB_NAME, default knowseek_prod_<workspace>
-  # from KNOWSEEK_WORKSPACE in .env) in the db service above, runs the
-  # migrations, then serves on http://127.0.0.1:${APP_PORT:-4000}. The web UI
-  # is not part of the image yet. See docs/decisions/0014-release-and-container.md.
+  # It creates its SQLite file (knowseek_<workspace>.db, from KNOWSEEK_WORKSPACE
+  # in .env) in the `appdata` volume, runs the migrations, then serves on
+  # http://127.0.0.1:${APP_PORT:-4000}. The web UI is not part of the image
+  # yet. See docs/decisions/0014-release-and-container.md.
   #
   # The project name is fixed (`knowseek`), so there is ONE app container per
   # project, shared by every worktree. `up` in a second worktree replaces the
-  # first worktree's container (same service). The image tag and database name
+  # first worktree's container (same service). The image tag and database file
   # follow the workspace, so the replacement runs that worktree's code against
-  # that worktree's database; nothing is shared except the container slot.
+  # that worktree's database; nothing is shared except the container slot and
+  # the volume that holds the files.
   app:
     profiles: [app]
     build: ./backend
     image: knowseek-app:${KNOWSEEK_WORKSPACE:-local}
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
       - "127.0.0.1:${APP_PORT:-4000}:4000"
     extra_hosts:
       # Lets the container reach a native Ollama on the host (Linux needs this line).
       - "host.docker.internal:host-gateway"
+    volumes:
+      - appdata:/data
     environment:
-      DATABASE_URL: ecto://postgres:postgres@db/${APP_DB_NAME:-knowseek_prod${KNOWSEEK_WORKSPACE:+_}${KNOWSEEK_WORKSPACE:-}}
+      DATABASE_PATH: /data/knowseek${KNOWSEEK_WORKSPACE:+_}${KNOWSEEK_WORKSPACE:-}.db
       # Local use only. Set SECRET_KEY_BASE (mix phx.gen.secret) for anything else.
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-local-only-insecure-secret-key-base-do-not-use-outside-docker-compose-0123456789}
       PHX_SERVER: "true"
@@ -65,4 +49,4 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
 volumes:
-  pgdata:
+  appdata:

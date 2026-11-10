@@ -4,8 +4,10 @@ defmodule Knowseek.Search do
 
   `search/2` runs a hybrid search over chunks:
 
-    1. full-text search on the generated `search_vector` column
-    2. vector search on `embedding` (cosine distance, HNSW index)
+    1. full-text search in the FTS5 table `chunks_fts`, ranked by `bm25`;
+       `Knowseek.Search.FtsQuery` turns the query text into the FTS5 query
+    2. vector search in the sqlite-vec table `chunk_vectors` (cosine
+       distance, an exact scan)
 
   It merges the two ranked lists with reciprocal rank fusion (RRF), drops
   the chunks that are not relevant (see `Knowseek.Search.Hit.relevant?/2`),
@@ -23,29 +25,25 @@ defmodule Knowseek.Search do
   breaks near-ties in favour of the more widely read document. A document
   without a signal keeps its score and, among such documents, its order.
 
-  Each ranked list fetches `limit * :candidate_factor` chunks, so that
-  grouping still fills `limit` documents. See ADR 0011.
+  Each ranked list fetches `limit * :candidate_factor` chunks (the vector
+  list at most 4096, sqlite-vec's cap), so that grouping still fills `limit`
+  documents. See ADR 0011.
 
   This module only reads. Deciding what to do about weak coverage is the
   job of `Knowseek.Lookup`.
   """
   import Ecto.Query
-  import Pgvector.Ecto.Query
 
-  alias Knowseek.Documents.{Chunk, Document}
+  alias Knowseek.Documents.{Chunk, Document, Vector}
   alias Knowseek.Embeddings
   alias Knowseek.Repo
-  alias Knowseek.Search.{Coverage, Hit}
+  alias Knowseek.Search.{Coverage, FtsQuery, Hit}
 
   # Standard RRF constant. Dampens the weight of top ranks.
   @rrf_k 60
 
-  # pgvector rejects `hnsw.ef_search` above 1000.
-  @max_ef_search 1000
-
-  # Values of the `:iterative_scan` config. `:off` sets nothing (pgvector's own
-  # default, and the only value an older pgvector than 0.8 accepts).
-  @iterative_scan_modes [:off, :strict_order]
+  # sqlite-vec rejects a `k` above 4096.
+  @max_k 4096
 
   @type result :: %{hits: [Hit.t()], coverage: Coverage.t()}
 
@@ -56,9 +54,8 @@ defmodule Knowseek.Search do
     min_similarity = Keyword.get(opts, :min_similarity, config(:min_similarity))
 
     with {:ok, [vector]} <- Embeddings.embed([query], input_type: :query) do
-      embedding = Pgvector.new(vector)
       keyword = keyword_matches(query, candidates)
-      semantic = semantic_matches(embedding, candidates)
+      semantic = semantic_matches(vector, candidates)
 
       hits =
         keyword
@@ -77,114 +74,47 @@ defmodule Knowseek.Search do
     end
   end
 
-  # Returns chunk ids in rank order.
+  # Returns chunk ids in rank order: best `bm25` first (FTS5 scores better
+  # matches lower), then by insertion order, so that ties are stable.
   defp keyword_matches(query, limit) do
-    Repo.all(
-      from c in Chunk,
-        where: fragment("? @@ websearch_to_tsquery('english', ?)", c.search_vector, ^query),
-        order_by: [
-          desc:
-            fragment("ts_rank_cd(?, websearch_to_tsquery('english', ?))", c.search_vector, ^query)
-        ],
-        limit: ^limit,
-        select: c.id
-    )
+    case FtsQuery.build(query) do
+      nil ->
+        []
+
+      match ->
+        Repo.query!(
+          """
+          SELECT c.id FROM chunks_fts
+          JOIN chunks AS c ON c.seq = chunks_fts.rowid
+          WHERE chunks_fts MATCH ?1
+          ORDER BY bm25(chunks_fts), chunks_fts.rowid
+          LIMIT ?2
+          """,
+          [match, limit]
+        ).rows
+        |> Enum.map(fn [id] -> id end)
+    end
   end
 
-  # Returns {chunk_id, cosine_similarity} in rank order.
-  #
-  # An HNSW index scan returns at most `hnsw.ef_search` rows (default 40), so
-  # a larger `limit` would silently return 40. Raise it for this query only.
-  # The scan also drops entries whose chunk is gone, after it has counted them
-  # against `ef_search`; the iterative scan keeps walking the graph then, so
-  # dead entries cannot empty the list (ADR 0024).
-  defp semantic_matches(embedding, limit) do
-    with_ef_search(limit, fn ->
-      Repo.all(
-        from c in Chunk,
-          where: not is_nil(c.embedding),
-          order_by: cosine_distance(c.embedding, ^embedding),
-          limit: ^limit,
-          select: {c.id, 1 - cosine_distance(c.embedding, ^embedding)}
-      )
-    end)
-  end
-
-  @doc false
-  # Runs `fun` in a transaction where the HNSW scan settings fit `candidates`
-  # rows: `hnsw.ef_search`, and unless `:iterative_scan` is `:off`,
-  # `hnsw.iterative_scan` and `hnsw.max_scan_tuples` (ADR 0024).
-  # `set_config(..., true)` is local to the transaction.
-  #
-  # The iterative scan needs pgvector 0.8. An older one does not know the
-  # setting, and Postgres then rejects it with an error, but only on a
-  # connection that has already loaded pgvector; on a fresh one it only logs a
-  # warning and drops the setting. The `FROM (SELECT '[0]'::vector)` loads
-  # pgvector (the cast runs while the statement is parsed) before `set_config`
-  # runs, so that an old pgvector fails every search, the first one too.
-  @spec with_ef_search(pos_integer(), (-> result)) :: result when result: term()
-  def with_ef_search(candidates, fun) do
-    ef_search = Integer.to_string(ef_search(candidates))
-
-    {:ok, result} =
-      Repo.transaction(fn ->
-        scan_settings(config(:iterative_scan), config(:max_scan_tuples), ef_search)
-        fun.()
-      end)
-
-    result
-  end
-
-  defp scan_settings(mode, max_scan_tuples, ef_search) do
-    :ok = validate_scan_config!(mode, max_scan_tuples)
-    apply_scan_settings(mode, max_scan_tuples, ef_search)
-  end
-
-  defp apply_scan_settings(:off, _max_scan_tuples, ef_search) do
-    Repo.query!("SELECT set_config('hnsw.ef_search', $1, true)", [ef_search])
-  end
-
-  defp apply_scan_settings(mode, max_scan_tuples, ef_search) do
+  # Returns {chunk_id, cosine_similarity} in rank order. sqlite-vec compares
+  # the query with every stored vector (no approximate index), so the list is
+  # exact. Equal distances keep insertion order. The KNN query is
+  # MATERIALIZED: vec0 accepts no other ORDER BY term than its distance, and
+  # SQLite would otherwise merge the outer one into it.
+  defp semantic_matches(vector, limit) do
     Repo.query!(
       """
-      SELECT set_config('hnsw.ef_search', $1, true),
-             set_config('hnsw.iterative_scan', $2, true),
-             set_config('hnsw.max_scan_tuples', $3, true)
-      FROM (SELECT '[0]'::vector) AS pgvector_loaded
+      WITH knn AS MATERIALIZED (
+        SELECT rowid, distance FROM chunk_vectors WHERE embedding MATCH ?1 AND k = ?2
+      )
+      SELECT c.id, 1.0 - knn.distance FROM knn
+      JOIN chunks AS c ON c.seq = knn.rowid
+      ORDER BY knn.distance, knn.rowid
       """,
-      [ef_search, Atom.to_string(mode), Integer.to_string(max_scan_tuples)]
-    )
+      [{:blob, Vector.encode(vector)}, min(limit, @max_k)]
+    ).rows
+    |> Enum.map(fn [id, similarity] -> {id, similarity} end)
   end
-
-  @doc false
-  # Raises when the `:iterative_scan` or `:max_scan_tuples` config of this
-  # module is invalid. `Knowseek.Application` calls it once at boot, so that a
-  # typo stops the start instead of failing every search; every search checks
-  # again through the same function.
-  @spec validate_config!() :: :ok
-  def validate_config!,
-    do: validate_scan_config!(config(:iterative_scan), config(:max_scan_tuples))
-
-  @doc false
-  @spec validate_scan_config!(term(), term()) :: :ok
-  def validate_scan_config!(:off, _max_scan_tuples), do: :ok
-
-  def validate_scan_config!(mode, max_scan_tuples)
-      when mode in @iterative_scan_modes and is_integer(max_scan_tuples) and
-             max_scan_tuples > 0,
-      do: :ok
-
-  def validate_scan_config!(mode, max_scan_tuples) do
-    raise ArgumentError,
-          "invalid Knowseek.Search config: iterative_scan must be one of " <>
-            "#{inspect(@iterative_scan_modes)} and max_scan_tuples a positive integer, " <>
-            "got #{inspect(mode)} and #{inspect(max_scan_tuples)}"
-  end
-
-  @doc false
-  # pgvector's default is 40 and it rejects values above 1000.
-  @spec ef_search(pos_integer()) :: 40..1000
-  def ef_search(candidates), do: candidates |> max(40) |> min(@max_ef_search)
 
   defp fuse(keyword_ids, semantic) do
     keyword_ranks = keyword_ids |> Enum.with_index(1) |> Map.new()

@@ -43,14 +43,13 @@ defmodule Knowseek.MixProject do
       {:phoenix, "~> 1.8.16"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
-      {:postgrex, ">= 0.0.0"},
+      {:ecto_sqlite3, "~> 0.26"},
       {:phoenix_live_dashboard, "~> 0.9.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.3.1"},
       {:bandit, "~> 1.5"},
-      {:pgvector, "~> 0.4.2"},
       {:oban, "~> 2.24"},
       {:req, "~> 0.7.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -70,7 +69,10 @@ defmodule Knowseek.MixProject do
       setup: ["deps.get", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      # The Repo loads sqlite-vec when it connects: fetch it first (a no-op
+      # when it is there). See lib/mix/tasks/sqlite_vec.fetch.ex.
+      "ecto.migrate": ["sqlite_vec.fetch", "ecto.migrate"],
+      test: ["sqlite_vec.fetch", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
       precommit: [
         "compile --warnings-as-errors",
         "deps.unlock --unused",

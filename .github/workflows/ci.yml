@@ -19,20 +19,9 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # The database is a SQLite file (backend/data/, ADR 0030): no service.
     env:
       MIX_ENV: test
-    services:
-      db:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 30
     steps:
       - uses: actions/checkout@v7
       - uses: erlef/setup-beam@v1
@@ -51,6 +40,12 @@ jobs:
       - run: mix format --check-formatted
       - run: mix credo --strict
       - run: mix deps.unlock --check-unused
+      # sqlite-vec for this runner (linux x86_64), checked against its pinned
+      # SHA-256. The next step proves that exqlite loads it on Linux.
+      - run: mix sqlite_vec.fetch
+      - name: sqlite-vec through exqlite on Linux
+        run: |
+          mix run -e 'IO.puts("vec_version() = " <> hd(hd(Knowseek.Repo.query!("SELECT vec_version()").rows)))'
       - run: mix test
 
   frontend:
@@ -82,8 +77,8 @@ jobs:
 
   # The migrations a branch adds must roll back and apply again, on an empty
   # database and on one that holds the data of origin/main
-  # (scripts/check-migration-roundtrip). Needs the full history to find the
-  # merge base.
+  # (scripts/check-migration-roundtrip, on a temporary SQLite file). Needs the
+  # full history to find the merge base.
   migrations:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -92,18 +87,6 @@ jobs:
         working-directory: backend
     env:
       MIX_ENV: test
-    services:
-      db:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 30
     steps:
       - uses: actions/checkout@v7
         with:

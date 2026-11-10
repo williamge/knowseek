@@ -1,6 +1,6 @@
 # 0002. Postgres + pgvector as the single datastore
 
-- Status: Accepted
+- Status: Superseded by [0030](0030-sqlite-single-datastore.md)
 - Date: 2026-10-30
 
 ## Context
