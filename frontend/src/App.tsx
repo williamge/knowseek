@@ -1,4 +1,5 @@
 import { useCallback, useState, type ComponentType } from "react";
+import { CrawlPage } from "./components/CrawlPage";
 import { BlockedLinksPage } from "./components/BlockedLinksPage";
 import { DocumentReader } from "./components/DocumentReader";
 import { FactCard } from "./components/FactCard";
@@ -14,6 +15,7 @@ import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
 /** The pages other than search, by `Page` (`router.ts`). They take no props. */
 const PAGES: Record<Page, ComponentType> = {
   stats: StatsPage,
+  crawl: CrawlPage,
   "blocked-links": BlockedLinksPage,
 };
 

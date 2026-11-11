@@ -2,6 +2,7 @@ import { routeToUrl, type Navigate, type Page } from "../router";
 
 const LINKS: { page: Page; label: string }[] = [
   { page: "stats", label: "Stats" },
+  { page: "crawl", label: "Crawl" },
   { page: "blocked-links", label: "Blocked links" },
 ];
 

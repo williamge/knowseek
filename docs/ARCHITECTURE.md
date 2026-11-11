@@ -28,14 +28,18 @@ All modules live in `backend/lib/knowseek/`.
 | --- | --- |
 | `Knowseek.Lookup` | Entry point for a query. Searches, hands the search to `Knowseek.Activity.record_search/4` (a message, no write; ADR 0031), then requests discovery if coverage is not sufficient. |
 | `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (FTS5 `chunks_fts`, ranked by `bm25`, with the query built by `Search.FtsQuery`) and vector (sqlite-vec `chunk_vectors`, cosine, an exact scan) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). Then a bounded prior from the document's `monthly_views` multiplies that score and the hits are sorted again (see "Ranking prior"). See "Search index" and [ADR 0030](decisions/0030-sqlite-single-datastore.md). |
+| `Knowseek.Search.count_near/2` | How many stored documents have a chunk at or above `min_similarity` to a vector, at most `:limit` (10). The vector side of search only (no keywords, no prior, no log). The background crawl uses it as "how many pages near this are already stored" (ADR 0033). |
 | `Knowseek.Search.FtsQuery` | Pure: turns the query text into an FTS5 `MATCH` expression, the way Postgres's `websearch_to_tsquery` read it. Every word is quoted (no user text reaches FTS5 as syntax) and ANDed; Postgres's English stop words are dropped outside phrases; `"a phrase"`, `or` and `-word` are translated. `nil` when nothing is left: the search then has no keyword list. |
 | `Knowseek.Search.Coverage` | Pure heuristic that classifies a hit list as `:sufficient`, `:partial`, or `:none`. Each hit is one document, so it counts documents with a relevant, fresh hit. With `max_age_seconds`, it counts only documents whose `fetched_at` is within that many seconds. |
 | `Knowseek.Documents` | The only write path into the index. Validates, canonicalizes the URL, chunks, embeds, and stores documents. Re-ingesting a URL updates it. `source_updated_at` (when the source says the page was last edited) is stored like `monthly_views`: a candidate without it leaves the stored value alone, and an unchanged body still updates it, because the field means "the source says last edited" and not "our text changed". The license fields (`license`, `attribution`, `modified`, `share`, [ADR 0026](decisions/0026-per-document-license-fields.md)) follow the same rule; a new document without them is `LicenseRef-unknown` and `share: none`. A body that is long enough (`min_alias_body_length/0`) and already stored under another URL is not a new document: the URL becomes an alias of the stored one, and only that document's `fetched_at` moves (a document that has only a `urn:` URL takes the real URL instead). An alias URL that later serves a different body loses its alias and becomes a new document. An unchanged body at a document's own URL is not re-chunked or re-embedded, but the other fields and `fetched_at` are updated. See `docs/decisions/0013-url-canonicalization-and-aliases.md`. `origin` (`search`, `background`, `manual`) and `origin_query` say why a page was first fetched; they are write-once, set only for a new document (a new document without them is `manual`), and `count_by_origin/0` counts the pages of each origin (ADR 0031). |
+| `Knowseek.Documents.indexed_page_ids/2`, `summaries/1` | Reads for the crawl (ADR 0033). `indexed_page_ids(source, page_ids)` is the set of page ids already stored for a source, from `metadata.pageid`, through the expression index `documents_source_pageid_index` (no body is read). `summaries(ids)` is the title and URL of each document that still exists. |
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Ollama` (local `bge-m3` through Ollama, free; the default, ADR 0016), `Embeddings.Hashing` (local stand-in, no semantics; the opt-out and the adapter in tests), `Embeddings.Voyage` (Voyage AI API). |
 | `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates, each with `origin: "search"` and the normalized query as `origin_query` (a source never sets them), then logs the links of each candidate that point to hosts off the allowlist (`blocked_links`, see "Allowlist and blocked links"). Around each source it counts the downloaded bytes in memory (the `:on_bytes` option of `discover/2` and `links/2`) and, after the source returned (also after a failure), records the total with `Activity.record_bytes/2` (ADR 0031). `allowed?/1` is the gate a crawler calls before it fetches a URL. `backfill_links/0` enqueues one `Discovery.LinkBackfillWorker` job per indexed page. |
-| `Knowseek.Discovery.Source` | Behaviour for an external data source. A candidate may carry `:links` (the page's outgoing links); the optional callback `links/2` re-reads a stored page's links for the backfill. |
+| `Knowseek.Discovery.link_candidates/1` | The pages a stored page links to on its own site, with short descriptions, from its source's `link_candidates/2`, for the background crawl (ADR 0033). Links off the allowlist are dropped; the bytes downloaded are recorded like a discovery run's. `{:ok, []}` for a source without the callback or a URL off the allowlist. |
+| `Knowseek.Discovery.Source` | Behaviour for an external data source. A candidate may carry `:links` (the page's outgoing links); the optional callback `links/2` re-reads a stored page's links for the backfill, and the optional callback `link_candidates/2` returns a stored page's links with their page ids, titles and short descriptions for the crawl (ADR 0033). |
+| `Knowseek.Discovery.Sources.MediaWiki.link_candidates/3` | One `generator=links` request (redirects resolved; two at most for a page with more than 500 links) with `prop=description`. Red links, disambiguation pages, pages outside the site's `link_namespaces` (default `[0]`; Wikibooks also keeps the Cookbook) and the page itself are left out. Wikipedia and Wikibooks implement `link_candidates/2` with it. |
 | `Knowseek.Discovery.Allowlist` | Pure, internal to `Discovery`: the allowed hosts from config, and `parse/1`, which turns a link into the form the log stores (lowercase scheme and host, no fragment, at most 2,000 bytes) or `:error` when it is no web link. Hosts match exactly after a leading `www.` is dropped. |
 | `Knowseek.Discovery.Sources.MediaWiki` | The shared MediaWiki Action API code of the Wikipedia and Wikibooks sources (ADR 0029). Given a site (source name, `api.php` URL, license, credit, config key, optionally `search_namespaces`), it searches and returns the plain text of the top 3 pages, capped at ~40k characters each, with each page's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions`). It searches the main namespace, or one search per namespace in `search_namespaces`, earlier namespaces' pages first, without duplicates. Each page is credited to the site with a link to the page, `modified` and `share: full` (ADR 0026). Each candidate carries `:links`, the page's external links (`prop=extlinks`, same request; at most 500 a response, and up to 10 continuation requests for the links alone when a page has more; ADR 0032). `links/3` reads the links of a stored page (one request plus continuations). Skips disambiguation pages. Its requests are `:background` callers of `Knowseek.Wikimedia`. `discover/3` and `links/3` take `:on_bytes`: a Req response step reports the size of each response body as received (compressed, once per attempt, headers not counted). |
 | `Knowseek.Discovery.Sources.Wikipedia` | English Wikipedia over `MediaWiki`, for every query. `CC-BY-SA-4.0`, credit "Wikipedia". |
@@ -47,6 +51,14 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Wikimedia` | The cap on Wikimedia requests at once (ADR 0027): 3 slots across Wikipedia, Wikibooks and Wikidata. `run(class, fun)` holds a slot while `fun` runs. `Entities.Wikidata` is `:interactive` (served first, any slot); the `Discovery.Sources.MediaWiki` sources are `:background` (at most 2 slots). |
 | `Knowseek.Activity` | A local record (#96, ADR 0031): every search (normalized query, first coverage, the top 10 hits down to the chunk position), the bytes each discovery source downloads per UTC day, and `stats/1`, the numbers over both and over the pages' origins. `record_search/4` only sends a message to `Activity.Recorder`; `record_bytes/3` is a direct upsert called by discovery jobs. Internal: `SearchLog` (the writes), the schemas `SearchRecord`, `SearchHit`, `NetworkUsage`. It never reads `documents` (it asks `Documents.count_by_origin/0`). |
 | `Knowseek.Activity.Recorder` | The supervised in-process writer of the search log, a second exception to rule 6 next to `Knowseek.Cache`. No state; one per node. See "Activity record". |
+| `Knowseek.Activity.result_pages/1`, `last_search_at/0` | Reads of the search log for the crawl: the documents in the logged results of the last 30 days with their appearances (rank, and whether the search had one result; background pages left out), and the time of the newest logged search. |
+| `Knowseek.Crawl` | The background crawl (#89, ADR 0033). `due?/1`, `next_action/1` and `step/1` (one action: read and score the links of one source page), `overview/1` (the Crawl page), `stats/1` (the crawl counters of `/stats`), `clear_pending/0`. Reaches a source only through `Discovery.link_candidates/1`, the log through `Activity`, the index through `Documents` and `Search.count_near/2`. Reads, scores and shows only: fetching comes in a second change, so mode `on` acts as `preview`. See "Background crawl". |
+| `Knowseek.Crawl.Allowance` | Pure: the source pages from the logged results and what each has earned (5 for a top-3 rank, 15 as the only result, 1 for a lower rank) and whether it was a single result (the gap bonus). |
+| `Knowseek.Crawl.Score` | Pure: the text scored (`Title: description`), `interest`, `novelty`, the base score, `rarity` and the shared bonus. |
+| `Knowseek.Crawl.Idle` | Whether the instance is idle: no logged search for `idle_seconds` and the 1-minute load average per core (`:cpu_sup`, `os_mon`) under `max_load`. A load that cannot be read means not idle. |
+| `Knowseek.Crawl.Frontier` | The queries and writes of the two tables (`crawl_sources`, `crawl_candidates`), each write one short transaction after the external calls. Internal to `Crawl`, with the schemas `SourcePage` and `Candidate`. |
+| `Knowseek.Crawl.Scheduler` | A supervised timer, once a minute. Only reads (`Crawl.due?/1`) and enqueues one `Crawl.Worker` job; the third exception to rule 6 next to `Cache` and `Activity.Recorder` (ADR 0033). |
+| `Knowseek.Crawl.Worker` | The Oban job (queue `crawl`) that runs `Crawl.step/1`. |
 | `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. `CardController` (`GET /api/cards?q=`) composes `Entities.resolve/2` and `Cards.get/2`. `StatsController` (`GET /api/stats`, `DELETE /api/searches`) calls `Activity`. `Plugs.RateLimit` (an endpoint plug before the body parsers) limits the three anonymous endpoints per client (`ClientIp` decides who the client is). |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
@@ -60,6 +72,8 @@ The app has one page besides search: `/stats` (`StatsPage.tsx`, from `GET /api/s
 
 The app also has a page at `/blocked-links` (`BlockedLinksPage.tsx`), shown from `GET /api/blocked-links` as a table by domain (links, pages, times seen, first seen, an example link), with a button that starts the backfill (`POST /api/blocked-links/backfill`). See "Allowlist and blocked links".
 
+The page `/crawl` (`CrawlPage.tsx`, from `GET /api/crawl`) is read-only. It shows the crawl mode, the bar, the pages fetched today out of the daily cap, and the candidates the crawl would fetch next (title and description, the page whose links it was found on, and the score parts). There are no buttons. See "Background crawl".
+
 ## Data model
 
 ```mermaid
@@ -67,6 +81,8 @@ erDiagram
     documents ||--o{ chunks : has
     documents ||--o{ document_aliases : has
     documents ||--o{ blocked_links : has
+    documents ||--o{ crawl_sources : has
+    documents ||--o{ crawl_candidates : "source of"
     documents {
         uuid id
         text url "unique, canonical; urn:knowseek:sha256:... when none given"
@@ -134,6 +150,34 @@ erDiagram
         timestamp first_seen_at
         int times_seen "fetches of the page that saw the link (default 1)"
     }
+    crawl_sources {
+        uuid document_id "primary key; on delete cascade; a page your searches showed"
+        string site "the document's source; page ids are per site"
+        text link_ids "JSON array: the page ids of every link read"
+        int links "links read"
+        int kept "candidates stored"
+        timestamp read_at "read again after 7 days"
+    }
+    crawl_candidates {
+        uuid source_document_id "primary key with page_id; on delete cascade"
+        int page_id "primary key with source_document_id; the linked page on its site"
+        string site
+        text title
+        text description "nullable"
+        text url "https://host/?curid=page_id"
+        float interest "score parts as of scored_at"
+        float novelty
+        float gap "0.0 or the gap bonus"
+        float shared "0.0 stored; computed when ranked"
+        int shared_count "1 stored"
+        float score
+        string state "pending, fetched or skipped (CHECK); only pending is written so far"
+        uuid document_id "nullable; the background page; no foreign key; set when fetched (second change)"
+        int stored_bytes "nullable; set when fetched (second change)"
+        timestamp scored_at
+        timestamp fetched_at "nullable"
+        timestamp failed_at "nullable"
+    }
 ```
 
 The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in development, `DATABASE_PATH` in a release. UUIDs and timestamps are TEXT, maps JSON TEXT. Oban stores its jobs in `oban_jobs` in the same file.
@@ -152,7 +196,7 @@ The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in de
 - **One search.** A search with the same normalized query as a logged search less than 120 seconds old is the same search (the UI repeats a search while discovery runs): the row keeps its time and first coverage and takes the newest hits. The recorder checks the newest 20 rows.
 - **Hits** store the document id (no foreign key), the `chunks.position` of the best chunk and of the passages shown, and `background` (the document's origin was `background`). `Search.Hit` carries `position` and `origin` for this; the search response (`SearchJSON`) does not show them.
 - **The byte counter.** `Discovery` gives each source `on_bytes`, a function that adds to an in-memory counter; the source calls it with the body size of every response. After the source returned, `Discovery` writes the total to `network_usage` (per UTC day and source). Only discovery sources are counted, not cards, Wikidata or embeddings.
-- **Hit share:** the background pages that appeared in the top results of a logged search, out of all background pages. Nothing writes background pages yet (#89), so it is 0 of 0.
+- **Hit share:** the background pages that appeared in the top results of a logged search, out of all background pages. Nothing writes background pages yet (the crawl only reads and scores so far, ADR 0033), so it is 0 of 0.
 - **`GET /api/stats`** reads all of it (searches per day by coverage and pages by origin, the database file's size, network per day and source, hit share), over the last 30 UTC days. `DELETE /api/searches` clears the log.
 
 ## Background jobs (Oban)
@@ -161,6 +205,18 @@ The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in de
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
 | `discovery` | `Discovery.LinkBackfillWorker` | One job per indexed page: logs its blocked links without counting them (ADR 0032). Unique per document while incomplete. 3 attempts. Priority 3, so search-time `SeekWorker` jobs (priority 0) go first. Scheduled two a second. |
+| `crawl` | `Crawl.Worker` | One job runs `Crawl.step/1`: read and score the links of one source page (ADR 0033). Enqueued by `Crawl.Scheduler`, at most one incomplete job (unique), concurrency 1, 1 attempt: the next tick is the retry. |
+
+## Background crawl
+
+[ADR 0033](decisions/0033-background-crawl.md). While the instance is idle, `Knowseek.Crawl` reads the links of the pages your searches showed and scores them. This change **reads, scores and shows only**: it fetches nothing. Fetching, the re-check before a fetch, gain, stored bytes and the "Fetched" table come in a second change.
+
+- **Tick.** `Crawl.Scheduler` ticks once a minute. If the crawl is due (mode is not `off`, the instance is idle, a source page is waiting) it enqueues one `Crawl.Worker` job. It is a timer and not Oban's cron plugin, which would insert a job row every minute for a check that is almost always "no". The job runs `Crawl.step/1`: one source page.
+- **Idle.** No logged search for `idle_seconds` (600) and a 1-minute load average per core under 0.5 (`:cpu_sup`). An unreadable load means not idle.
+- **Source pages.** The documents in the logged results of the last 30 days (never a background page). Each earns an allowance of link-fetches: 5 per top-3 appearance, 15 as the only result, 1 for ranks 4 to 10. One read is one request (two for a page with more than 500 links) through the Wikimedia background slots and `Discovery.allowed?/1`. A page is read again after 7 days.
+- **Score.** For a link on source page `S`: `interest` = the best cosine of "Title: description" with the searches that showed `S`; `novelty` = `1 - near / 10`, `near` = stored pages near the link (`Search.count_near/2`); `gap` = 0.10 if `S` was the only result of a search; `shared` = a bonus up to 0.10 for a link on several source pages, scaled by how rare that is among `S`'s links. `score = interest * novelty + gap + shared`. A link is kept (at most 50 per page) when `interest >= 0.40` and it could reach the bar of 0.40 with the largest shared bonus. The shared bonus is computed when candidates are ranked, because it depends on the other source pages.
+- **Modes.** `CRAWL_MODE`: `off`; `preview` (the default: reads and scores, fetches nothing); `on` (meant to fetch the best candidate a minute, at most 100 a day; until the second change it acts as `preview`).
+- **Clearing.** `DELETE /api/searches` also clears the link lists and the pending candidates.
 
 ## Allowlist and blocked links
 
@@ -262,7 +318,8 @@ What the layers do not do:
 - `Knowseek.Cards.Balldontlie`: `base_url`, `api_key` (from `BALLDONTLIE_API_KEY` in `config/runtime.exs`; `nil` means no NBA card), `user_agent`, `receive_timeout` (4 s), `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Cards.Edgar`: `base_url`, `user_agent` (from `SEC_USER_AGENT` in `config/runtime.exs`), `receive_timeout` (5 s), `req_options`.
 - `Knowseek.Cards.OpenMeteo`: `base_url`, `user_agent`, `receive_timeout` (4 s), `req_options` (tests put the `Req.Test` plug here). The free endpoint is for non-commercial use only.
-- `Oban`: the `discovery` queue and the pruner.
+- `Knowseek.Crawl`: `mode` (`:preview`; `CRAWL_MODE`), `scheduler` (starts the timer; off in tests), `tick_ms` (60,000), `idle_seconds` (600; `CRAWL_IDLE_SECONDS`), `max_load` (0.5), `pages_per_day` (100), `window_days` (30), `top_ranks` (3), `earn_top` (5), `earn_single` (15), `earn_rest` (1), `max_queries` (10), `interest_floor` (0.40), `bar` (0.40), `novelty_full_at` (10), `gap_bonus` (0.10), `shared_bonus` (0.10), `max_candidates` (50), `reread_days` (7), `retry_minutes` (60). `:os_mon` is configured to start only `cpu_sup`.
+- `Oban`: the `discovery` and `crawl` queues and the pruner.
 
 Secrets (API keys) go in `config/runtime.exs`, read from environment variables.
 
@@ -277,6 +334,8 @@ Behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy's network (for exampl
 - With `EMBEDDINGS_ADAPTER=hashing` (the opt-out), search matches words, not meaning. The default needs a running Ollama; when it is down, ingest and search return an error (HTTP 503 from the API) and discovery jobs are retried, instead of falling back (ADR 0016).
 - Chunks are not re-embedded when the embedding adapter changes.
 - Discovery sources are Wikipedia and, for questions, Wikibooks (its books and its Cookbook recipes), so discovery finds encyclopedic data and some how-to pages.
+- The crawl scores a link on its title and short description only, not on the sentence around it or the page. A link in a navigation box counts like a link in the text, and the shared-link bonus rarely fires because shared links are mostly navigation boxes. A title that shares a word with a search can pass the bar.
+- The crawl does not fetch yet (ADR 0033): it reads, scores and lists candidates on `/crawl`.
 - No authentication and no users. The anonymous endpoints are rate-limited per client address (ADR 0023), which does not stop a flood from many addresses.
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 - Vector search is an exact scan: its time grows with the chunk count (about 200 ms at 100,000 chunks on sqlite-vec 0.1.9). Past that it needs int8 vectors or an approximate index ([#79](https://github.com/williamge/knowseek/issues/79)).

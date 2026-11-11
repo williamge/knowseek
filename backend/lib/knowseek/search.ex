@@ -29,6 +29,9 @@ defmodule Knowseek.Search do
   list at most 4096, sqlite-vec's cap), so that grouping still fills `limit`
   documents. See ADR 0011.
 
+  `count_near/2` counts the stored documents near a vector, for the background
+  crawl (#89).
+
   This module only reads. Deciding what to do about weak coverage is the
   job of `Knowseek.Lookup`.
   """
@@ -72,6 +75,36 @@ defmodule Knowseek.Search do
       coverage = Coverage.assess(hits, Keyword.put(opts, :limit, limit))
       {:ok, %{hits: hits, coverage: coverage}}
     end
+  end
+
+  @doc """
+  How many stored documents have a chunk whose cosine similarity to `vector`
+  is at least `:min_similarity` (default: the config), at most `:limit`
+  (default 10). The vector side of search only: no keywords, no prior, no
+  log. The background crawl uses it as "how many pages near this are already
+  stored" (#89). It looks at the nearest `:limit * :candidate_factor` chunks
+  (at most 4096).
+  """
+  @spec count_near(Embeddings.vector(), keyword()) :: non_neg_integer()
+  def count_near(vector, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+    min_similarity = Keyword.get(opts, :min_similarity, config(:min_similarity))
+    k = min(limit * config(:candidate_factor), @max_k)
+
+    %{rows: [[count]]} =
+      Repo.query!(
+        """
+        WITH knn AS MATERIALIZED (
+          SELECT rowid, distance FROM chunk_vectors WHERE embedding MATCH ?1 AND k = ?2
+        )
+        SELECT count(DISTINCT c.document_id) FROM knn
+        JOIN chunks AS c ON c.seq = knn.rowid
+        WHERE 1.0 - knn.distance >= ?3
+        """,
+        [{:blob, Vector.encode(vector)}, k, min_similarity]
+      )
+
+    min(count, limit)
   end
 
   # Returns chunk ids in rank order: best `bm25` first (FTS5 scores better

@@ -338,6 +338,64 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
     end
   end
 
+  describe "link_candidates/2" do
+    test "asks for the main and Cookbook namespaces and keeps a Cookbook page" do
+      test_pid = self()
+
+      Req.Test.stub(Wikibooks, fn conn ->
+        params = Plug.Conn.fetch_query_params(conn).query_params
+        send(test_pid, {:request, conn.host, params})
+
+        Req.Test.json(conn, %{
+          "query" => %{
+            "pages" => [
+              %{
+                "pageid" => 11,
+                "ns" => 102,
+                "title" => "Cookbook:Bread",
+                "description" => "Baked food"
+              },
+              %{"pageid" => 12, "ns" => 0, "title" => "Bread baking"},
+              %{"pageid" => 13, "ns" => 4, "title" => "Wikibooks:Help"},
+              %{"pageid" => 99, "ns" => 0, "title" => "The book itself"}
+            ]
+          }
+        })
+      end)
+
+      assert {:ok, candidates} =
+               Wikibooks.link_candidates(%{metadata: %{"pageid" => 99}}, [])
+
+      assert_received {:request, "en.wikibooks.org",
+                       %{"generator" => "links", "pageids" => "99", "gplnamespace" => "0|102"}}
+
+      assert candidates == [
+               %{
+                 page_id: 11,
+                 title: "Cookbook:Bread",
+                 description: "Baked food",
+                 url: "https://en.wikibooks.org/?curid=11"
+               },
+               %{
+                 page_id: 12,
+                 title: "Bread baking",
+                 description: nil,
+                 url: "https://en.wikibooks.org/?curid=12"
+               }
+             ]
+    end
+
+    test "sends no request for a document without a page id" do
+      Req.Test.stub(Wikibooks, fn conn ->
+        send(self(), :request)
+        Req.Test.json(conn, %{})
+      end)
+
+      assert {:ok, []} = Wikibooks.link_candidates(%{metadata: %{}}, [])
+      refute_received :request
+    end
+  end
+
   describe "with Discovery.run/2" do
     test "ingests a question's pages as wikibooks documents, next to Wikipedia's" do
       stub_wikibooks()

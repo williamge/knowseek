@@ -74,6 +74,10 @@ config :knowseek, Knowseek.Discovery.Sources.Wikibooks,
 config :knowseek, Knowseek.Entities.Wikidata,
   req_options: [plug: {Req.Test, Knowseek.Entities.Wikidata}, retry: false]
 
+# The background crawl never runs by itself in tests (#89). A test that needs a
+# mode or a threshold puts it with Application.put_env/3 and restores it.
+config :knowseek, Knowseek.Crawl, mode: :off, scheduler: false
+
 # Tests of the limit turn it on and inject a limiter with a fake clock.
 config :knowseek, KnowseekWeb.RateLimit, enabled: false
 

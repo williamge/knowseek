@@ -286,4 +286,45 @@ defmodule Knowseek.Documents do
         select: d.id
     )
   end
+
+  @doc """
+  Which of `page_ids` are the `pageid` (in `metadata`) of a stored document
+  of `source`. Reads the index `documents_source_pageid_index`, not the rows.
+  """
+  @spec indexed_page_ids(String.t(), [integer()]) :: MapSet.t(integer())
+  def indexed_page_ids(_source, []), do: MapSet.new()
+
+  def indexed_page_ids(source, page_ids) do
+    page_ids
+    |> Enum.chunk_every(500)
+    |> Enum.flat_map(fn chunk ->
+      Repo.all(
+        from d in Document,
+          where:
+            d.source == ^source and
+              fragment("json_extract(?, '$.pageid')", d.metadata) in ^chunk,
+          select: fragment("json_extract(?, '$.pageid')", d.metadata)
+      )
+    end)
+    |> MapSet.new()
+  end
+
+  @doc "The title and URL of each of `ids` that exists. No bodies are read."
+  @spec summaries([Ecto.UUID.t()]) :: %{
+          Ecto.UUID.t() => %{title: String.t() | nil, url: String.t()}
+        }
+  def summaries([]), do: %{}
+
+  def summaries(ids) do
+    ids
+    |> Enum.chunk_every(500)
+    |> Enum.flat_map(fn chunk ->
+      Repo.all(
+        from d in Document,
+          where: d.id in ^chunk,
+          select: {d.id, %{title: d.title, url: d.url}}
+      )
+    end)
+    |> Map.new()
+  end
 end

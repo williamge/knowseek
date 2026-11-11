@@ -10,6 +10,7 @@ defmodule Knowseek.DiscoveryTest do
     BlockedLink,
     CountingFailingSource,
     CountingSource,
+    CrawlSource,
     FailingSource,
     FakeSource,
     LinkBackfillWorker,
@@ -375,6 +376,131 @@ defmodule Knowseek.DiscoveryTest do
       Application.put_env(:knowseek, Discovery, Keyword.put(config, :sources, [ErrorLinks]))
 
       assert {:error, :unavailable} = perform_job(LinkBackfillWorker, %{"document_id" => id})
+    end
+  end
+
+  describe "link_candidates/1" do
+    setup do
+      config = Application.fetch_env!(:knowseek, Discovery)
+
+      on_exit(fn ->
+        Application.put_env(:knowseek, Discovery, config)
+        Application.delete_env(:knowseek, CrawlSource)
+      end)
+
+      Application.put_env(
+        :knowseek,
+        Discovery,
+        Keyword.put(config, :sources, [FakeSource, CrawlSource])
+      )
+
+      :ok
+    end
+
+    test "lists the links of a stored page from its source, and records the bytes" do
+      document = crawl_source_fixture(pageid: 7, log: false)
+
+      Application.put_env(:knowseek, CrawlSource,
+        links: %{
+          7 => [
+            %{page_id: 100, title: "Desem", description: "Sourdough starter"},
+            %{page_id: 101, title: "Poolish", description: nil}
+          ]
+        }
+      )
+
+      assert {:ok,
+              [
+                %{
+                  page_id: 100,
+                  title: "Desem",
+                  description: "Sourdough starter",
+                  url: "https://en.wikipedia.org/?curid=100"
+                },
+                %{
+                  page_id: 101,
+                  title: "Poolish",
+                  description: nil,
+                  url: "https://en.wikipedia.org/?curid=101"
+                }
+              ]} = Discovery.link_candidates(document)
+
+      today = Date.utc_today()
+      assert [%NetworkUsage{day: ^today, source: "crawl", bytes: 900}] = Repo.all(NetworkUsage)
+    end
+
+    test "is {:ok, []} for a document whose source has no link_candidates/2, without a request" do
+      fake = document_fixture(source: "fake")
+      unknown = document_fixture(source: "not configured")
+
+      assert {:ok, []} = Discovery.link_candidates(fake)
+      assert {:ok, []} = Discovery.link_candidates(unknown)
+      assert Repo.all(NetworkUsage) == []
+    end
+
+    test "is {:ok, []} for a document whose URL is off the allowlist, without a request" do
+      document =
+        document_fixture(
+          source: "crawl",
+          url: "https://example.com/page-7",
+          metadata: %{"pageid" => 7}
+        )
+
+      Application.put_env(:knowseek, CrawlSource,
+        links: %{7 => [%{page_id: 100, title: "Desem", description: nil}]}
+      )
+
+      assert {:ok, []} = Discovery.link_candidates(document)
+      assert Repo.all(NetworkUsage) == []
+    end
+
+    test "drops the links whose URL is off the allowlist" do
+      document = crawl_source_fixture(pageid: 7, log: false)
+
+      Application.put_env(:knowseek, CrawlSource,
+        links: %{
+          7 => [
+            %{page_id: 100, title: "Desem", description: nil},
+            %{page_id: 101, title: "Elsewhere", description: nil, url: "https://example.org/x"},
+            %{
+              page_id: 102,
+              title: "Cookbook",
+              description: nil,
+              url: "https://en.wikibooks.org/?curid=102"
+            }
+          ]
+        }
+      )
+
+      assert {:ok, links} = Discovery.link_candidates(document)
+      assert Enum.map(links, & &1.page_id) == [100, 102]
+    end
+
+    test "is {:ok, []} for a page without links" do
+      document = crawl_source_fixture(pageid: 7, log: false)
+
+      assert {:ok, []} = Discovery.link_candidates(document)
+      assert [%NetworkUsage{source: "crawl", bytes: 900}] = Repo.all(NetworkUsage)
+    end
+
+    test "returns the source's error, and still records the bytes it downloaded" do
+      defmodule ErrorCrawlSource do
+        @behaviour Knowseek.Discovery.Source
+        def name, do: "crawl"
+        def discover(_query, _opts), do: {:ok, []}
+
+        def link_candidates(_document, opts) do
+          opts[:on_bytes].(300)
+          {:error, :unavailable}
+        end
+      end
+
+      config = Application.fetch_env!(:knowseek, Discovery)
+      Application.put_env(:knowseek, Discovery, Keyword.put(config, :sources, [ErrorCrawlSource]))
+      document = crawl_source_fixture(pageid: 7, log: false)
+
+      assert {:error, :unavailable} = Discovery.link_candidates(document)
+      assert [%NetworkUsage{source: "crawl", bytes: 300}] = Repo.all(NetworkUsage)
     end
   end
 

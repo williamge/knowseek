@@ -75,6 +75,15 @@ describe("the stats page", () => {
     expect(await screen.findByText("No background pages yet.")).toBeInTheDocument();
   });
 
+  it("shows the crawl mode and its counts", async () => {
+    mockApi({ "GET /stats": () => stats() });
+    render(<App watch={FAST} />);
+
+    expect(await screen.findByRole("heading", { name: "Crawl" })).toBeInTheDocument();
+    expect(screen.getByText("Mode: preview. 0 of 100 pages fetched today.")).toBeInTheDocument();
+    expect(screen.getByText("1,234 links read, 87 kept as candidates.")).toBeInTheDocument();
+  });
+
   it("says so when nothing was downloaded", async () => {
     mockApi({ "GET /stats": () => stats({ network: [] }) });
     render(<App watch={FAST} />);

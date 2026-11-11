@@ -59,6 +59,13 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   sends no continuation request. `links/3` reads the links of a page fetched
   earlier, for the link backfill (#88, ADR 0032).
 
+  `link_candidates/3` reads the pages a stored page links to on the same
+  site, with their short descriptions (`generator=links` with
+  `prop=description`, one request, two for a page with more than 500 links),
+  for the background crawl (#89, ADR 0033). It keeps real pages of the
+  site's `link_namespaces` and leaves out red links, disambiguation pages and
+  the page itself.
+
   Configuration, under the source module's key (all optional):
 
       config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
@@ -76,8 +83,9 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   `base_url` (its `api.php`), `license` (SPDX id of its text), `credit` (the
   name in the attribution), `config` (the application env key of its
   options, the source module) and, optionally, `skip_compilations` (default
-  `false`) and `search_namespaces` (default `[0]`, the main namespace; see
-  the module doc).
+  `false`), `search_namespaces` (default `[0]`, the main namespace; see
+  the module doc) and `link_namespaces` (default `[0]`: the namespaces whose
+  pages `link_candidates/3` keeps).
   """
   @type site :: %{
           required(:name) => String.t(),
@@ -86,7 +94,8 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
           required(:credit) => String.t(),
           required(:config) => module(),
           optional(:skip_compilations) => boolean(),
-          optional(:search_namespaces) => [non_neg_integer()]
+          optional(:search_namespaces) => [non_neg_integer()],
+          optional(:link_namespaces) => [non_neg_integer()]
         }
 
   @defaults [
@@ -108,6 +117,10 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   # One response holds at most 500 external links (`ellimit=max`). A page with
   # more gets at most this many continuation requests (5,500 links in all).
   @max_link_requests 10
+
+  # One response holds at most 500 linked pages. A page with more links gets
+  # this many requests in all (1,000 links).
+  @max_candidate_requests 2
 
   @doc """
   Finds the top pages of `site` for `query`. See the module doc. `opts` may
@@ -273,6 +286,86 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   end
 
   def links(_document, _site, _opts), do: {:ok, []}
+
+  @doc """
+  The pages that the page stored as `document` links to on the same site,
+  with their short descriptions: one `generator=links` request (redirects
+  resolved), at most two for a page with more than 500 links. Red links,
+  disambiguation pages, pages outside the site's `link_namespaces` and the
+  page itself are left out. `{:ok, []}` for a document without a page id.
+  """
+  @spec link_candidates(%{required(:metadata) => map()}, site(), keyword()) ::
+          {:ok, [Knowseek.Discovery.Source.link_candidate()]} | {:error, term()}
+  def link_candidates(%{metadata: %{"pageid" => pageid}}, site, opts) when is_integer(pageid) do
+    config = config(site, opts)
+    namespaces = Map.get(site, :link_namespaces, [0])
+
+    params = [
+      generator: "links",
+      pageids: pageid,
+      gpllimit: "max",
+      gplnamespace: Enum.join(namespaces, "|"),
+      prop: "description|pageprops",
+      ppprop: "disambiguation",
+      redirects: 1
+    ]
+
+    with {:ok, body} <- api_get(params, config) do
+      rest = more_linked_pages(params, body, config, @max_candidate_requests - 1)
+
+      candidates =
+        for page <- linked_pages(body) ++ rest,
+            link_page?(page, namespaces, pageid),
+            do: to_link_candidate(page, site)
+
+      {:ok, Enum.uniq_by(candidates, & &1.page_id)}
+    end
+  end
+
+  def link_candidates(_document, _site, _opts), do: {:ok, []}
+
+  defp linked_pages(%{"query" => %{"pages" => pages}}) when is_list(pages), do: pages
+  defp linked_pages(_body), do: []
+
+  # Follows `continue` once more when requests are left; a failed continuation
+  # keeps the pages read so far.
+  defp more_linked_pages(params, %{"continue" => %{} = continue}, config, left) when left > 0 do
+    case api_get(params ++ Enum.to_list(continue), config) do
+      {:ok, body} ->
+        linked_pages(body) ++ more_linked_pages(params, body, config, left - 1)
+
+      {:error, reason} ->
+        Logger.warning("link candidate continuation failed: #{inspect(reason)}")
+        []
+    end
+  end
+
+  defp more_linked_pages(_params, _body, _config, _left), do: []
+
+  # A real page of a wanted namespace that is not a disambiguation page and
+  # not the source page itself. The namespace is checked again here: Wikibooks
+  # answered with pages of other namespaces.
+  defp link_page?(page, namespaces, source_pageid) do
+    id = page["pageid"]
+
+    is_integer(id) and id != source_pageid and page["missing"] != true and
+      page["ns"] in namespaces and not is_map_key(page["pageprops"] || %{}, "disambiguation")
+  end
+
+  defp to_link_candidate(page, site) do
+    %{
+      page_id: page["pageid"],
+      title: page["title"],
+      description: page["description"],
+      url: page_url(site, page["pageid"])
+    }
+  end
+
+  # `https://en.wikipedia.org/?curid=3973`: the scheme and host of the API URL.
+  defp page_url(site, id) do
+    uri = URI.parse(site.base_url)
+    "#{uri.scheme}://#{uri.host}/?curid=#{id}"
+  end
 
   # Asks for the main-namespace pages the page transcludes, enough of them to
   # tell a compilation.

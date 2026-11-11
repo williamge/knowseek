@@ -422,6 +422,179 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
     end
   end
 
+  describe "link_candidates/2" do
+    @source %{metadata: %{"pageid" => 74_020_014}}
+
+    # Answers the first request with links_74020014.json and the one with
+    # `gplcontinue` with links_74020014_more.json; `answer` can override.
+    defp stub_links(answer \\ nil) do
+      test_pid = self()
+
+      Req.Test.stub(Wikipedia, fn conn ->
+        params = Plug.Conn.fetch_query_params(conn).query_params
+        send(test_pid, {:request, params})
+
+        cond do
+          answer ->
+            answer.(conn, params)
+
+          is_map_key(params, "gplcontinue") ->
+            Req.Test.json(conn, fixture("links_74020014_more.json"))
+
+          true ->
+            Req.Test.json(conn, fixture("links_74020014.json"))
+        end
+      end)
+    end
+
+    test "asks for the same-site links of the page by its id, with descriptions" do
+      stub_links(fn conn, _params -> Req.Test.json(conn, fixture("links_74020014_more.json")) end)
+
+      assert {:ok, _} = Wikipedia.link_candidates(@source, [])
+
+      assert_received {:request, params}
+
+      assert %{
+               "generator" => "links",
+               "pageids" => "74020014",
+               "gpllimit" => "max",
+               "gplnamespace" => "0",
+               "prop" => "description|pageprops",
+               "ppprop" => "disambiguation",
+               "redirects" => "1"
+             } = params
+
+      refute_received {:request, _}
+    end
+
+    test "keeps real main-namespace pages, once each, and leaves out the page itself" do
+      stub_links()
+
+      assert {:ok, candidates} = Wikipedia.link_candidates(@source, [])
+
+      assert candidates == [
+               %{
+                 page_id: 5001,
+                 title: "Approximate nearest neighbor search",
+                 description: "Algorithmic problem",
+                 url: "https://en.wikipedia.org/?curid=5001"
+               },
+               %{
+                 page_id: 5002,
+                 title: "Nearest neighbor search",
+                 description: "Optimization problem",
+                 url: "https://en.wikipedia.org/?curid=5002"
+               },
+               %{
+                 page_id: 5003,
+                 title: "Locality-sensitive hashing",
+                 description: nil,
+                 url: "https://en.wikipedia.org/?curid=5003"
+               },
+               %{
+                 page_id: 5004,
+                 title: "Vector database",
+                 description: "Database for embeddings",
+                 url: "https://en.wikipedia.org/?curid=5004"
+               }
+             ]
+    end
+
+    test "follows continue with gplcontinue, in two requests at most" do
+      stub_links(fn conn, _params ->
+        # Every answer says there is more.
+        continue = %{"gplcontinue" => "x|0|Y", "continue" => "gplcontinue||"}
+        body = Map.put(fixture("links_74020014_more.json"), "continue", continue)
+        Req.Test.json(conn, body)
+      end)
+
+      assert {:ok, [_ | _]} = Wikipedia.link_candidates(@source, [])
+
+      assert_received {:request, first}
+      refute Map.has_key?(first, "gplcontinue")
+      assert_received {:request, %{"gplcontinue" => "x|0|Y", "generator" => "links"}}
+      refute_received {:request, _}
+    end
+
+    test "sends the continuation request with the first response's gplcontinue" do
+      stub_links()
+
+      assert {:ok, _} = Wikipedia.link_candidates(@source, [])
+
+      assert_received {:request, first}
+      refute Map.has_key?(first, "gplcontinue")
+      assert_received {:request, %{"gplcontinue" => "74020014|0|Zebra", "pageids" => "74020014"}}
+      refute_received {:request, _}
+    end
+
+    test "sends no second request when the first response has no continue" do
+      stub_links(fn conn, _params -> Req.Test.json(conn, fixture("links_74020014_more.json")) end)
+
+      assert {:ok, [_ | _]} = Wikipedia.link_candidates(@source, [])
+
+      assert_received {:request, _}
+      refute_received {:request, _}
+    end
+
+    test "keeps the first pages when the second request fails" do
+      stub_links(fn conn, params ->
+        if is_map_key(params, "gplcontinue"),
+          do: Plug.Conn.send_resp(conn, 503, "unavailable"),
+          else: Req.Test.json(conn, fixture("links_74020014.json"))
+      end)
+
+      assert {:ok, candidates} = Wikipedia.link_candidates(@source, [])
+      assert Enum.map(candidates, & &1.page_id) == [5001, 5002]
+    end
+
+    test "returns the error of a failed first request" do
+      Req.Test.stub(Wikipedia, &Plug.Conn.send_resp(&1, 503, "unavailable"))
+
+      assert {:error, {:http_status, 503}} = Wikipedia.link_candidates(@source, [])
+    end
+
+    test "is {:ok, []} for a body without query" do
+      stub_links(fn conn, _params -> Req.Test.json(conn, %{"batchcomplete" => true}) end)
+
+      assert {:ok, []} = Wikipedia.link_candidates(@source, [])
+    end
+
+    test "sends no request for a document without a page id" do
+      stub_links()
+
+      assert {:ok, []} = Wikipedia.link_candidates(%{metadata: %{}}, [])
+      assert {:ok, []} = Wikipedia.link_candidates(%{metadata: %{"pageid" => "74020014"}}, [])
+      refute_received {:request, _}
+    end
+
+    test "reports the size of every response body to :on_bytes" do
+      test_pid = self()
+
+      Req.Test.stub(Wikipedia, fn conn ->
+        body =
+          if is_map_key(Plug.Conn.fetch_query_params(conn).query_params, "gplcontinue"),
+            do: fixture("links_74020014_more.json"),
+            else: fixture("links_74020014.json")
+
+        json = Jason.encode!(body)
+        send(test_pid, {:sent, byte_size(json)})
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(200, json)
+      end)
+
+      assert {:ok, [_ | _]} =
+               Wikipedia.link_candidates(@source, on_bytes: &send(test_pid, {:bytes, &1}))
+
+      sent = messages(:sent)
+      assert length(sent) == 2
+      assert messages(:bytes) == sent
+
+      assert {:ok, [_ | _]} = Wikipedia.link_candidates(@source, [])
+    end
+  end
+
   describe "with Discovery.run/2" do
     test "ingests the pages as wikipedia documents" do
       stub_api()

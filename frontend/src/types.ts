@@ -252,6 +252,46 @@ export interface Stats {
   network: NetworkDay[];
   /** Background pages, and how many of them appeared in the top results of a search. */
   hit_share: { background_pages: number; hit_pages: number };
+  crawl: {
+    mode: CrawlMode;
+    pages_per_day: number;
+    fetched_today: number;
+    fetched: number;
+    links_read: number;
+    candidates: number;
+    stored_bytes: number;
+  };
+}
+
+export type CrawlMode = "off" | "preview" | "on";
+
+/** One link the background crawl scored (`GET /api/crawl`). */
+export interface CrawlEntry {
+  title: string;
+  description: string | null;
+  url: string;
+  /** The page of yours that links to it. */
+  source: { document_id: string; title: string | null; url: string | null };
+  /** Closeness to the searches that showed the source page, 0 to 1. */
+  interest: number;
+  /** 1 when no stored page is near it, 0 when 10 are. */
+  novelty: number;
+  /** Bonus for a source page that was a search's only result. */
+  gap: number;
+  /** Bonus for being linked from several source pages. */
+  shared: number;
+  /** From how many source pages it is linked. */
+  shared_count: number;
+  score: number;
+}
+
+/** What `GET /api/crawl` returns: the crawl's settings and the links it would fetch next. */
+export interface Crawl {
+  mode: CrawlMode;
+  pages_per_day: number;
+  fetched_today: number;
+  bar: number;
+  next: CrawlEntry[];
 }
 
 /** What `DELETE /api/searches` returns. */

@@ -10,12 +10,14 @@ import { flushSync } from "react-dom";
  *   /?q=...&doc=ID    search results with a document open
  *   /stats            the stats page
  *   /blocked-links    the blocked-link log
+ *   /crawl            the crawl's next links
  */
 
 /** Pages other than search, by path. Each has a component in `App.tsx` (`PAGES`). */
 export const PAGE_PATHS = {
   "/stats": "stats",
   "/blocked-links": "blocked-links",
+  "/crawl": "crawl",
 } as const;
 
 export type Page = (typeof PAGE_PATHS)[keyof typeof PAGE_PATHS];

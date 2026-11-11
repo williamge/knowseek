@@ -137,6 +137,16 @@ function StatsBody({ stats, onClear }: { stats: Stats; onClear: () => void }) {
         </p>
       )}
 
+      <h2>Crawl</h2>
+      <p>
+        Mode: {stats.crawl.mode}. {stats.crawl.fetched_today.toLocaleString("en")} of{" "}
+        {stats.crawl.pages_per_day.toLocaleString("en")} pages fetched today.
+      </p>
+      <p>
+        {stats.crawl.links_read.toLocaleString("en")} links read,{" "}
+        {stats.crawl.candidates.toLocaleString("en")} kept as candidates.
+      </p>
+
       <h2>Disk</h2>
       <p>{formatBytes(stats.disk_bytes)} (the database file).</p>
 

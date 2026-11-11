@@ -1,4 +1,6 @@
 import type {
+  Crawl,
+  CrawlEntry,
   BlockedLinks,
   CardEntity,
   CardResponse,
@@ -213,6 +215,15 @@ export function stats(overrides: Partial<Stats> = {}): Stats {
       { day: "2026-11-10", source: "wikibooks", bytes: 900 },
     ],
     hit_share: { background_pages: 0, hit_pages: 0 },
+    crawl: {
+      mode: "preview",
+      pages_per_day: 100,
+      fetched_today: 0,
+      fetched: 0,
+      links_read: 1234,
+      candidates: 87,
+      stored_bytes: 0,
+    },
     ...overrides,
   };
 }
@@ -263,6 +274,39 @@ export function blockedLinks(overrides: Partial<BlockedLinks> = {}): BlockedLink
         example_url: "http://www.sheldonbrown.com/tires.html",
       },
     ],
+    ...overrides,
+  };
+}
+
+/** One scored link of `GET /api/crawl`. */
+export function crawlEntry(overrides: Partial<CrawlEntry> = {}): CrawlEntry {
+  return {
+    title: "Bicycle tires",
+    description: "How to pick tires for a road bike.",
+    url: "https://example.org/tires",
+    source: {
+      document_id: "doc-1",
+      title: "Bicycle",
+      url: "https://en.wikipedia.org/wiki/Bicycle",
+    },
+    interest: 0.8,
+    novelty: 0.5,
+    gap: 0,
+    shared: 0,
+    shared_count: 1,
+    score: 0.65,
+    ...overrides,
+  };
+}
+
+/** A response of `GET /api/crawl`. */
+export function crawl(overrides: Partial<Crawl> = {}): Crawl {
+  return {
+    mode: "preview",
+    pages_per_day: 100,
+    fetched_today: 0,
+    bar: 0.4,
+    next: [crawlEntry()],
     ...overrides,
   };
 }

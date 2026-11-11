@@ -19,6 +19,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - A web UI (`frontend/`) searches and shows results as discovery adds them. Its `/stats` page shows what Knowseek recorded: searches per day by coverage, where each page came from, the database's size and the bytes discovery downloaded.
 - A local record of your searches, of why each page was fetched (`origin`) and of the bytes discovery downloads ([ADR 0031](docs/decisions/0031-activity-record.md)). Your searches are stored in this instance's database only; `DELETE /api/searches` (or "Clear search history" on `/stats`) deletes them.
 - Links from indexed pages to sites off an allowlist (`en.wikipedia.org`, `en.wikibooks.org`) are logged, not fetched. `/blocked-links` in the web UI shows them by domain ([ADR 0032](docs/decisions/0032-crawl-allowlist-and-blocked-links.md)).
+- A background crawl reads the links of the pages your searches showed, while the instance is idle, scores them against your searches and lists the best on `/crawl` in the web UI ([ADR 0033](docs/decisions/0033-background-crawl.md)). It reads and scores only: it fetches nothing yet (part of [#89](https://github.com/williamge/knowseek/issues/89); fetching comes in a second change), so `CRAWL_MODE=on` acts as `preview`.
 
 See [GitHub Issues](https://github.com/williamge/knowseek/issues) for the backlog.
 
@@ -96,6 +97,8 @@ The release reads these in `backend/config/runtime.exs`. In `docker-compose.yml`
 | `TRUSTED_PROXIES` | no | none: `X-Forwarded-For` is ignored | `10.0.0.0/8,fd00::/8` |
 | `SEC_USER_AGENT` | no | `Knowseek/0.1 (self-hosted instance)` | `My Company admin@example.com` |
 | `BALLDONTLIE_API_KEY` | for the NBA card | none: no NBA card | the key from your free balldontlie account |
+| `CRAWL_MODE` | no | `preview` | `off`, `preview`, `on` |
+| `CRAWL_IDLE_SECONDS` | no | `600` | `60` |
 
 `SEC_USER_AGENT` is the User-Agent of the company card's requests to `data.sec.gov`. The SEC asks every automated user to say who it is (a name and a contact address) and blocks undeclared tools with HTTP 403; the default is accepted today, but a deployment that serves other people should set its own. With a block the company cards go `stale` or `unavailable` and the log says so once. No key and no account are needed.
 
@@ -120,7 +123,8 @@ Notes:
 | `GET` | `/api/documents` | Recently fetched documents, without their `body`. Use `GET /api/documents/:id` for the full text. |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?, license?, attribution?, modified?, share?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. Without license fields the document is unknown and not shared. |
-| `GET` | `/api/stats` | The numbers over the local record (ADR 0031): `searches` (`total`, and `days`: the last 30 UTC days with their `sufficient`, `partial` and `none` counts), `pages` (documents by `origin`), `disk_bytes` (the database file), `network` (bytes per UTC day and discovery source) and `hit_share` (`background_pages`, `hit_pages`). |
+| `GET` | `/api/stats` | The numbers over the local record (ADR 0031): `searches` (`total`, and `days`: the last 30 UTC days with their `sufficient`, `partial` and `none` counts), `pages` (documents by `origin`), `disk_bytes` (the database file), `network` (bytes per UTC day and discovery source), `hit_share` (`background_pages`, `hit_pages`) and `crawl` (the background crawl, ADR 0033: `mode`, `pages_per_day`, `fetched_today`, `fetched`, `links_read`, `candidates`, `stored_bytes`; the fetch counters stay 0 until fetching is built). |
+| `GET` | `/api/crawl` | The background crawl (ADR 0033): `{data: {mode, pages_per_day, fetched_today, bar, next}}`. `next` lists the candidates in the order they would be fetched, each with `title`, `description`, `url`, `source` (`document_id`, `title`, `url`: the page whose links were read) and the score parts `interest`, `novelty`, `gap`, `shared`, `shared_count`, `score`. Read-only; it shows page titles, not your queries. |
 | `DELETE` | `/api/searches` | Deletes every logged search; answers `{data: {deleted}}`. |
 | `GET` | `/api/blocked-links` | The blocked-link log by domain: `allowed_hosts`, `total_domains`, `total_links` and up to 200 `domains` (`host`, `links`, `pages`, `times_seen`, `first_seen_at`, `example_url`), most linking pages first. |
 | `POST` | `/api/blocked-links/backfill` | No body. Enqueues one job per indexed Wikipedia or Wikibooks page that logs its blocked links; answers `202` with `{data: {enqueued}}`. |

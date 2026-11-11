@@ -59,5 +59,24 @@ defmodule Knowseek.Discovery.Source do
   @callback links(document :: %{required(:metadata) => map()}, opts :: keyword()) ::
               {:ok, [String.t()]} | {:error, term()}
 
-  @optional_callbacks links: 2
+  @typedoc """
+  A page that a stored page links to, before it is fetched: its page id on the
+  source's site, its title, its short description (`nil` when it has none) and
+  a URL of the page on the site, which `Knowseek.Discovery.allowed?/1` checks.
+  """
+  @type link_candidate :: %{
+          page_id: integer(),
+          title: String.t(),
+          description: String.t() | nil,
+          url: String.t()
+        }
+
+  @doc """
+  The pages that a page this source produced earlier links to on the same
+  site, for the background crawl (#89). Optional. `opts` may hold `:on_bytes`.
+  """
+  @callback link_candidates(document :: %{required(:metadata) => map()}, opts :: keyword()) ::
+              {:ok, [link_candidate()]} | {:error, term()}
+
+  @optional_callbacks links: 2, link_candidates: 2
 end
