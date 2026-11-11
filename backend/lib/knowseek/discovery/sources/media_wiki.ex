@@ -352,11 +352,12 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
       page["ns"] in namespaces and not is_map_key(page["pageprops"] || %{}, "disambiguation")
   end
 
+  # MediaWiki answers `"description": ""` for a page whose description is blank.
   defp to_link_candidate(page, site) do
     %{
       page_id: page["pageid"],
       title: page["title"],
-      description: page["description"],
+      description: if(page["description"] in [nil, ""], do: nil, else: page["description"]),
       url: page_url(site, page["pageid"])
     }
   end
