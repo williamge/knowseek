@@ -76,7 +76,8 @@ defmodule KnowseekWeb.CrawlControllerTest do
                "source" => %{
                  "document_id" => source.id,
                  "title" => source.title,
-                 "url" => source.url
+                 "url" => source.url,
+                 "queries" => ["sourdough starter"]
                },
                "interest" => 0.912,
                "novelty" => 0.8,

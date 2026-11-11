@@ -48,7 +48,12 @@ defmodule Knowseek.Crawl do
           title: String.t(),
           description: String.t() | nil,
           url: String.t(),
-          source: %{document_id: Ecto.UUID.t(), title: String.t() | nil, url: String.t() | nil},
+          source: %{
+            document_id: Ecto.UUID.t(),
+            title: String.t() | nil,
+            url: String.t() | nil,
+            queries: [String.t()]
+          },
           interest: float(),
           novelty: float(),
           gap: float(),
@@ -355,7 +360,9 @@ defmodule Knowseek.Crawl do
     %{candidate: candidate, shared: shared, shared_count: count, score: base + shared}
   end
 
-  defp entries(ranked, %{summaries: summaries}) do
+  defp entries(ranked, %{summaries: summaries, sources: sources}) do
+    queries = Map.new(sources, &{&1.document_id, &1.queries})
+
     Enum.map(ranked, fn %{candidate: candidate} = scored ->
       source = Map.get(summaries, candidate.source_document_id, %{})
 
@@ -366,7 +373,8 @@ defmodule Knowseek.Crawl do
         source: %{
           document_id: candidate.source_document_id,
           title: source[:title],
-          url: source[:url]
+          url: source[:url],
+          queries: Map.get(queries, candidate.source_document_id, [])
         },
         interest: candidate.interest,
         novelty: candidate.novelty,

@@ -654,7 +654,8 @@ defmodule Knowseek.CrawlTest do
                source: %{
                  document_id: source_id,
                  title: "Sourdough",
-                 url: "https://en.wikipedia.org/wiki/Page_7"
+                 url: "https://en.wikipedia.org/wiki/Page_7",
+                 queries: [@query]
                },
                shared_count: 1
              } = desem

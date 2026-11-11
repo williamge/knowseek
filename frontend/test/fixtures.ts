@@ -288,6 +288,7 @@ export function crawlEntry(overrides: Partial<CrawlEntry> = {}): CrawlEntry {
       document_id: "doc-1",
       title: "Bicycle",
       url: "https://en.wikipedia.org/wiki/Bicycle",
+      queries: ["road bike"],
     },
     interest: 0.8,
     novelty: 0.5,

@@ -72,7 +72,7 @@ The app has one page besides search: `/stats` (`StatsPage.tsx`, from `GET /api/s
 
 The app also has a page at `/blocked-links` (`BlockedLinksPage.tsx`), shown from `GET /api/blocked-links` as a table by domain (links, pages, times seen, first seen, an example link), with a button that starts the backfill (`POST /api/blocked-links/backfill`). See "Allowlist and blocked links".
 
-The page `/crawl` (`CrawlPage.tsx`, from `GET /api/crawl`) is read-only. It shows the crawl mode, the bar, the pages fetched today out of the daily cap, and the candidates the crawl would fetch next (title and description, the page whose links it was found on, and the score parts). There are no buttons. See "Background crawl".
+The page `/crawl` (`CrawlPage.tsx`, from `GET /api/crawl`) is read-only. It shows the crawl mode, the bar, the pages fetched today out of the daily cap, and the candidates the crawl would fetch next (title and description, the page whose links it was found on, which opens in the document reader over the crawl page (`/crawl?doc=ID`), the searches that showed that page, and the score parts; the candidate's title links to its own page in a new tab). There are no buttons. See "Background crawl".
 
 ## Data model
 

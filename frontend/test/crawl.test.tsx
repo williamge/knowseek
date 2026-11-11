@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
-import { crawl, crawlEntry, mockApi } from "./fixtures";
+import { crawl, crawlEntry, document as doc, mockApi } from "./fixtures";
 
 function openCrawl() {
   window.history.replaceState(null, "", "/crawl");
@@ -42,7 +42,7 @@ describe("crawl page", () => {
               title: "Chains",
               description: null,
               url: "https://example.org/chains",
-              source: { document_id: "doc-2", title: null, url: null },
+              source: { document_id: "doc-2", title: null, url: null, queries: [] },
             }),
           ],
         }),
@@ -64,7 +64,7 @@ describe("crawl page", () => {
         .map((cell) => cell.textContent),
     ).toEqual([
       "Bicycle tiresHow to pick tires for a road bike.",
-      "Bicycle",
+      "Bicyclefrom your search “road bike”",
       "0.80",
       "0.50",
       "+0.10",
@@ -75,6 +75,84 @@ describe("crawl page", () => {
     expect(plain[1]).toHaveTextContent("(page removed)");
     expect(plain[4]).toHaveTextContent("–");
     expect(plain[5]).toHaveTextContent("–");
+  });
+
+  it("links the source page to the reader and the candidate to its own page", async () => {
+    mockApi({ "GET /crawl": () => crawl() });
+    openCrawl();
+    render(<App />);
+
+    const source = await screen.findByRole("link", { name: "Bicycle" });
+    expect(source).toHaveAttribute("href", "/crawl?doc=doc-1");
+    expect(source).not.toHaveAttribute("target");
+    expect(screen.getByRole("link", { name: "Bicycle tires" })).toHaveAttribute(
+      "href",
+      "https://example.org/tires",
+    );
+  });
+
+  it("opens the source page in the reader over the crawl page and closes back to it", async () => {
+    mockApi({
+      "GET /crawl": () => crawl(),
+      "GET /documents/doc-1": () => doc({ id: "doc-1", title: "Bicycle" }),
+    });
+    openCrawl();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("link", { name: "Bicycle" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Second paragraph");
+    expect(window.location.pathname).toBe("/crawl");
+    expect(window.location.search).toBe("?doc=doc-1");
+    expect(screen.getByRole("heading", { name: "Crawl" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(window.location.search).toBe(""));
+    expect(window.location.pathname).toBe("/crawl");
+    expect(screen.getByRole("heading", { name: "Crawl" })).toBeInTheDocument();
+  });
+
+  it("opens the reader when the page is loaded with ?doc=", async () => {
+    mockApi({
+      "GET /crawl": () => crawl(),
+      "GET /documents/doc-1": () => doc({ id: "doc-1", title: "Bicycle" }),
+    });
+    window.history.replaceState(null, "", "/crawl?doc=doc-1");
+    render(<App />);
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Second paragraph");
+    expect(await screen.findByRole("heading", { name: "Next" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(window.location.pathname + window.location.search).toBe("/crawl");
+  });
+
+  it("lists the searches that showed the source page, a few at most", async () => {
+    mockApi({
+      "GET /crawl": () =>
+        crawl({
+          next: [
+            crawlEntry({
+              source: {
+                document_id: "doc-1",
+                title: "Bicycle",
+                url: null,
+                queries: ["road bike", "bike tires", "chain wax", "fixie", "gravel"],
+              },
+            }),
+          ],
+        }),
+    });
+    openCrawl();
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "from your searches “road bike”, “bike tires”, “chain wax” and 2 more",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows an empty list", async () => {

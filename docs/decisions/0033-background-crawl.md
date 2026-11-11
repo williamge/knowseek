@@ -265,4 +265,5 @@ forgetting (#91).
 - A source page is read again after 7 days while it has allowance left: a page
   you keep landing on is not judged for weeks on the first day's index.
 - `GET /api/crawl` has no authentication, like the rest of the API. It shows
-  page titles, not queries.
+  page titles and, for each source page, the queries that showed it (taken
+  from the search log when the page is built; the crawl tables hold none).

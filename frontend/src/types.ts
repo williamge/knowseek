@@ -270,8 +270,11 @@ export interface CrawlEntry {
   title: string;
   description: string | null;
   url: string;
-  /** The page of yours that links to it. */
-  source: { document_id: string; title: string | null; url: string | null };
+  /**
+   * The page of yours that links to it, and the searches that showed it
+   * (newest first). `title` and `url` are null when the document is gone.
+   */
+  source: { document_id: string; title: string | null; url: string | null; queries: string[] };
   /** Closeness to the searches that showed the source page, 0 to 1. */
   interest: number;
   /** 1 when no stored page is near it, 0 when 10 are. */

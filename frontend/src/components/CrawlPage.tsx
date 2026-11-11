@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { routeToUrl } from "../router";
 import type { Crawl, CrawlEntry, CrawlMode } from "../types";
 
 const STATUS: Record<CrawlMode, string> = {
@@ -20,8 +21,20 @@ function shared(entry: CrawlEntry): string {
   return entry.shared_count > 1 ? `${text} (${entry.shared_count} pages)` : text;
 }
 
+/** How many of a source page's searches are listed; the rest is a count. */
+const SHOWN_QUERIES = 3;
+
+/** The searches that showed a source page, as a short line. */
+function fromSearches(queries: string[]): string | null {
+  if (queries.length === 0) return null;
+  const shown = queries.slice(0, SHOWN_QUERIES).map((query) => `“${query}”`);
+  const more = queries.length - shown.length;
+  const list = shown.join(", ") + (more > 0 ? ` and ${more} more` : "");
+  return `from your ${queries.length === 1 ? "search" : "searches"} ${list}`;
+}
+
 /** The links the background crawl would fetch next, with what makes up each score. */
-export function CrawlPage() {
+export function CrawlPage({ onOpenDocument }: { onOpenDocument: (id: string) => void }) {
   const [crawl, setCrawl] = useState<Crawl | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -75,7 +88,28 @@ export function CrawlPage() {
                       </a>
                       {entry.description && <div className="muted">{entry.description}</div>}
                     </td>
-                    <td>{entry.source.title ?? "(page removed)"}</td>
+                    <td>
+                      {entry.source.title === null ? (
+                        "(page removed)"
+                      ) : (
+                        <a
+                          href={routeToUrl({
+                            page: "crawl",
+                            query: null,
+                            doc: entry.source.document_id,
+                          })}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            onOpenDocument(entry.source.document_id);
+                          }}
+                        >
+                          {entry.source.title}
+                        </a>
+                      )}
+                      {fromSearches(entry.source.queries) && (
+                        <div className="muted">{fromSearches(entry.source.queries)}</div>
+                      )}
+                    </td>
                     <td className="num">{score(entry.interest)}</td>
                     <td className="num">{score(entry.novelty)}</td>
                     <td className="num">{bonus(entry.gap)}</td>
