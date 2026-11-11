@@ -1,6 +1,9 @@
 import { routeToUrl, type Navigate, type Page } from "../router";
 
-const LINKS: { page: Page; label: string }[] = [{ page: "stats", label: "Stats" }];
+const LINKS: { page: Page; label: string }[] = [
+  { page: "stats", label: "Stats" },
+  { page: "blocked-links", label: "Blocked links" },
+];
 
 /** Links to the pages other than search, at the bottom of every page. */
 export function SiteNav({ current, navigate }: { current: Page | null; navigate: Navigate }) {

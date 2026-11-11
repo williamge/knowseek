@@ -258,3 +258,31 @@ export interface Stats {
 export interface SearchesCleared {
   deleted: number;
 }
+
+/** One domain of the blocked-link log (`KnowseekWeb.BlockedLinkJSON`). */
+export interface BlockedDomain {
+  /** Lowercase host without a leading "www.". */
+  host: string;
+  /** Distinct blocked URLs on this host. */
+  links: number;
+  /** Indexed pages that link to this host. */
+  pages: number;
+  /** A link counts once for every fetch of its page that saw it. */
+  times_seen: number;
+  first_seen_at: string;
+  example_url: string;
+}
+
+/** What `GET /api/blocked-links` returns. `domains` holds at most 200, most linking pages first. */
+export interface BlockedLinks {
+  /** The only hosts a crawler may fetch from (config). */
+  allowed_hosts: string[];
+  total_domains: number;
+  total_links: number;
+  domains: BlockedDomain[];
+}
+
+/** What `POST /api/blocked-links/backfill` returns: jobs requested, one per indexed page. */
+export interface BackfillStarted {
+  enqueued: number;
+}

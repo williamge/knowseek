@@ -61,8 +61,11 @@ config :knowseek, Knowseek.Search,
 
 # Discovery sources: modules that implement Knowseek.Discovery.Source.
 # Wikibooks runs only for questions (ADR 0029).
+# `allowed_hosts`: the only hosts a crawler may fetch from (#88, ADR 0032).
+# A link to any other host is logged in `blocked_links`, never fetched.
 config :knowseek, Knowseek.Discovery,
-  sources: [Knowseek.Discovery.Sources.Wikipedia, Knowseek.Discovery.Sources.Wikibooks]
+  sources: [Knowseek.Discovery.Sources.Wikipedia, Knowseek.Discovery.Sources.Wikibooks],
+  allowed_hosts: ["en.wikipedia.org", "en.wikibooks.org"]
 
 # Wikimedia asks for at most 3 requests at once across all its sites. Every
 # Wikipedia, Wikibooks and Wikidata request takes one of `max_concurrent`

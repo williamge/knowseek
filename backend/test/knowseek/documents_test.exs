@@ -730,6 +730,35 @@ defmodule Knowseek.DocumentsTest do
     end
   end
 
+  describe "ids_by_source/1" do
+    test "returns the ids of the named sources only, oldest first" do
+      newer = document_fixture(source: "wikipedia")
+      older = document_fixture(source: "wikibooks")
+      other = document_fixture(source: "manual")
+      oldest = document_fixture(source: "wikipedia")
+
+      for {document, time} <- [
+            {oldest, ~U[2026-01-01 00:00:00Z]},
+            {older, ~U[2026-02-01 00:00:00Z]},
+            {newer, ~U[2026-03-01 00:00:00Z]}
+          ] do
+        Repo.update_all(from(d in Document, where: d.id == ^document.id),
+          set: [inserted_at: time]
+        )
+      end
+
+      ids = Documents.ids_by_source(["wikipedia", "wikibooks"])
+
+      assert ids == [oldest.id, older.id, newer.id]
+      refute other.id in ids
+    end
+
+    test "is [] for no sources" do
+      document_fixture(source: "wikipedia")
+      assert Documents.ids_by_source([]) == []
+    end
+  end
+
   defp alias_urls(document) do
     Repo.all(
       from a in DocumentAlias,

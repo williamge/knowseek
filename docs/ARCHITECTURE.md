@@ -34,9 +34,10 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Ollama` (local `bge-m3` through Ollama, free; the default, ADR 0016), `Embeddings.Hashing` (local stand-in, no semantics; the opt-out and the adapter in tests), `Embeddings.Voyage` (Voyage AI API). |
-| `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates, each with `origin: "search"` and the normalized query as `origin_query` (a source never sets them). Around each source it counts the downloaded bytes in memory (the `:on_bytes` option of `discover/2`) and, after the source returned (also after a failure), records the total with `Activity.record_bytes/2` (ADR 0031). |
-| `Knowseek.Discovery.Source` | Behaviour for an external data source. |
-| `Knowseek.Discovery.Sources.MediaWiki` | The shared MediaWiki Action API code of the Wikipedia and Wikibooks sources (ADR 0029). Given a site (source name, `api.php` URL, license, credit, config key, optionally `search_namespaces`), it searches and returns the plain text of the top 3 pages, capped at ~40k characters each, with each page's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions`). It searches the main namespace, or one search per namespace in `search_namespaces`, earlier namespaces' pages first, without duplicates. Each page is credited to the site with a link to the page, `modified` and `share: full` (ADR 0026). Skips disambiguation pages. Its requests are `:background` callers of `Knowseek.Wikimedia`. `discover/3` takes `:on_bytes`: a Req response step reports the size of each response body as received (compressed, once per attempt, headers not counted). |
+| `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates, each with `origin: "search"` and the normalized query as `origin_query` (a source never sets them), then logs the links of each candidate that point to hosts off the allowlist (`blocked_links`, see "Allowlist and blocked links"). Around each source it counts the downloaded bytes in memory (the `:on_bytes` option of `discover/2` and `links/2`) and, after the source returned (also after a failure), records the total with `Activity.record_bytes/2` (ADR 0031). `allowed?/1` is the gate a crawler calls before it fetches a URL. `backfill_links/0` enqueues one `Discovery.LinkBackfillWorker` job per indexed page. |
+| `Knowseek.Discovery.Source` | Behaviour for an external data source. A candidate may carry `:links` (the page's outgoing links); the optional callback `links/2` re-reads a stored page's links for the backfill. |
+| `Knowseek.Discovery.Allowlist` | Pure, internal to `Discovery`: the allowed hosts from config, and `parse/1`, which turns a link into the form the log stores (lowercase scheme and host, no fragment, at most 2,000 bytes) or `:error` when it is no web link. Hosts match exactly after a leading `www.` is dropped. |
+| `Knowseek.Discovery.Sources.MediaWiki` | The shared MediaWiki Action API code of the Wikipedia and Wikibooks sources (ADR 0029). Given a site (source name, `api.php` URL, license, credit, config key, optionally `search_namespaces`), it searches and returns the plain text of the top 3 pages, capped at ~40k characters each, with each page's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions`). It searches the main namespace, or one search per namespace in `search_namespaces`, earlier namespaces' pages first, without duplicates. Each page is credited to the site with a link to the page, `modified` and `share: full` (ADR 0026). Each candidate carries `:links`, the page's external links (`prop=extlinks`, same request; at most 500 a response, and up to 10 continuation requests for the links alone when a page has more; ADR 0032). `links/3` reads the links of a stored page (one request plus continuations). Skips disambiguation pages. Its requests are `:background` callers of `Knowseek.Wikimedia`. `discover/3` and `links/3` take `:on_bytes`: a Req response step reports the size of each response body as received (compressed, once per attempt, headers not counted). |
 | `Knowseek.Discovery.Sources.Wikipedia` | English Wikipedia over `MediaWiki`, for every query. `CC-BY-SA-4.0`, credit "Wikipedia". |
 | `Knowseek.Discovery.Sources.Wikibooks` | English Wikibooks over `MediaWiki`, only for a question (`question?/1`: ends with `?`, or starts with how, why, can, could, should, do I, is it, what's the best; ADR 0029). It searches without the question lead-in (`search_text/1`: "how do i cook eggs" searches "cook eggs"), twice: the Cookbook namespace (102, recipes such as *Cookbook:Hard Cooked Eggs*) first, then the main namespace; recipes come first and keep their `Cookbook:` title. It skips compilations: pages that transclude 2 or more main-namespace pages, such as print versions. `CC-BY-SA-4.0`, credit "Wikibooks". Its page views are on Wikibooks' smaller scale. |
 | `Knowseek.Entities` | Entity resolution (task 030, ADR 0017). `resolve(query, opts)` turns a query into `{:ok, %{intent, entity, alternatives}}`, `:none`, `{:pending, query}` (cold cache) or `{:error, reason}`. It reads only the cache; a cold query starts one background fetch. `Entities.Intent` splits `weather in <place>` and `<place> weather` into intent `:weather` and the place. `Entities.Resolver` is the behaviour for a resolver; `Entities.Wikidata` (`wbsearchentities` for candidates, one `wbgetentities` for claims) is the configured one. The top entity is the first candidate whose type a card provider handles (`kind/1`, the `supported_types` config); the other candidates of that kind, at most 5, are the alternatives. The cache holds the candidates, and the top entity is chosen when the answer is read: for the weather intent a place is chosen by sitelinks (`weather in new york` is the city, not the state; ADR 0022). `Entities.Entity` is the struct. |
@@ -57,12 +58,15 @@ Because the API does not yet tell callers when discovery finishes ([#49](https:/
 
 The app has one page besides search: `/stats` (`StatsPage.tsx`, from `GET /api/stats`): searches per day with their coverage mix, pages by origin, hit share, the database file's size and the network bytes per day and source, and a button that clears the search history. A row of links at the bottom of every page (`SiteNav.tsx`) opens it, and the wordmark returns home. Pages are routed by path (`PAGE_PATHS` in `router.ts`).
 
+The app also has a page at `/blocked-links` (`BlockedLinksPage.tsx`), shown from `GET /api/blocked-links` as a table by domain (links, pages, times seen, first seen, an example link), with a button that starts the backfill (`POST /api/blocked-links/backfill`). See "Allowlist and blocked links".
+
 ## Data model
 
 ```mermaid
 erDiagram
     documents ||--o{ chunks : has
     documents ||--o{ document_aliases : has
+    documents ||--o{ blocked_links : has
     documents {
         uuid id
         text url "unique, canonical; urn:knowseek:sha256:... when none given"
@@ -123,6 +127,13 @@ erDiagram
         integer rowid "chunks.seq"
         text content "FTS5 external content over chunks.content, porter unicode61"
     }
+    blocked_links {
+        uuid document_id "primary key with url; on delete cascade; the page the link was found on"
+        text url "primary key with document_id; normalized, no fragment"
+        string host "lowercase, without a leading www."
+        timestamp first_seen_at
+        int times_seen "fetches of the page that saw the link (default 1)"
+    }
 ```
 
 The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in development, `DATABASE_PATH` in a release. UUIDs and timestamps are TEXT, maps JSON TEXT. Oban stores its jobs in `oban_jobs` in the same file.
@@ -149,6 +160,16 @@ The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in de
 | Queue | Workers | Notes |
 | --- | --- | --- |
 | `discovery` | `Discovery.SeekWorker` | Unique per normalized query for 1 hour. 3 attempts. |
+| `discovery` | `Discovery.LinkBackfillWorker` | One job per indexed page: logs its blocked links without counting them (ADR 0032). Unique per document while incomplete. 3 attempts. Priority 3, so search-time `SeekWorker` jobs (priority 0) go first. Scheduled two a second. |
+
+## Allowlist and blocked links
+
+[ADR 0032](decisions/0032-crawl-allowlist-and-blocked-links.md). A crawler may fetch only from the hosts in `allowed_hosts` (`en.wikipedia.org` and `en.wikibooks.org`); `Discovery.allowed?/1` is the gate it must call before it fetches a URL. Nothing follows a link yet. A link to any other host is logged, not fetched:
+
+- **Finding the links.** The MediaWiki page request already sent adds `prop=extlinks` (`ellimit=max`, 500 links at most a response, up to 10 continuation requests for a page with more). The source returns the links in each candidate (`:links`); it writes nothing.
+- **Logging them.** `Discovery.run/2` pops `:links` off the candidate, ingests the rest through `Documents.ingest/1`, then `record_links/3` writes the links to hosts off the list into `blocked_links`, in one transaction of its own. Links to allowed hosts and links that are no web links (`mailto:`) are dropped; allowed and internal links are not stored. One row per page and URL; a link seen again on a later fetch of its page adds 1 to `times_seen`.
+- **Reading the log.** `GET /api/blocked-links` returns it by domain (`blocked_domains/1`: distinct links, pages that link there, times seen, first seen, an example link; up to 200 domains, most linking pages first, and totals over the whole log). The page `/blocked-links` shows it.
+- **Backfill.** `POST /api/blocked-links/backfill` (the "Scan pages already indexed" button) enqueues one `LinkBackfillWorker` job per indexed document of a source that implements `links/2`. Each job asks the source for that page's links (one small request) and logs the blocked ones without counting them, so it can run twice.
 
 ## Ranking prior
 
@@ -231,7 +252,7 @@ What the layers do not do:
 - `Knowseek.Embeddings.Voyage`: `model`, batch limits, `req_options`. `api_key` comes from `VOYAGE_API_KEY` in `config/runtime.exs`.
 - `Knowseek.Search`: `default_limit`, `candidate_factor` (each ranked list fetches `limit * candidate_factor` chunks before grouping by document; 40, roughly the chunk count of a long Wikipedia article; manual documents have no size cap, so it is a heuristic, not a guarantee; the vector list at most 4,096), `max_passages` (3), `min_similarity`, `min_strong_hits`, `max_age_seconds`, `prior_weight` (0.3), `prior_saturation_views` (1,000,000; see "Ranking prior"). `min_similarity` is the relevance floor: a hit is returned and counted for coverage only if it matched the full-text search or has at least this cosine similarity. It depends on the embedding model (see `docs/decisions/0009-search-returns-only-relevant-hits.md`). `min_strong_hits` and `max_age_seconds` tune the coverage heuristic. `max_age_seconds` is the default freshness need for a search; `nil` ignores age. `POST /api/search` can override it per request; `null` there ignores age.
 - `Knowseek.Repo`: the SQLite file (`database`), WAL, `busy_timeout` (5 s), `journal_size_limit` (64 MB), `default_transaction_mode: :immediate` (`config/config.exs`; the path in `config/dev.exs`, `config/test.exs` and, from `DATABASE_PATH`, `config/runtime.exs`).
-- `Knowseek.Discovery`: `sources` (list of modules). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`.
+- `Knowseek.Discovery`: `sources` (list of modules) and `allowed_hosts` (the only hosts a crawler may fetch from; links to others are logged in `blocked_links`). `config/test.exs` sets `sources: []`, so tests never call a real source. A test that needs a source passes `sources:` to `Discovery.run/2`. A test that replaces the config with `Application.put_env/3` must keep `allowed_hosts` (`Keyword.put(config, :sources, ...)`).
 - `Knowseek.Discovery.Sources.Wikipedia` and `Knowseek.Discovery.Sources.Wikibooks` (each its own key): `base_url`, `limit`, `max_chars`, `user_agent`, `req_options` (tests put the `Req.Test` plug here).
 - `Knowseek.Entities`: `resolver` (a `Knowseek.Entities.Resolver` module, Wikidata by default), `ttl` (a day), `backoff` (a minute) and `timeout` (15 seconds) for the cache, `max_alternatives` (5), `max_query_length` (100: a longer query is `:none`), `supported_types` (kind to Wikidata `instance of` ids; the ids seen in the probes are listed in `config/config.exs`), `cache` (start options of the cache: `max_entries` 5000, `max_in_flight` 4, `reserve_for_refresh` 1, `empty_values` `[:none]`). `Knowseek.Cache` also takes `clock`, for tests.
 - `Knowseek.Entities.Wikidata`: `base_url`, `search_limit` (20), `user_agent`, `req_options` (tests put the `Req.Test` plug here).

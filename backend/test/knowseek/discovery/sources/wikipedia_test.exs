@@ -99,7 +99,8 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       assert_received {:request,
                        %{
-                         "prop" => "extracts|info|pageprops|pageviews|revisions",
+                         "prop" => "extracts|info|pageprops|pageviews|revisions|extlinks",
+                         "ellimit" => "max",
                          "rvprop" => "timestamp",
                          "pvipdays" => "60",
                          "explaintext" => "1",
@@ -224,6 +225,200 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert messages(:bytes) == sent
 
       assert {:ok, [_, _]} = Wikipedia.discover("pgvector", [])
+    end
+  end
+
+  describe "external links" do
+    @page 74_020_014
+    @links ["http://a.example/1", "https://b.example/2", "//c.example/3"]
+
+    # One page found by the search; `answer` replies to every page request.
+    defp stub_pages(answer) do
+      Req.Test.stub(Wikipedia, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        send(self(), {:request, conn.query_params})
+
+        case conn.query_params do
+          %{"list" => "search"} ->
+            Req.Test.json(conn, %{"query" => %{"search" => [%{"pageid" => @page}]}})
+
+          params ->
+            answer.(conn, params)
+        end
+      end)
+    end
+
+    # Answers the first request with `first_links` and, from then on, each
+    # `elcontinue` token with the links `continuations` has for it.
+    defp stub_continued(first_links, continuations) do
+      stub_pages(fn conn, params ->
+        case params do
+          %{"elcontinue" => token} ->
+            {links, next} = Map.fetch!(continuations, token)
+            Req.Test.json(conn, with_extlinks(fixture("page_#{@page}.json"), links, next))
+
+          _first ->
+            Req.Test.json(
+              conn,
+              with_extlinks(fixture("page_#{@page}.json"), first_links, "t1")
+            )
+        end
+      end)
+    end
+
+    test "a candidate carries its links in page order" do
+      stub_pages(fn conn, _params ->
+        Req.Test.json(conn, with_extlinks(fixture("page_#{@page}.json"), @links))
+      end)
+
+      assert {:ok, [%{links: @links}]} = Wikipedia.discover("pgvector", [])
+    end
+
+    test "a page without external links has links: []" do
+      stub_api()
+
+      assert {:ok, [vector_db, hnsw]} = Wikipedia.discover("pgvector", [])
+      assert vector_db.links == []
+      assert hnsw.links == []
+    end
+
+    test "follows elcontinue with a request for the links only, and concatenates" do
+      stub_continued(["http://a.example/1"], %{
+        "t1" => {["http://b.example/2"], "t2"},
+        "t2" => {["http://c.example/3"], nil}
+      })
+
+      assert {:ok, [%{links: ["http://a.example/1", "http://b.example/2", "http://c.example/3"]}]} =
+               Wikipedia.discover("pgvector", [])
+
+      assert_received {:request, %{"list" => "search"}}
+      assert_received {:request, %{"explaintext" => "1"}}
+
+      assert_received {:request, continuation}
+
+      assert %{
+               "prop" => "extlinks",
+               "ellimit" => "max",
+               "pageids" => "74020014",
+               "elcontinue" => "t1"
+             } = continuation
+
+      refute Map.has_key?(continuation, "explaintext")
+      refute Map.has_key?(continuation, "rvprop")
+      assert_received {:request, %{"elcontinue" => "t2"}}
+      refute_received {:request, _}
+    end
+
+    test "a failed continuation keeps the page and the links read so far" do
+      stub_pages(fn conn, params ->
+        case params do
+          %{"elcontinue" => _token} ->
+            Plug.Conn.send_resp(conn, 500, "")
+
+          _first ->
+            Req.Test.json(conn, with_extlinks(fixture("page_#{@page}.json"), @links, "t1"))
+        end
+      end)
+
+      assert {:ok, [%{title: "Vector database", links: @links}]} =
+               Wikipedia.discover("pgvector", [])
+    end
+
+    test "no continuation request for a page that yields no candidate" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        send(self(), {:request, conn.query_params})
+
+        case conn.query_params do
+          %{"list" => "search"} ->
+            Req.Test.json(conn, %{"query" => %{"search" => [%{"pageid" => 19_007}]}})
+
+          _page ->
+            Req.Test.json(
+              conn,
+              with_extlinks(fixture("page_19007.json"), ["http://a.example/"], "t1")
+            )
+        end
+      end)
+
+      assert {:ok, []} = Wikipedia.discover("mercury", [])
+      assert_received {:request, %{"list" => "search"}}
+      assert_received {:request, %{"pageids" => "19007"}}
+      refute_received {:request, _}
+    end
+
+    test "stops after 10 continuation requests" do
+      # Every continuation points at another one.
+      stub_pages(fn conn, _params ->
+        Req.Test.json(
+          conn,
+          with_extlinks(fixture("page_#{@page}.json"), ["http://a.example/"], "t")
+        )
+      end)
+
+      assert {:ok, [%{links: links}]} = Wikipedia.discover("pgvector", [])
+      assert length(links) == 11
+
+      requests = for _n <- 1..12, do: receive_request()
+      assert Enum.count(requests, &Map.has_key?(&1, "elcontinue")) == 10
+      refute_received {:request, _}
+    end
+
+    defp receive_request do
+      receive do
+        {:request, params} -> params
+      after
+        0 -> %{}
+      end
+    end
+  end
+
+  describe "links/2" do
+    @document %{metadata: %{"pageid" => 74_020_014}}
+
+    test "asks for the links of the page by its id, and follows elcontinue" do
+      stub_pages(fn conn, params ->
+        case params do
+          %{"elcontinue" => "t1"} ->
+            Req.Test.json(
+              conn,
+              with_extlinks(fixture("page_#{@page}.json"), ["http://b.example/"])
+            )
+
+          _first ->
+            Req.Test.json(
+              conn,
+              with_extlinks(fixture("page_#{@page}.json"), ["http://a.example/"], "t1")
+            )
+        end
+      end)
+
+      assert {:ok, ["http://a.example/", "http://b.example/"]} = Wikipedia.links(@document, [])
+
+      assert_received {:request,
+                       %{"prop" => "extlinks", "ellimit" => "max", "pageids" => "74020014"} =
+                         first}
+
+      refute Map.has_key?(first, "elcontinue")
+      assert_received {:request, %{"elcontinue" => "t1"}}
+      refute_received {:request, _}
+    end
+
+    test "is {:ok, []} without a page id" do
+      assert {:ok, []} = Wikipedia.links(%{metadata: %{}}, [])
+      assert {:ok, []} = Wikipedia.links(%{metadata: %{"pageid" => "74020014"}}, [])
+    end
+
+    test "is {:ok, []} for a page without external links" do
+      stub_pages(fn conn, _params -> Req.Test.json(conn, fixture("page_#{@page}.json")) end)
+
+      assert {:ok, []} = Wikipedia.links(@document, [])
+    end
+
+    test "returns the error of a failed request" do
+      Req.Test.stub(Wikipedia, &Plug.Conn.send_resp(&1, 503, "unavailable"))
+
+      assert {:error, {:http_status, 503}} = Wikipedia.links(@document, [])
     end
   end
 

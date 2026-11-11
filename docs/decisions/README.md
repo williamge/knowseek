@@ -37,3 +37,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0029](0029-wikibooks-source.md) | Wikibooks discovery source over a shared MediaWiki module, only for question-shaped queries; page views kept on Wikibooks' own scale |
 | [0030](0030-sqlite-single-datastore.md) | SQLite as the single datastore: sqlite-vec (exact scan) for vectors, FTS5 with bm25 for full text, Oban Lite; one file per checkout, no Docker for development |
 | [0031](0031-activity-record.md) | A local record of searches (written by an in-process recorder, a second exception to rule 6), the origin of each page, and the bytes discovery sources download; `GET /api/stats` |
+| [0032](0032-crawl-allowlist-and-blocked-links.md) | Crawl allowlist in config (exact hosts); links to other hosts are logged in `blocked_links` (written by `Discovery`, not by the source), found through `extlinks` in the existing page request; a backfill job per indexed page |

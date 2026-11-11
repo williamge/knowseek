@@ -49,6 +49,16 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   compressed, once per attempt, headers not counted). The source only calls
   the function; `Knowseek.Discovery` owns it (rule 3, ADR 0031).
 
+  Each candidate carries `:links`, the page's external links (`prop=extlinks`
+  with `ellimit=max`, same request), in page order; `[]` when there are none.
+  One response holds at most 500. A page with more answers with `elcontinue`,
+  and the source sends up to 10 more requests (`prop=extlinks` only), so at
+  most 5,500 links in all. Only `elcontinue` is followed: other modules
+  (`templates` on Wikibooks) also report a `continue`. A failed continuation
+  keeps the page and the links read so far. A page that yields no candidate
+  sends no continuation request. `links/3` reads the links of a page fetched
+  earlier, for the link backfill (#88, ADR 0032).
+
   Configuration, under the source module's key (all optional):
 
       config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
@@ -94,6 +104,10 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
 
   # A page that transcludes this many main-namespace pages is a compilation.
   @compilation_min_pages 2
+
+  # One response holds at most 500 external links (`ellimit=max`). A page with
+  # more gets at most this many continuation requests (5,500 links in all).
+  @max_link_requests 10
 
   @doc """
   Finds the top pages of `site` for `query`. See the module doc. `opts` may
@@ -176,22 +190,25 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   defp fetch_page(pageid, site, config) do
     params =
       [
-        prop: "extracts|info|pageprops|pageviews|revisions",
+        prop: "extracts|info|pageprops|pageviews|revisions|extlinks",
         rvprop: "timestamp",
         explaintext: 1,
         exsectionformat: "plain",
         inprop: "url",
         ppprop: "disambiguation",
         pvipdays: @pageview_days,
-        pageids: pageid
+        pageids: pageid,
+        ellimit: "max"
       ]
       |> put_compilation_params(site)
 
     case api_get(params, config) do
-      {:ok, %{"query" => %{"pages" => [page | _rest]}}} ->
-        if compilation?(page, site),
-          do: {:ok, nil},
-          else: {:ok, to_candidate(page, site, config[:max_chars])}
+      {:ok, %{"query" => %{"pages" => [page | _rest]}} = body} ->
+        if compilation?(page, site) do
+          {:ok, nil}
+        else
+          {:ok, page |> to_candidate(site, config[:max_chars]) |> put_links(page, body, config)}
+        end
 
       {:ok, _body} ->
         {:error, :unexpected_body}
@@ -200,6 +217,62 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
         {:error, reason}
     end
   end
+
+  # A page that yields a candidate also yields its links; one that does not
+  # triggers no continuation request.
+  defp put_links(nil, _page, _body, _config), do: nil
+
+  defp put_links(candidate, %{"pageid" => pageid} = page, body, config) do
+    Map.put(
+      candidate,
+      :links,
+      extlinks(page) ++ more_extlinks(pageid, body, config, @max_link_requests)
+    )
+  end
+
+  defp extlinks(page), do: for(%{"url" => url} <- page["extlinks"] || [], is_binary(url), do: url)
+
+  # Follows `elcontinue` only: other modules (`templates` on Wikibooks) also
+  # report a `continue`, which is not ours to follow.
+  defp more_extlinks(pageid, %{"continue" => %{"elcontinue" => token}}, config, left)
+       when left > 0 do
+    params = [prop: "extlinks", ellimit: "max", pageids: pageid, elcontinue: token]
+
+    case api_get(params, config) do
+      {:ok, %{"query" => %{"pages" => [page | _rest]}} = body} ->
+        extlinks(page) ++ more_extlinks(pageid, body, config, left - 1)
+
+      other ->
+        Logger.warning("link continuation for page #{pageid} failed: #{inspect(other)}")
+        []
+    end
+  end
+
+  defp more_extlinks(_pageid, _body, _config, _left), do: []
+
+  @doc """
+  The external links of a page fetched earlier, by the `pageid` in the
+  document's `metadata`: one `prop=extlinks` request, plus continuations.
+  `{:ok, []}` for a document without a page id or a page that is gone.
+  """
+  @spec links(%{required(:metadata) => map()}, site(), keyword()) ::
+          {:ok, [String.t()]} | {:error, term()}
+  def links(%{metadata: %{"pageid" => pageid}}, site, opts) when is_integer(pageid) do
+    config = config(site, opts)
+
+    case api_get([prop: "extlinks", ellimit: "max", pageids: pageid], config) do
+      {:ok, %{"query" => %{"pages" => [page | _rest]}} = body} ->
+        {:ok, extlinks(page) ++ more_extlinks(pageid, body, config, @max_link_requests)}
+
+      {:ok, _body} ->
+        {:error, :unexpected_body}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def links(_document, _site, _opts), do: {:ok, []}
 
   # Asks for the main-namespace pages the page transcludes, enough of them to
   # tell a compilation.

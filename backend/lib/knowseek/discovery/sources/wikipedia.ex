@@ -2,7 +2,8 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   @moduledoc """
   Discovery source for English Wikipedia, through the MediaWiki Action API
   (`Knowseek.Discovery.Sources.MediaWiki`, which documents the requests and
-  the candidates). Runs for every query.
+  the candidates). Runs for every query. `links/2` re-reads the external
+  links of a stored page for the link backfill (#88).
 
   Candidates are `CC-BY-SA-4.0` (Wikipedia text is CC BY-SA 4.0 or GFDL;
   reusers may pick either), credited to "Wikipedia" with a link to the page,
@@ -34,4 +35,7 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
 
   @impl true
   def discover(query, opts), do: MediaWiki.discover(query, @site, opts)
+
+  @impl true
+  def links(document, opts), do: MediaWiki.links(document, @site, opts)
 end

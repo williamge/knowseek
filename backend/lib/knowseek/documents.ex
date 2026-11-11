@@ -275,4 +275,15 @@ defmodule Knowseek.Documents do
       manual: Map.get(counts, "manual", 0)
     }
   end
+
+  @doc "The ids of the documents whose `source` is one of `sources`, oldest first."
+  @spec ids_by_source([String.t()]) :: [Ecto.UUID.t()]
+  def ids_by_source(sources) do
+    Repo.all(
+      from d in Document,
+        where: d.source in ^sources,
+        order_by: [asc: d.inserted_at, asc: d.id],
+        select: d.id
+    )
+  end
 end

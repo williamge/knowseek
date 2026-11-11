@@ -21,6 +21,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   page, `modified: true` and `share: "full"` (ADR 0026). Their
   `monthly_views` are Wikibooks page views: the same unit as Wikipedia's,
   but one to two orders of magnitude smaller for the same subject (ADR 0029).
+  `links/2` re-reads the external links of a stored page for the link
+  backfill (#88).
 
   Configuration (all optional; see `Knowseek.Discovery.Sources.MediaWiki`):
 
@@ -54,6 +56,9 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
       do: MediaWiki.discover(search_text(query), @site, opts),
       else: {:ok, []}
   end
+
+  @impl true
+  def links(document, opts), do: MediaWiki.links(document, @site, opts)
 
   @doc """
   The text sent to the Wikibooks search for a question: `query` without its
