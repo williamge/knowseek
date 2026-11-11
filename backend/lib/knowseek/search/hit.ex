@@ -11,18 +11,28 @@ defmodule Knowseek.Search.Hit do
       Higher is better. It is not a sum over the document's chunks.
     * `passages` - other relevant chunks of the same document, best first,
       at most `:max_passages` (see `Knowseek.Search`). Each has `:chunk_id`,
-      `:content`, and `:score`. Empty when only one chunk matched.
+      `:content`, `:score`, and `:position` (the chunk's `chunks.position`).
+      Empty when only one chunk matched.
     * `keyword_rank` - 1-based rank in the full-text results, or `nil`.
     * `semantic_rank` - 1-based rank in the vector results, or `nil`.
     * `similarity` - cosine similarity to the query (-1.0 to 1.0), or `nil`.
     * `license`, `attribution`, `modified`, `share` - the document's license
       fields (`Knowseek.Documents.Document`, ADR 0026).
+    * `position` - `chunks.position` of the best chunk.
+    * `origin` - why the document was fetched: `search`, `background` or
+      `manual` (`Knowseek.Documents.Document`, #96). The search log keeps it
+      (`Knowseek.Activity`).
 
   A hit is relevant when it matched the full-text search, or when its
   similarity is at least `min_similarity`. See `relevant?/2`.
   """
 
-  @type passage :: %{chunk_id: Ecto.UUID.t(), content: String.t(), score: float()}
+  @type passage :: %{
+          chunk_id: Ecto.UUID.t(),
+          content: String.t(),
+          score: float(),
+          position: non_neg_integer()
+        }
 
   @type t :: %__MODULE__{
           chunk_id: Ecto.UUID.t(),
@@ -37,6 +47,8 @@ defmodule Knowseek.Search.Hit do
           attribution: Knowseek.Documents.Attribution.t() | nil,
           modified: boolean(),
           share: String.t(),
+          position: non_neg_integer(),
+          origin: String.t(),
           score: float(),
           keyword_rank: pos_integer() | nil,
           semantic_rank: pos_integer() | nil,
@@ -57,6 +69,8 @@ defmodule Knowseek.Search.Hit do
     :attribution,
     :modified,
     :share,
+    :position,
+    :origin,
     :score,
     :keyword_rank,
     :semantic_rank,

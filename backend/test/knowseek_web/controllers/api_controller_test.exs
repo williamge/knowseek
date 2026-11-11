@@ -181,6 +181,31 @@ defmodule KnowseekWeb.ApiControllerTest do
              }
     end
 
+    test "documents carry origin and origin_query", %{conn: conn} do
+      searched = document_fixture(origin: "search", origin_query: "glaciers")
+      manual = document_fixture()
+
+      assert %{"data" => %{"origin" => "search", "origin_query" => "glaciers"}} =
+               conn |> get(~p"/api/documents/#{searched.id}") |> json_response(200)
+
+      assert %{"data" => listed} = conn |> get(~p"/api/documents") |> json_response(200)
+
+      assert %{"origin" => "manual", "origin_query" => nil} =
+               Enum.find(listed, &(&1["id"] == manual.id))
+    end
+
+    test "POST cannot choose the origin", %{conn: conn} do
+      created =
+        conn
+        |> post(~p"/api/documents",
+          document: %{body: "A manual note.", origin: "background", origin_query: "sneaky"}
+        )
+        |> json_response(201)
+        |> Map.fetch!("data")
+
+      assert %{"origin" => "manual", "origin_query" => nil} = created
+    end
+
     test "POST returns 422 for an invalid document", %{conn: conn} do
       assert %{"errors" => %{"body" => _}} =
                conn

@@ -36,3 +36,4 @@ write a new ADR that supersedes it and set the old one's status to
 | [0028](0028-nba-card-source.md) | NBA card: balldontlie's free tier with a key per operator, replacing ESPN (whose terms forbid scripted access); no injuries |
 | [0029](0029-wikibooks-source.md) | Wikibooks discovery source over a shared MediaWiki module, only for question-shaped queries; page views kept on Wikibooks' own scale |
 | [0030](0030-sqlite-single-datastore.md) | SQLite as the single datastore: sqlite-vec (exact scan) for vectors, FTS5 with bm25 for full text, Oban Lite; one file per checkout, no Docker for development |
+| [0031](0031-activity-record.md) | A local record of searches (written by an in-process recorder, a second exception to rule 6), the origin of each page, and the bytes discovery sources download; `GET /api/stats` |

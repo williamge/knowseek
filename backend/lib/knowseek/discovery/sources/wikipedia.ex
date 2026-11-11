@@ -33,5 +33,5 @@ defmodule Knowseek.Discovery.Sources.Wikipedia do
   def name, do: @site.name
 
   @impl true
-  def discover(query, _opts), do: MediaWiki.discover(query, @site)
+  def discover(query, opts), do: MediaWiki.discover(query, @site, opts)
 end

@@ -34,6 +34,20 @@ export function shortDate(iso: string, now: Date = new Date()): string {
   });
 }
 
+/** "512 B", "1.2 KB", "70.0 MB", "1.3 GB". Powers of 1,000. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = -1;
+  // Compare the rounded value: 999,990 bytes are "1.0 MB", not "1000.0 KB".
+  while (Number(value.toFixed(1)) >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit += 1;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
+}
+
 const INTERVALS: [string, number][] = [
   ["week", 7 * 24 * 3600],
   ["day", 24 * 3600],

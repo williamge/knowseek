@@ -14,6 +14,9 @@ defmodule Knowseek.Application do
       [
         KnowseekWeb.Telemetry,
         Knowseek.Repo,
+        # The search log's writer: a supervised in-process writer, the second
+        # exception to rule 6 (the request only sends it a message; ADR 0031).
+        Knowseek.Activity.Recorder,
         {DNSCluster, query: Application.get_env(:knowseek, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Knowseek.PubSub},
         # Before its callers (discovery jobs, the entity cache): every

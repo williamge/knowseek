@@ -13,6 +13,9 @@ defmodule KnowseekWeb.Router do
     get "/cards", CardController, :show
 
     resources "/documents", DocumentController, only: [:index, :show, :create]
+
+    get "/stats", StatsController, :show
+    delete "/searches", StatsController, :clear_searches
   end
 
   # Enable LiveDashboard in development

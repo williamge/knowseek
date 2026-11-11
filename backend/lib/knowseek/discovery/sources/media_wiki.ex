@@ -44,6 +44,11 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   `:license`, credit `:credit` with a link to the page, `modified: true` (a
   plain-text extract, maybe cut) and `share: "full"`.
 
+  `discover/3` takes the `:on_bytes` option of `Knowseek.Discovery.Source`:
+  a response step reports the size of each response body as received (still
+  compressed, once per attempt, headers not counted). The source only calls
+  the function; `Knowseek.Discovery` owns it (rule 3, ADR 0031).
+
   Configuration, under the source module's key (all optional):
 
       config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
@@ -90,11 +95,15 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   # A page that transcludes this many main-namespace pages is a compilation.
   @compilation_min_pages 2
 
-  @doc "Finds the top pages of `site` for `query`. See the module doc."
-  @spec discover(String.t(), site()) ::
+  @doc """
+  Finds the top pages of `site` for `query`. See the module doc. `opts` may
+  hold `:on_bytes`, called with the body size of every response (see
+  `Knowseek.Discovery.Source`).
+  """
+  @spec discover(String.t(), site(), keyword()) ::
           {:ok, [Knowseek.Discovery.Source.candidate()]} | {:error, term()}
-  def discover(query, site) do
-    config = config(site)
+  def discover(query, site, opts \\ []) do
+    config = config(site, opts)
 
     with {:ok, pageids} <- search_all(query, site, config) do
       collect_pages(pageids, site, config)
@@ -311,6 +320,7 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
         receive_timeout: 15_000
       )
       |> Req.merge(config[:req_options])
+      |> count_bytes(config[:on_bytes])
 
     # A background caller of the shared Wikimedia slots (ADR 0027). Req's
     # retries, and their waits, keep the slot.
@@ -332,9 +342,23 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
     end
   end
 
-  defp config(site) do
+  # Reports the size of every response body as it arrived: still compressed,
+  # before Req decodes it, once per attempt (the step runs before `retry`).
+  defp count_bytes(request, nil), do: request
+
+  defp count_bytes(request, on_bytes) do
+    Req.Request.prepend_response_steps(request,
+      count_bytes: fn {request, response} ->
+        if is_binary(response.body), do: on_bytes.(byte_size(response.body))
+        {request, response}
+      end
+    )
+  end
+
+  defp config(site, opts) do
     @defaults
     |> Keyword.put(:base_url, site.base_url)
     |> Keyword.merge(Application.get_env(:knowseek, site.config, []))
+    |> Keyword.put(:on_bytes, opts[:on_bytes])
   end
 end

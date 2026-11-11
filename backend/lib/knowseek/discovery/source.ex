@@ -34,7 +34,13 @@ defmodule Knowseek.Discovery.Source do
   @doc "Short stable name. Stored in `documents.source`."
   @callback name() :: String.t()
 
-  @doc "Finds documents relevant to `query`."
+  @doc """
+  Finds documents relevant to `query`.
+
+  `opts` may hold `:on_bytes`, a function of one argument. A source that
+  downloads calls it with the body size in bytes of every HTTP response it
+  receives. It must not write anything itself (rule 3).
+  """
   @callback discover(query :: String.t(), opts :: keyword()) ::
               {:ok, [candidate()]} | {:error, term()}
 end

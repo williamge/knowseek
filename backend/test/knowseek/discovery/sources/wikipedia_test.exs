@@ -9,6 +9,15 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
   defp fixture(name), do: @fixtures |> Path.join(name) |> File.read!() |> Jason.decode!()
 
+  # The payloads of the `{tag, payload}` messages in the test's mailbox, in order.
+  defp messages(tag) do
+    receive do
+      {^tag, payload} -> [payload | messages(tag)]
+    after
+      0 -> []
+    end
+  end
+
   # Answers like the MediaWiki API, from the recorded fixtures.
   defp stub_api(search \\ fixture("search.json")) do
     Req.Test.stub(Wikipedia, fn conn ->
@@ -184,6 +193,37 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       stub_api(fixture("error_missingparam.json"))
 
       assert {:error, {:api_error, "missingparam"}} = Wikipedia.discover("", [])
+    end
+  end
+
+  describe "discover/2 with :on_bytes" do
+    test "reports the size of every response body, and works without it" do
+      test_pid = self()
+
+      Req.Test.stub(Wikipedia, fn conn ->
+        body =
+          case Plug.Conn.fetch_query_params(conn).query_params do
+            %{"list" => "search"} -> fixture("search.json")
+            %{"pageids" => id} -> fixture("page_#{id}.json")
+          end
+
+        json = Jason.encode!(body)
+        send(test_pid, {:sent, byte_size(json)})
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(200, json)
+      end)
+
+      assert {:ok, [_, _]} =
+               Wikipedia.discover("pgvector", on_bytes: &send(test_pid, {:bytes, &1}))
+
+      # One search and two pages.
+      sent = messages(:sent)
+      assert length(sent) == 3
+      assert messages(:bytes) == sent
+
+      assert {:ok, [_, _]} = Wikipedia.discover("pgvector", [])
     end
   end
 

@@ -191,6 +191,22 @@ defmodule Knowseek.SearchTest do
       assert length(hit.passages) == 2
     end
 
+    test "a hit carries the best chunk's position and the document's origin; passages their position" do
+      document = document_fixture(body: long_body("octopus", 6), origin: "background")
+      assert {:ok, %{hits: [hit]}} = Search.search("octopus")
+
+      positions =
+        Repo.all(from c in Knowseek.Documents.Chunk, select: {c.id, c.position})
+        |> Map.new()
+
+      assert hit.document_id == document.id
+      assert hit.origin == "background"
+      assert hit.position == positions[hit.chunk_id]
+      assert hit.passages != []
+      assert Enum.all?(hit.passages, &(&1.position == positions[&1.chunk_id]))
+      assert length(Enum.uniq([hit.position | Enum.map(hit.passages, & &1.position)])) > 1
+    end
+
     test "a single-chunk document has no passages" do
       document_fixture(body: "The octopus has three hearts.")
       assert {:ok, %{hits: [%Hit{passages: []}]}} = Search.search("octopus")

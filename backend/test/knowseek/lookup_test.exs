@@ -1,8 +1,9 @@
 defmodule Knowseek.LookupTest do
   use Knowseek.DataCase, async: false
 
+  alias Knowseek.Activity.{SearchHit, SearchRecord}
   alias Knowseek.Discovery.SeekWorker
-  alias Knowseek.Lookup
+  alias Knowseek.{Lookup, Search}
 
   test "enqueues discovery when coverage is not sufficient" do
     {:ok, result} = Lookup.run("deep sea vents")
@@ -41,5 +42,39 @@ defmodule Knowseek.LookupTest do
     assert result.coverage == :none
     assert {:enqueued, _job_id} = result.discovery
     assert_enqueued(worker: SeekWorker, args: %{"query" => "tidal energy"})
+  end
+
+  describe "the search log" do
+    test "a run is logged with the normalized query, its coverage and the hits' documents" do
+      documents = for i <- 1..3, do: document_fixture(body: "Hydrothermal vents, part #{i}.")
+
+      {:ok, result} = Lookup.run("  Hydrothermal   VENTS ")
+      _ = :sys.get_state(Knowseek.Activity.Recorder)
+
+      assert [%SearchRecord{query: "hydrothermal vents", coverage: "sufficient"} = search] =
+               Repo.all(SearchRecord)
+
+      logged = Repo.all(from h in SearchHit, where: h.search_id == ^search.id, order_by: h.rank)
+      assert Enum.map(logged, & &1.document_id) == Enum.map(result.hits, & &1.document_id)
+
+      assert Enum.sort(Enum.map(logged, & &1.document_id)) ==
+               Enum.sort(Enum.map(documents, & &1.id))
+    end
+
+    test "a run without hits is logged with coverage none" do
+      {:ok, _result} = Lookup.run("deep sea vents")
+      _ = :sys.get_state(Knowseek.Activity.Recorder)
+
+      assert [%SearchRecord{query: "deep sea vents", coverage: "none"}] = Repo.all(SearchRecord)
+    end
+
+    test "Search.search/2 called directly logs nothing" do
+      document_fixture(body: "Hydrothermal vents, part 1.")
+
+      {:ok, _result} = Search.search("hydrothermal vents")
+      _ = :sys.get_state(Knowseek.Activity.Recorder)
+
+      assert Repo.all(SearchRecord) == []
+    end
   end
 end

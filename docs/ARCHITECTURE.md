@@ -26,17 +26,17 @@ All modules live in `backend/lib/knowseek/`.
 
 | Module | Responsibility |
 | --- | --- |
-| `Knowseek.Lookup` | Entry point for a query. Searches, then requests discovery if coverage is not sufficient. |
+| `Knowseek.Lookup` | Entry point for a query. Searches, hands the search to `Knowseek.Activity.record_search/4` (a message, no write; ADR 0031), then requests discovery if coverage is not sufficient. |
 | `Knowseek.Search` | Read-only hybrid search over chunks. Full-text (FTS5 `chunks_fts`, ranked by `bm25`, with the query built by `Search.FtsQuery`) and vector (sqlite-vec `chunk_vectors`, cosine, an exact scan) results are merged with reciprocal rank fusion. Chunks that are not relevant are dropped, so an uncovered query returns no hits. The rest are grouped by document: one hit per document, scored by its best chunk (never a sum), with up to `max_passages` other matching chunks in `passages` (`chunk_id`, `content`, `score`). Then a bounded prior from the document's `monthly_views` multiplies that score and the hits are sorted again (see "Ranking prior"). See "Search index" and [ADR 0030](decisions/0030-sqlite-single-datastore.md). |
 | `Knowseek.Search.FtsQuery` | Pure: turns the query text into an FTS5 `MATCH` expression, the way Postgres's `websearch_to_tsquery` read it. Every word is quoted (no user text reaches FTS5 as syntax) and ANDed; Postgres's English stop words are dropped outside phrases; `"a phrase"`, `or` and `-word` are translated. `nil` when nothing is left: the search then has no keyword list. |
 | `Knowseek.Search.Coverage` | Pure heuristic that classifies a hit list as `:sufficient`, `:partial`, or `:none`. Each hit is one document, so it counts documents with a relevant, fresh hit. With `max_age_seconds`, it counts only documents whose `fetched_at` is within that many seconds. |
-| `Knowseek.Documents` | The only write path into the index. Validates, canonicalizes the URL, chunks, embeds, and stores documents. Re-ingesting a URL updates it. `source_updated_at` (when the source says the page was last edited) is stored like `monthly_views`: a candidate without it leaves the stored value alone, and an unchanged body still updates it, because the field means "the source says last edited" and not "our text changed". The license fields (`license`, `attribution`, `modified`, `share`, [ADR 0026](decisions/0026-per-document-license-fields.md)) follow the same rule; a new document without them is `LicenseRef-unknown` and `share: none`. A body that is long enough (`min_alias_body_length/0`) and already stored under another URL is not a new document: the URL becomes an alias of the stored one, and only that document's `fetched_at` moves (a document that has only a `urn:` URL takes the real URL instead). An alias URL that later serves a different body loses its alias and becomes a new document. An unchanged body at a document's own URL is not re-chunked or re-embedded, but the other fields and `fetched_at` are updated. See `docs/decisions/0013-url-canonicalization-and-aliases.md`. |
+| `Knowseek.Documents` | The only write path into the index. Validates, canonicalizes the URL, chunks, embeds, and stores documents. Re-ingesting a URL updates it. `source_updated_at` (when the source says the page was last edited) is stored like `monthly_views`: a candidate without it leaves the stored value alone, and an unchanged body still updates it, because the field means "the source says last edited" and not "our text changed". The license fields (`license`, `attribution`, `modified`, `share`, [ADR 0026](decisions/0026-per-document-license-fields.md)) follow the same rule; a new document without them is `LicenseRef-unknown` and `share: none`. A body that is long enough (`min_alias_body_length/0`) and already stored under another URL is not a new document: the URL becomes an alias of the stored one, and only that document's `fetched_at` moves (a document that has only a `urn:` URL takes the real URL instead). An alias URL that later serves a different body loses its alias and becomes a new document. An unchanged body at a document's own URL is not re-chunked or re-embedded, but the other fields and `fetched_at` are updated. See `docs/decisions/0013-url-canonicalization-and-aliases.md`. `origin` (`search`, `background`, `manual`) and `origin_query` say why a page was first fetched; they are write-once, set only for a new document (a new document without them is `manual`), and `count_by_origin/0` counts the pages of each origin (ADR 0031). |
 | `Knowseek.Documents.URL` | Pure URL canonicalization: lowercase scheme and host, no fragment, no default port, no tracking parameters (`utm_*`, `fbclid`, ...), sorted query. The tracking list lives there. |
 | `Knowseek.Documents.Chunker` | Splits a body into chunks of at most ~1200 characters on paragraph and word boundaries. |
 | `Knowseek.Embeddings` | Behaviour plus dispatcher for embedding providers. Takes `input_type: :document \| :query`. Adapters, selected by `EMBEDDINGS_ADAPTER`: `Embeddings.Ollama` (local `bge-m3` through Ollama, free; the default, ADR 0016), `Embeddings.Hashing` (local stand-in, no semantics; the opt-out and the adapter in tests), `Embeddings.Voyage` (Voyage AI API). |
-| `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates. |
+| `Knowseek.Discovery` | Enqueues and runs discovery. Calls each configured `Discovery.Source` and ingests the candidates, each with `origin: "search"` and the normalized query as `origin_query` (a source never sets them). Around each source it counts the downloaded bytes in memory (the `:on_bytes` option of `discover/2`) and, after the source returned (also after a failure), records the total with `Activity.record_bytes/2` (ADR 0031). |
 | `Knowseek.Discovery.Source` | Behaviour for an external data source. |
-| `Knowseek.Discovery.Sources.MediaWiki` | The shared MediaWiki Action API code of the Wikipedia and Wikibooks sources (ADR 0029). Given a site (source name, `api.php` URL, license, credit, config key, optionally `search_namespaces`), it searches and returns the plain text of the top 3 pages, capped at ~40k characters each, with each page's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions`). It searches the main namespace, or one search per namespace in `search_namespaces`, earlier namespaces' pages first, without duplicates. Each page is credited to the site with a link to the page, `modified` and `share: full` (ADR 0026). Skips disambiguation pages. Its requests are `:background` callers of `Knowseek.Wikimedia`. |
+| `Knowseek.Discovery.Sources.MediaWiki` | The shared MediaWiki Action API code of the Wikipedia and Wikibooks sources (ADR 0029). Given a site (source name, `api.php` URL, license, credit, config key, optionally `search_namespaces`), it searches and returns the plain text of the top 3 pages, capped at ~40k characters each, with each page's views per 30 days (`monthly_views`, from `prop=pageviews` in the same request) and the time of its latest revision (`source_updated_at`, from `prop=revisions`). It searches the main namespace, or one search per namespace in `search_namespaces`, earlier namespaces' pages first, without duplicates. Each page is credited to the site with a link to the page, `modified` and `share: full` (ADR 0026). Skips disambiguation pages. Its requests are `:background` callers of `Knowseek.Wikimedia`. `discover/3` takes `:on_bytes`: a Req response step reports the size of each response body as received (compressed, once per attempt, headers not counted). |
 | `Knowseek.Discovery.Sources.Wikipedia` | English Wikipedia over `MediaWiki`, for every query. `CC-BY-SA-4.0`, credit "Wikipedia". |
 | `Knowseek.Discovery.Sources.Wikibooks` | English Wikibooks over `MediaWiki`, only for a question (`question?/1`: ends with `?`, or starts with how, why, can, could, should, do I, is it, what's the best; ADR 0029). It searches without the question lead-in (`search_text/1`: "how do i cook eggs" searches "cook eggs"), twice: the Cookbook namespace (102, recipes such as *Cookbook:Hard Cooked Eggs*) first, then the main namespace; recipes come first and keep their `Cookbook:` title. It skips compilations: pages that transclude 2 or more main-namespace pages, such as print versions. `CC-BY-SA-4.0`, credit "Wikibooks". Its page views are on Wikibooks' smaller scale. |
 | `Knowseek.Entities` | Entity resolution (task 030, ADR 0017). `resolve(query, opts)` turns a query into `{:ok, %{intent, entity, alternatives}}`, `:none`, `{:pending, query}` (cold cache) or `{:error, reason}`. It reads only the cache; a cold query starts one background fetch. `Entities.Intent` splits `weather in <place>` and `<place> weather` into intent `:weather` and the place. `Entities.Resolver` is the behaviour for a resolver; `Entities.Wikidata` (`wbsearchentities` for candidates, one `wbgetentities` for claims) is the configured one. The top entity is the first candidate whose type a card provider handles (`kind/1`, the `supported_types` config); the other candidates of that kind, at most 5, are the alternatives. The cache holds the candidates, and the top entity is chosen when the answer is read: for the weather intent a place is chosen by sitelinks (`weather in new york` is the city, not the state; ADR 0022). `Entities.Entity` is the struct. |
@@ -44,7 +44,9 @@ All modules live in `backend/lib/knowseek/`.
 | `Knowseek.Cards` | Live fact cards (task 031, ADR 0017). `get(entity, opts)` returns `:none` (no provider handles the entity) or `%{status, type, title, facts, as_of, refresh_after_ms}` with status `fresh`, `stale`, `pending` or `unavailable`. It reads only the cache and never calls a provider: a cold or expired card starts one background fetch. `Cards.Provider` is the behaviour (`handles?/1`, `fetch/1` returning `{:ok, card, ttl_ms}`); the providers are the `providers` config. `Cards.Providers.Nba` (with `Cards.Balldontlie`, the HTTP client) makes the NBA team card (ADR 0028). Each provider has its own cache (`cache_name/1`). `Cards.Providers.OpenMeteo` (with `Cards.OpenMeteo`) makes the weather card of a place (task 033, ADR 0022); a provider that defines the optional `intent/0` is used only when the query carried that intent (`get/2` option `:intent`). |
 | `Knowseek.RateLimiter` | An in-memory token bucket per key (task 039, ADR 0023): `hit(key, limit, window_ms)` returns `:ok` or `{:error, retry_after_ms}`. One process owns the buckets; full ones are swept, at most `max_buckets` are kept. Only `KnowseekWeb.Plugs.RateLimit` calls it. |
 | `Knowseek.Wikimedia` | The cap on Wikimedia requests at once (ADR 0027): 3 slots across Wikipedia, Wikibooks and Wikidata. `run(class, fun)` holds a slot while `fun` runs. `Entities.Wikidata` is `:interactive` (served first, any slot); the `Discovery.Sources.MediaWiki` sources are `:background` (at most 2 slots). |
-| `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. `CardController` (`GET /api/cards?q=`) composes `Entities.resolve/2` and `Cards.get/2`. `Plugs.RateLimit` (an endpoint plug before the body parsers) limits the three anonymous endpoints per client (`ClientIp` decides who the client is). |
+| `Knowseek.Activity` | A local record (#96, ADR 0031): every search (normalized query, first coverage, the top 10 hits down to the chunk position), the bytes each discovery source downloads per UTC day, and `stats/1`, the numbers over both and over the pages' origins. `record_search/4` only sends a message to `Activity.Recorder`; `record_bytes/3` is a direct upsert called by discovery jobs. Internal: `SearchLog` (the writes), the schemas `SearchRecord`, `SearchHit`, `NetworkUsage`. It never reads `documents` (it asks `Documents.count_by_origin/0`). |
+| `Knowseek.Activity.Recorder` | The supervised in-process writer of the search log, a second exception to rule 6 next to `Knowseek.Cache`. No state; one per node. See "Activity record". |
+| `KnowseekWeb.*` | JSON API. Controllers are thin and call the contexts above. `CardController` (`GET /api/cards?q=`) composes `Entities.resolve/2` and `Cards.get/2`. `StatsController` (`GET /api/stats`, `DELETE /api/searches`) calls `Activity`. `Plugs.RateLimit` (an endpoint plug before the body parsers) limits the three anonymous endpoints per client (`ClientIp` decides who the client is). |
 | `frontend/` | Web UI (Vite, React, TypeScript). A client of the JSON API. See below. |
 
 ## Web UI
@@ -52,6 +54,8 @@ All modules live in `backend/lib/knowseek/`.
 `frontend/` holds a single-page app. In development, Vite serves it and proxies `/api` to the Phoenix API, so the browser sees one origin and the API needs no CORS. The app keeps its state in the URL (`/?q=...&doc=...`), so searches can be shared.
 
 Because the API does not yet tell callers when discovery finishes ([#49](https://github.com/williamge/knowseek/issues/49)), the UI watches the index. After a search that enqueued discovery, it polls `GET /api/documents` for new document ids. When some arrive, it searches again and marks the new results. It stops when no new documents arrive for a while, or after 90 seconds. Issue [#49](https://github.com/williamge/knowseek/issues/49) replaces this polling. See `docs/decisions/0008-web-frontend.md`.
+
+The app has one page besides search: `/stats` (`StatsPage.tsx`, from `GET /api/stats`): searches per day with their coverage mix, pages by origin, hit share, the database file's size and the network bytes per day and source, and a button that clears the search history. A row of links at the bottom of every page (`SiteNav.tsx`) opens it, and the wordmark returns home. Pages are routed by path (`PAGE_PATHS` in `router.ts`).
 
 ## Data model
 
@@ -75,6 +79,8 @@ erDiagram
         text attribution "JSON, nullable; url, credit, authors (ADR 0026)"
         boolean modified "text differs from the source's; default false (ADR 0026)"
         string share "full, pointer or none (CHECK); default none (ADR 0026)"
+        string origin "search, background or manual (CHECK); default manual; write-once (ADR 0031)"
+        text origin_query "nullable; the normalized query whose discovery fetched the page; write-once"
     }
     document_aliases {
         uuid id
@@ -87,6 +93,25 @@ erDiagram
         uuid document_id "on delete cascade"
         int position
         text content
+    }
+    searches ||--o{ search_hits : has
+    searches {
+        integer id "INTEGER PRIMARY KEY"
+        text query "normalized, at most 500 characters"
+        string coverage "sufficient, partial or none, as first assessed"
+        timestamp inserted_at "when first made"
+    }
+    search_hits {
+        integer search_id "on delete cascade; key part"
+        integer rank "1 to 10; key part"
+        uuid document_id "no foreign key: the history survives a deleted document"
+        text positions "JSON array: chunks.position of the best chunk, then the passages"
+        boolean background "the document's origin was background when logged"
+    }
+    network_usage {
+        date day "UTC; key part"
+        string source "key part"
+        bigint bytes "response body bytes as received"
     }
     chunks ||--|| chunk_vectors : "seq = rowid"
     chunks ||--|| chunks_fts : "seq = rowid"
@@ -107,6 +132,17 @@ The database is one SQLite file (ADR 0030): `backend/data/knowseek_dev.db` in de
 `chunks_fts` and `chunk_vectors` are virtual tables keyed on `chunks.seq`. `chunks_fts` is an FTS5 external-content table (the text is stored once, in `chunks`); `chunk_vectors` is a sqlite-vec `vec0` table of float32 vectors. Triggers on `chunks` keep both in step: an insert adds the full-text entry, a delete (also through the cascade from `documents`) removes the full-text entry and the vector, an update of `content` replaces the full-text entry. `Documents.ingest/1` inserts the chunks with `RETURNING seq, position` and then their vectors, in one transaction. There is no approximate index: a vector search compares the query with every vector (about 2 ms per 1,000 chunks on sqlite-vec 0.1.9), so there are no dead entries and nothing to vacuum or reindex. The vector list is capped at 4,096 candidates (sqlite-vec's `k` limit).
 
 `Knowseek.Repo` loads the sqlite-vec extension (v0.1.9, `priv/sqlite_vec/vec0`) into every connection; `mix sqlite_vec.fetch` downloads it and checks its SHA-256. Every transaction starts IMMEDIATE (one writer at a time; a reader never waits, WAL mode).
+
+## Activity record
+
+[ADR 0031](decisions/0031-activity-record.md). A local record to judge whether crawling is worth it.
+
+- **The search log.** `Lookup.run/2` sends each successful search to `Knowseek.Activity.Recorder` (`Activity.record_search/4`, a `GenServer.cast`) and returns. The recorder writes the `searches` row and up to 10 `search_hits` outside the request, so a search never takes the write lock for the log. A write that fails is logged as a warning and dropped; the recorder never crashes on it. `Search.search/2` called directly logs nothing.
+- **One search.** A search with the same normalized query as a logged search less than 120 seconds old is the same search (the UI repeats a search while discovery runs): the row keeps its time and first coverage and takes the newest hits. The recorder checks the newest 20 rows.
+- **Hits** store the document id (no foreign key), the `chunks.position` of the best chunk and of the passages shown, and `background` (the document's origin was `background`). `Search.Hit` carries `position` and `origin` for this; the search response (`SearchJSON`) does not show them.
+- **The byte counter.** `Discovery` gives each source `on_bytes`, a function that adds to an in-memory counter; the source calls it with the body size of every response. After the source returned, `Discovery` writes the total to `network_usage` (per UTC day and source). Only discovery sources are counted, not cards, Wikidata or embeddings.
+- **Hit share:** the background pages that appeared in the top results of a logged search, out of all background pages. Nothing writes background pages yet (#89), so it is 0 of 0.
+- **`GET /api/stats`** reads all of it (searches per day by coverage and pages by origin, the database file's size, network per day and source, hit share), over the last 30 UTC days. `DELETE /api/searches` clears the log.
 
 ## Background jobs (Oban)
 
@@ -223,6 +259,7 @@ Behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy's network (for exampl
 - No authentication and no users. The anonymous endpoints are rate-limited per client address (ADR 0023), which does not stop a flood from many addresses.
 - The caller is not told when discovery finishes. The web UI polls for new documents instead.
 - Vector search is an exact scan: its time grows with the chunk count (about 200 ms at 100,000 chunks on sqlite-vec 0.1.9). Past that it needs int8 vectors or an approximate index ([#79](https://github.com/williamge/knowseek/issues/79)).
-- One writer at a time (SQLite). Ingests queue for the write lock; searches never wait.
+- One writer at a time (SQLite). Ingests queue for the write lock; searches never wait: the search log is written by `Activity.Recorder`, outside the request.
+- The search log is best effort: a search handed over just before a crash or restart can miss its row, and a row is dropped when the write fails (ADR 0031).
 
 Open work is tracked in [GitHub Issues](https://github.com/williamge/knowseek/issues).

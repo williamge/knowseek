@@ -1,12 +1,33 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ComponentType } from "react";
 import { DocumentReader } from "./components/DocumentReader";
 import { FactCard } from "./components/FactCard";
 import { RecentDocuments } from "./components/RecentDocuments";
 import { ResultsView } from "./components/ResultsView";
 import { SearchBox } from "./components/SearchBox";
-import { parseRoute, useRoute } from "./router";
+import { SiteNav } from "./components/SiteNav";
+import { StatsPage } from "./components/StatsPage";
+import { parseRoute, useRoute, type Page } from "./router";
 import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
 import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
+
+/** The pages other than search, by `Page` (`router.ts`). They take no props. */
+const PAGES: Record<Page, ComponentType> = { stats: StatsPage };
+
+/** The wordmark: a link to the home page. */
+function HomeLink({ onHome }: { onHome: () => void }) {
+  return (
+    <a
+      className="wordmark wordmark--small"
+      href="/"
+      onClick={(event) => {
+        event.preventDefault();
+        onHome();
+      }}
+    >
+      knowseek
+    </a>
+  );
+}
 
 export function App({
   watch = DEFAULT_WATCH,
@@ -28,7 +49,7 @@ export function App({
       if (route.query === query && !route.doc) {
         setRefreshKey((key) => key + 1);
       } else {
-        navigate({ query, doc: null });
+        navigate({ page: null, query, doc: null });
       }
     },
     [navigate, route],
@@ -40,11 +61,22 @@ export function App({
     if ((window.history.state as { reader?: boolean } | null)?.reader) window.history.back();
     else navigate({ ...parseRoute(window.location), doc: null }, { replace: true });
   }, [navigate]);
-  const home = !route.query;
+  const SubPage = route.page ? PAGES[route.page] : null;
+  const goHome = () => navigate({ page: null, query: null, doc: null });
+  const home = !SubPage && !route.query;
 
   return (
     <div className={`app${home ? " app--home" : ""}`}>
-      {home ? (
+      {SubPage ? (
+        <>
+          <header className="topbar">
+            <HomeLink onHome={goHome} />
+          </header>
+          <main className="page">
+            <SubPage />
+          </main>
+        </>
+      ) : home ? (
         <main className="hero">
           <h1 className="wordmark">knowseek</h1>
           <p className="tagline">
@@ -59,16 +91,7 @@ export function App({
       ) : (
         <>
           <header className="topbar">
-            <a
-              className="wordmark wordmark--small"
-              href="/"
-              onClick={(event) => {
-                event.preventDefault();
-                navigate({ query: null, doc: null });
-              }}
-            >
-              knowseek
-            </a>
+            <HomeLink onHome={goHome} />
             <SearchBox variant="compact" initialQuery={route.query ?? ""} onSearch={runSearch} />
           </header>
           <main className="page">
@@ -79,6 +102,8 @@ export function App({
       )}
 
       {route.doc && <DocumentReader id={route.doc} query={route.query} onClose={closeDocument} />}
+
+      <SiteNav current={route.page} navigate={navigate} />
     </div>
   );
 }
