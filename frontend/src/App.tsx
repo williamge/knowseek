@@ -1,4 +1,5 @@
 import { useCallback, useState, type ComponentType } from "react";
+import { CrawlPage } from "./components/CrawlPage";
 import { BlockedLinksPage } from "./components/BlockedLinksPage";
 import { DocumentReader } from "./components/DocumentReader";
 import { FactCard } from "./components/FactCard";
@@ -11,9 +12,16 @@ import { parseRoute, useRoute, type Page } from "./router";
 import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
 import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
 
-/** The pages other than search, by `Page` (`router.ts`). They take no props. */
-const PAGES: Record<Page, ComponentType> = {
+/** What a page other than search may use from the app. */
+interface SubPageProps {
+  /** Opens a stored document in the reader, over the page. */
+  onOpenDocument: (id: string) => void;
+}
+
+/** The pages other than search, by `Page` (`router.ts`). */
+const PAGES: Record<Page, ComponentType<SubPageProps>> = {
   stats: StatsPage,
+  crawl: CrawlPage,
   "blocked-links": BlockedLinksPage,
 };
 
@@ -77,7 +85,7 @@ export function App({
             <HomeLink onHome={goHome} />
           </header>
           <main className="page">
-            <SubPage />
+            <SubPage onOpenDocument={openDocument} />
           </main>
         </>
       ) : home ? (

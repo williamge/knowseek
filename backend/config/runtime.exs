@@ -52,6 +52,22 @@ if config_env() != :test do
          Knowseek.Embeddings.Voyage,
          set.(api_key: env.("VOYAGE_API_KEY"), model: env.("VOYAGE_MODEL"))
 
+  # The background crawl (#89). CRAWL_MODE: off, preview (the default: it reads
+  # and scores links but fetches nothing) or on (fetching arrives in a later
+  # change: until then it acts as preview). CRAWL_IDLE_SECONDS: how long after
+  # the last search the crawl may start (default 600).
+  case env.("CRAWL_MODE") do
+    nil -> :ok
+    "off" -> config :knowseek, Knowseek.Crawl, mode: :off
+    "preview" -> config :knowseek, Knowseek.Crawl, mode: :preview
+    "on" -> config :knowseek, Knowseek.Crawl, mode: :on
+    other -> raise "unknown CRAWL_MODE #{inspect(other)}; use off, preview, or on"
+  end
+
+  if seconds = env.("CRAWL_IDLE_SECONDS") do
+    config :knowseek, Knowseek.Crawl, idle_seconds: String.to_integer(seconds)
+  end
+
   case env.("EMBEDDINGS_ADAPTER") do
     nil ->
       :ok

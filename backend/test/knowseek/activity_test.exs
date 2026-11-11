@@ -241,4 +241,67 @@ defmodule Knowseek.ActivityTest do
       assert %{hit_share: %{background_pages: 2, hit_pages: 1}} = stats()
     end
   end
+
+  describe "result_pages/1" do
+    test "lists the appearances of a page with query, rank and single" do
+      a = document_fixture()
+      b = document_fixture()
+      logged_search_fixture(query: "pair", documents: [a, b], now: @t0)
+      logged_search_fixture(query: "solo", documents: [b], now: DateTime.add(@t0, 300))
+
+      pages = Activity.result_pages(now: DateTime.add(@t0, 600))
+
+      assert [%{query: "pair", rank: 1, single: false}] = pages[a.id]
+
+      assert [
+               %{query: "solo", rank: 1, single: true},
+               %{query: "pair", rank: 2, single: false}
+             ] = pages[b.id]
+    end
+
+    test "leaves out background hits" do
+      background = document_fixture(origin: "background")
+      searched = document_fixture()
+      logged_search_fixture(documents: [background, searched], now: @t0)
+
+      pages = Activity.result_pages(now: @t0)
+
+      refute Map.has_key?(pages, background.id)
+      assert Map.has_key?(pages, searched.id)
+    end
+
+    test "leaves out searches older than the window, and :days widens it" do
+      doc = document_fixture()
+      logged_search_fixture(documents: [doc], now: @t0)
+      later = DateTime.add(@t0, 40 * 86_400)
+
+      assert Activity.result_pages(now: later) == %{}
+      assert %{} = pages = Activity.result_pages(now: later, days: 60)
+      assert Map.has_key?(pages, doc.id)
+    end
+
+    test "is empty without searches" do
+      assert Activity.result_pages(now: @t0) == %{}
+    end
+  end
+
+  describe "last_search_at/0" do
+    test "is nil without searches" do
+      assert Activity.last_search_at() == nil
+    end
+
+    test "is the time of the newest search" do
+      logged_search_fixture(query: "old", now: @t0)
+      logged_search_fixture(query: "new", now: DateTime.add(@t0, 3600))
+
+      assert Activity.last_search_at() == DateTime.add(@t0, 3600)
+    end
+
+    test "a repeat within 120 seconds keeps the first time" do
+      logged_search_fixture(query: "kelp", now: @t0)
+      logged_search_fixture(query: "kelp", now: DateTime.add(@t0, 60))
+
+      assert Activity.last_search_at() == @t0
+    end
+  end
 end

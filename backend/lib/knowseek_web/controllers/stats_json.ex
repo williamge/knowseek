@@ -1,7 +1,7 @@
 defmodule KnowseekWeb.StatsJSON do
-  @moduledoc "JSON for `Knowseek.Activity.stats/1`. Dates are ISO strings."
+  @moduledoc "JSON for `Knowseek.Activity.stats/1` and `Knowseek.Crawl.stats/1`. Dates are ISO strings."
 
-  def show(%{stats: stats}) do
+  def show(%{stats: stats, crawl: crawl}) do
     %{
       data: %{
         searches: %{
@@ -16,7 +16,8 @@ defmodule KnowseekWeb.StatsJSON do
         disk_bytes: stats.disk_bytes,
         network:
           Enum.map(stats.network, &Map.update!(&1, :day, fn day -> Date.to_iso8601(day) end)),
-        hit_share: stats.hit_share
+        hit_share: stats.hit_share,
+        crawl: crawl
       }
     }
   end

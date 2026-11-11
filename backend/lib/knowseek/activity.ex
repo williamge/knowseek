@@ -168,6 +168,56 @@ defmodule Knowseek.Activity do
     bytes
   end
 
+  @typedoc "One time a page was in the logged results of a search."
+  @type appearance :: %{
+          query: String.t(),
+          rank: pos_integer(),
+          single: boolean(),
+          at: DateTime.t()
+        }
+
+  @doc """
+  The pages in the logged results of the searches of the last `:days`
+  (default 30), each with its appearances, newest first. Background pages
+  are left out (a hit whose `background` is true). `single` is true when the
+  search had exactly one result. Option `:now` sets the time (tests). The
+  background crawl (#89) takes its source pages from here.
+  """
+  @spec result_pages(keyword()) :: %{Ecto.UUID.t() => [appearance()]}
+  def result_pages(opts \\ []) do
+    days = Keyword.get(opts, :days, @window_days)
+    now = Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:second) end)
+    since = DateTime.add(now, -days * 86_400, :second)
+
+    Repo.all(
+      from h in SearchHit,
+        join: s in SearchRecord,
+        on: s.id == h.search_id,
+        where: s.inserted_at >= ^since and not h.background,
+        order_by: [desc: s.inserted_at, desc: s.id, asc: h.rank],
+        select: {
+          h.document_id,
+          %{query: s.query, rank: h.rank, at: s.inserted_at},
+          fragment("(SELECT count(*) FROM search_hits AS a WHERE a.search_id = ?)", s.id)
+        }
+    )
+    |> Enum.group_by(
+      fn {document_id, _appearance, _hits} -> document_id end,
+      fn {_document_id, appearance, hits} -> Map.put(appearance, :single, hits == 1) end
+    )
+  end
+
+  @doc """
+  When the newest logged search was made, or `nil`. A repeat within 120
+  seconds keeps the first time.
+  """
+  @spec last_search_at() :: DateTime.t() | nil
+  def last_search_at do
+    Repo.one(
+      from s in SearchRecord, order_by: [desc: s.inserted_at], limit: 1, select: s.inserted_at
+    )
+  end
+
   defp hit_pages do
     Repo.one(from h in SearchHit, where: h.background, select: count(h.document_id, :distinct))
   end

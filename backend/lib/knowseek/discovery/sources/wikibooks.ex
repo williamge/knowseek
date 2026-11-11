@@ -22,7 +22,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   `monthly_views` are Wikibooks page views: the same unit as Wikipedia's,
   but one to two orders of magnitude smaller for the same subject (ADR 0029).
   `links/2` re-reads the external links of a stored page for the link
-  backfill (#88).
+  backfill (#88). `link_candidates/2` reads the pages it links to, in the
+  main and Cookbook namespaces, for the background crawl (#89).
 
   Configuration (all optional; see `Knowseek.Discovery.Sources.MediaWiki`):
 
@@ -44,7 +45,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
     credit: "Wikibooks",
     config: __MODULE__,
     skip_compilations: true,
-    search_namespaces: [102, 0]
+    search_namespaces: [102, 0],
+    link_namespaces: [0, 102]
   }
 
   @impl true
@@ -59,6 +61,9 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
 
   @impl true
   def links(document, opts), do: MediaWiki.links(document, @site, opts)
+
+  @impl true
+  def link_candidates(document, opts), do: MediaWiki.link_candidates(document, @site, opts)
 
   @doc """
   The text sent to the Wikibooks search for a question: `query` without its

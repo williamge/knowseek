@@ -18,6 +18,7 @@ defmodule KnowseekWeb.Router do
     delete "/searches", StatsController, :clear_searches
     get "/blocked-links", BlockedLinkController, :index
     post "/blocked-links/backfill", BlockedLinkController, :backfill
+    get "/crawl", CrawlController, :show
   end
 
   # Enable LiveDashboard in development

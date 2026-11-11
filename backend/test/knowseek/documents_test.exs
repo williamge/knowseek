@@ -788,4 +788,43 @@ defmodule Knowseek.DocumentsTest do
   # A candidate as a source builds it: no `:monthly_views` key without a figure.
   defp doc(url, nil), do: %{url: url, body: "same body", source: "test"}
   defp doc(url, views), do: Map.put(doc(url, nil), :monthly_views, views)
+
+  describe "indexed_page_ids/2" do
+    defp page_doc(source, pageid) do
+      document_fixture(source: source, metadata: %{"pageid" => pageid})
+    end
+
+    test "returns only ids of documents of the given source" do
+      page_doc("wikipedia", 11)
+      page_doc("other", 12)
+
+      assert Documents.indexed_page_ids("wikipedia", [11, 12, 13]) == MapSet.new([11])
+    end
+
+    test "is empty with no ids" do
+      page_doc("wikipedia", 21)
+      assert Documents.indexed_page_ids("wikipedia", []) == MapSet.new()
+    end
+
+    test "handles more than 500 ids" do
+      page_doc("wikipedia", 1)
+      page_doc("wikipedia", 900)
+
+      assert Documents.indexed_page_ids("wikipedia", Enum.to_list(1..1000)) ==
+               MapSet.new([1, 900])
+    end
+  end
+
+  describe "summaries/1" do
+    test "returns title and url of the existing ids only" do
+      doc = document_fixture(title: "Kelp", url: "https://example.com/kelp")
+
+      assert Documents.summaries([doc.id, Ecto.UUID.generate()]) ==
+               %{doc.id => %{title: "Kelp", url: "https://example.com/kelp"}}
+    end
+
+    test "is empty for no ids" do
+      assert Documents.summaries([]) == %{}
+    end
+  end
 end

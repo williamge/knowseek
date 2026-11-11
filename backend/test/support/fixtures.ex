@@ -347,6 +347,43 @@ defmodule Knowseek.Fixtures do
   end
 
   @doc """
+  A page the background crawl may read the links of (#89): a document of the
+  source `"crawl"` with origin `search`, the `pageid` in its metadata and an
+  allowlisted URL (`https://en.wikipedia.org/wiki/Page_<pageid>`), shown by one
+  logged search.
+
+  Attrs: `:pageid` (default unique), `:title`, `:query` (default unique), `:now`
+  (the time of the search), `:log` (default `true`; `false` logs no search) and
+  `:alongside`, the other documents shown in the same search: the page is rank 1,
+  and is the search's only result when `:alongside` is empty (default).
+  """
+  def crawl_source_fixture(attrs \\ %{}) do
+    attrs = Enum.into(attrs, %{})
+    n = System.unique_integer([:positive])
+    pageid = Map.get(attrs, :pageid, n)
+
+    document =
+      document_fixture(
+        url: "https://en.wikipedia.org/wiki/Page_#{pageid}",
+        title: Map.get(attrs, :title, "Page #{pageid}"),
+        body: "Body of source page #{pageid}.",
+        source: "crawl",
+        origin: "search",
+        metadata: %{"pageid" => pageid}
+      )
+
+    if Map.get(attrs, :log, true) do
+      logged_search_fixture(%{
+        query: Map.get_lazy(attrs, :query, fn -> "crawl query #{n}" end),
+        documents: [document | Map.get(attrs, :alongside, [])],
+        now: attrs[:now]
+      })
+    end
+
+    document
+  end
+
+  @doc """
   A decoded page response (for example `wikipedia/page_74020014.json`) with
   `extlinks` set on its first page: `urls`, as `prop=extlinks` returns them.
   With `elcontinue`, the response also carries the top-level `continue` of a

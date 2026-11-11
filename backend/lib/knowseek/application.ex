@@ -23,11 +23,14 @@ defmodule Knowseek.Application do
         # Wikimedia request takes one of its slots (ADR 0027).
         {Knowseek.Wikimedia,
          [name: Knowseek.Wikimedia] ++ Application.get_env(:knowseek, Knowseek.Wikimedia, [])},
-        {Oban, Application.fetch_env!(:knowseek, Oban)},
-        # In-memory, disposable caches with single-flight background refresh.
-        {Knowseek.Cache, [name: Knowseek.Entities.Cache] ++ cache_options(Knowseek.Entities)}
-        # One per card provider: a rate limit stops all fetches of a cache.
+        {Oban, Application.fetch_env!(:knowseek, Oban)}
       ] ++
+        crawl_scheduler() ++
+        [
+          # In-memory, disposable caches with single-flight background refresh.
+          {Knowseek.Cache, [name: Knowseek.Entities.Cache] ++ cache_options(Knowseek.Entities)}
+          # One per card provider: a rate limit stops all fetches of a cache.
+        ] ++
         card_caches() ++
         [
           # The NBA team list: one key, one long TTL.
@@ -42,6 +45,14 @@ defmodule Knowseek.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Knowseek.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Ticks once a minute; only reads, and enqueues the crawl job when the
+  # instance is idle (ADR 0033).
+  defp crawl_scheduler do
+    if Application.get_env(:knowseek, Knowseek.Crawl, [])[:scheduler],
+      do: [Knowseek.Crawl.Scheduler],
+      else: []
   end
 
   defp card_caches do

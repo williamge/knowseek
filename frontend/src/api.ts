@@ -1,5 +1,6 @@
 import type {
   BackfillStarted,
+  Crawl,
   BlockedLinks,
   CardResponse,
   DocumentSummary,
@@ -101,6 +102,8 @@ export const api = {
   clearSearches: () => request<SearchesCleared>("/searches", { method: "DELETE" }),
 
   listBlockedLinks: (signal?: AbortSignal) => request<BlockedLinks>("/blocked-links", { signal }),
+
+  getCrawl: (signal?: AbortSignal) => request<Crawl>("/crawl", { signal }),
 
   backfillBlockedLinks: () =>
     request<BackfillStarted>("/blocked-links/backfill", { method: "POST" }),

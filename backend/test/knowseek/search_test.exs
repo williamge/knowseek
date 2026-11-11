@@ -487,4 +487,40 @@ defmodule Knowseek.SearchTest do
 
     if popular_first?, do: {a, b}, else: {b, a}
   end
+
+  describe "count_near/2" do
+    defp embed_one(text) do
+      {:ok, [vector]} = Knowseek.Embeddings.embed([text], input_type: :query)
+      vector
+    end
+
+    test "is 0 on an empty index" do
+      assert Search.count_near(embed_one("sourdough starter")) == 0
+    end
+
+    test "counts documents, not chunks" do
+      paragraph = String.duplicate("sourdough starter ", 60)
+
+      document_fixture(body: Enum.join([paragraph, paragraph, paragraph], "\n\n"))
+      document_fixture(body: paragraph)
+
+      assert Search.count_near(embed_one("sourdough starter")) == 2
+    end
+
+    test "respects :min_similarity" do
+      document_fixture(body: "sourdough starter")
+
+      vector = embed_one("sourdough starter")
+      assert Search.count_near(vector, min_similarity: 0.99) == 1
+
+      assert Search.count_near(embed_one("quantum chromodynamics lattice"), min_similarity: 0.99) ==
+               0
+    end
+
+    test "is capped at :limit" do
+      for _ <- 1..3, do: document_fixture(body: "sourdough starter")
+
+      assert Search.count_near(embed_one("sourdough starter"), limit: 2) == 2
+    end
+  end
 end

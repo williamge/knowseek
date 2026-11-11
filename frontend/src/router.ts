@@ -10,12 +10,15 @@ import { flushSync } from "react-dom";
  *   /?q=...&doc=ID    search results with a document open
  *   /stats            the stats page
  *   /blocked-links    the blocked-link log
+ *   /crawl            the crawl's next links
+ *   /crawl?doc=ID     a page other than search, with a document open over it
  */
 
 /** Pages other than search, by path. Each has a component in `App.tsx` (`PAGES`). */
 export const PAGE_PATHS = {
   "/stats": "stats",
   "/blocked-links": "blocked-links",
+  "/crawl": "crawl",
 } as const;
 
 export type Page = (typeof PAGE_PATHS)[keyof typeof PAGE_PATHS];
@@ -29,8 +32,8 @@ export interface Route {
 
 export function parseRoute(location: { pathname: string; search: string }): Route {
   const page = (PAGE_PATHS as Record<string, Page | undefined>)[location.pathname] ?? null;
-  if (page) return { page, query: null, doc: null };
   const params = new URLSearchParams(location.search);
+  if (page) return { page, query: null, doc: params.get("doc") || null };
   const query = params.get("q")?.trim() || null;
   return { page: null, query, doc: params.get("doc") || null };
 }
@@ -38,7 +41,7 @@ export function parseRoute(location: { pathname: string; search: string }): Rout
 export function routeToUrl(route: Route): string {
   if (route.page) {
     const path = Object.entries(PAGE_PATHS).find(([, page]) => page === route.page)?.[0];
-    if (path) return path;
+    if (path) return route.doc ? `${path}?${new URLSearchParams({ doc: route.doc })}` : path;
   }
   const params = new URLSearchParams();
   if (route.query) params.set("q", route.query);

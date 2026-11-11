@@ -10,7 +10,9 @@ defmodule Knowseek.Discovery do
   document is stored, the links to hosts off the allowlist are logged in
   `blocked_links` (#88, ADR 0032). `allowed?/1` is the gate a crawler calls
   before it fetches a URL. `backfill_links/0` logs the links of the pages
-  already indexed.
+  already indexed. `link_candidates/1` lists the pages a stored page links
+  to, for the background crawl (#89, ADR 0033): `Knowseek.Crawl` reaches a
+  source only through it.
 
   Requests for the same normalized query within one hour are deduplicated.
   The insert runs in a transaction: Oban's SQLite engine checks uniqueness
@@ -232,6 +234,37 @@ defmodule Knowseek.Discovery do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  The pages `document` links to on its own site, from its source, for the
+  background crawl (#89, ADR 0033). `{:ok, []}` when the document's source
+  has no `link_candidates/2` or the document's URL is off the allowlist.
+  Links whose URL is off the allowlist are dropped. The downloaded bytes are
+  recorded for the source.
+  """
+  @spec link_candidates(Documents.Document.t()) ::
+          {:ok, [Knowseek.Discovery.Source.link_candidate()]} | {:error, term()}
+  def link_candidates(%Documents.Document{} = document) do
+    with source when source != nil <- crawl_source(document.source),
+         true <- allowed?(document.url),
+         {:ok, links} <-
+           counting_bytes(source, fn on_bytes ->
+             source.link_candidates(document, on_bytes: on_bytes)
+           end) do
+      {:ok, Enum.filter(links, &allowed?(&1.url))}
+    else
+      {:error, reason} -> {:error, reason}
+      _no_source_or_not_allowed -> {:ok, []}
+    end
+  end
+
+  # The configured source with this name that can list a page's links.
+  defp crawl_source(name) do
+    Enum.find(sources(), &(crawl_source?(&1) and &1.name() == name))
+  end
+
+  defp crawl_source?(source),
+    do: Code.ensure_loaded?(source) and function_exported?(source, :link_candidates, 2)
 
   defp links_source?(source),
     do: Code.ensure_loaded?(source) and function_exported?(source, :links, 2)

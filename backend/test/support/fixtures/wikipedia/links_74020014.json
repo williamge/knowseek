@@ -1,0 +1,14 @@
+{
+  "continue": {"gplcontinue": "74020014|0|Zebra", "continue": "gplcontinue||"},
+  "batchcomplete": true,
+  "query": {
+    "redirects": [{"from": "HNSW", "to": "Hierarchical navigable small world"}],
+    "pages": [
+      {"pageid": 5001, "ns": 0, "title": "Approximate nearest neighbor search", "description": "Algorithmic problem", "descriptionsource": "local"},
+      {"pageid": 5002, "ns": 0, "title": "Nearest neighbor search", "description": "Optimization problem"},
+      {"ns": 0, "title": "No such page", "missing": true},
+      {"pageid": 5010, "ns": 0, "title": "Vector (disambiguation)", "pageprops": {"disambiguation": ""}},
+      {"pageid": 5020, "ns": 14, "title": "Category:Search algorithms", "description": "Wikimedia category"}
+    ]
+  }
+}

@@ -7,6 +7,7 @@ Recorded responses of the MediaWiki Action API (`https://en.wikipedia.org/w/api.
 | `search.json` | `action=query&list=search&srsearch=<query>` |
 | `page_19007.json`, `page_74020014.json`, `page_76162223.json` | `action=query&prop=extracts\|info\|pageprops&explaintext=1&pageids=<id>` |
 | `page_missing.json`, `error_missingparam.json` | error and missing-page shapes |
+| `links_74020014.json`, `links_74020014_more.json` | `action=query&generator=links&pageids=<id>&gpllimit=max&gplnamespace=0&prop=description\|pageprops&ppprop=disambiguation&redirects=1`, written by hand from the shape seen live on 2026-11-11: the first response has a top-level `continue`, the second is the `gplcontinue` request's answer. Both include missing, disambiguation, category (ns 14) and repeated pages, and the source page itself |
 
 The two non-disambiguation pages (`page_74020014.json`, `page_76162223.json`) also carry the `revisions` field (`prop=revisions&rvprop=timestamp`) that the source requests. It was added to the recorded files from a live call on 2026-10-31 for the same page ids, whose `lastrevid` matched the recorded one, so the timestamp belongs to the recorded revision. `page_19007.json` (a disambiguation page) has no `revisions` field.
 
