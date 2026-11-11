@@ -814,3 +814,62 @@ kbd {
     transition: none !important;
   }
 }
+
+/* Links to the other pages, at the bottom of every page */
+
+.site-nav {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  font-size: 0.85rem;
+}
+
+.site-nav a {
+  color: var(--muted);
+}
+
+.site-nav a[aria-current="page"] {
+  color: var(--ink);
+}
+
+/* The home page fills the window: keep the links in view. */
+.app--home .site-nav {
+  position: fixed;
+  inset: auto 0 0 0;
+}
+
+/* Plain data pages (stats, blocked links) */
+
+.subpage {
+  max-width: 960px;
+}
+
+.subpage h1 {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.subpage h2 {
+  font-size: 1rem;
+  margin: 2rem 0 0.5rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.4rem 0.75rem 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

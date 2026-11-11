@@ -19,6 +19,8 @@ defmodule KnowseekWeb.DocumentJSON do
       attribution: attribution(document.attribution),
       modified: document.modified,
       share: document.share,
+      origin: document.origin,
+      origin_query: document.origin_query,
       metadata: document.metadata
     }
   end

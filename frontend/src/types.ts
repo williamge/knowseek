@@ -60,6 +60,9 @@ export interface SearchResult {
   hits: Hit[];
 }
 
+/** Why a page was fetched (#96). */
+export type Origin = "search" | "background" | "manual";
+
 export interface KnowseekDocument extends LicenseFields {
   id: string;
   url: string;
@@ -69,6 +72,9 @@ export interface KnowseekDocument extends LicenseFields {
   published_at: string | null;
   fetched_at: string;
   source_updated_at: string | null;
+  origin: Origin;
+  /** The query whose discovery fetched the page. Null when unknown or not from a search. */
+  origin_query: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -219,4 +225,36 @@ export interface CardResponse {
   as_of: string | null;
   /** When to ask again, in milliseconds. */
   refresh_after_ms: number;
+}
+
+/** Searches of one UTC day by their coverage (`KnowseekWeb.StatsJSON`). */
+export interface SearchDay {
+  /** "2026-11-10" */
+  day: string;
+  sufficient: number;
+  partial: number;
+  none: number;
+}
+
+/** Bytes one discovery source downloaded on one UTC day. */
+export interface NetworkDay {
+  day: string;
+  source: string;
+  bytes: number;
+}
+
+/** What `GET /api/stats` returns. The day lists cover the last 30 days, newest first. */
+export interface Stats {
+  searches: { total: number; days: SearchDay[] };
+  pages: Record<Origin, number>;
+  /** Size of the database file. */
+  disk_bytes: number;
+  network: NetworkDay[];
+  /** Background pages, and how many of them appeared in the top results of a search. */
+  hit_share: { background_pages: number; hit_pages: number };
+}
+
+/** What `DELETE /api/searches` returns. */
+export interface SearchesCleared {
+  deleted: number;
 }

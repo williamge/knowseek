@@ -22,6 +22,12 @@ defmodule Knowseek.Documents.Document do
   or `nil`), `modified` whether the text differs from the source's, and
   `share` what a peer may receive: `full`, `pointer` or `none`. The source sets
   them at ingest. Unknown is `LicenseRef-unknown`, no attribution, and `none`.
+
+  `origin` says why the page first entered the index: `search` (search-time
+  discovery), `background` (a crawl, #89) or `manual`. `origin_query` is the
+  normalized query whose discovery fetched a `search` page, `nil` when unknown.
+  Both are write-once: `ingest_changeset/2` casts them only for a new document
+  (#96, ADR 0031).
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -47,6 +53,8 @@ defmodule Knowseek.Documents.Document do
     embeds_one :attribution, Attribution, on_replace: :delete
     field :modified, :boolean, default: false
     field :share, :string, default: "none"
+    field :origin, :string, default: "manual"
+    field :origin_query, :string
 
     has_many :chunks, Knowseek.Documents.Chunk
 
@@ -54,38 +62,45 @@ defmodule Knowseek.Documents.Document do
   end
 
   @shares ~w(full pointer none)
+  @origins ~w(search background manual)
+
+  @fields [
+    :url,
+    :title,
+    :body,
+    :source,
+    :published_at,
+    :fetched_at,
+    :metadata,
+    :monthly_views,
+    :source_updated_at,
+    :license,
+    :modified,
+    :share
+  ]
 
   @doc """
   Changeset for ingestion. Canonicalizes the `url`, fills in `content_hash`
   and `fetched_at`, and generates a content-addressed URL when the caller does
-  not give one.
+  not give one. `:origin` and `:origin_query` are cast only for a new document.
   """
   def ingest_changeset(document, attrs) do
+    fields = if document.id, do: @fields, else: @fields ++ [:origin, :origin_query]
+
     document
-    |> cast(attrs, [
-      :url,
-      :title,
-      :body,
-      :source,
-      :published_at,
-      :fetched_at,
-      :metadata,
-      :monthly_views,
-      :source_updated_at,
-      :license,
-      :modified,
-      :share
-    ])
+    |> cast(attrs, fields)
     |> cast_embed(:attribution)
     |> validate_number(:monthly_views, greater_than_or_equal_to: 0)
     |> validate_inclusion(:share, @shares)
     |> check_constraint(:share, name: :documents_share_check)
+    |> validate_inclusion(:origin, @origins)
+    |> check_constraint(:origin, name: :documents_origin_check)
     |> validate_required([:body, :source])
     |> update_change(:url, &URL.canonicalize/1)
     |> put_content_hash()
     |> put_default_url()
     |> put_default_fetched_at()
-    |> validate_required([:url, :content_hash, :fetched_at, :license, :modified, :share])
+    |> validate_required([:url, :content_hash, :fetched_at, :license, :modified, :share, :origin])
     |> unique_constraint(:url)
   end
 

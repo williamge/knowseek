@@ -3,6 +3,7 @@ import {
   clockTime,
   displayHost,
   everyInterval,
+  formatBytes,
   gameTime,
   groupHits,
   highlight,
@@ -50,6 +51,19 @@ describe("everyInterval", () => {
   });
   it("falls back to seconds", () => {
     expect(everyInterval(1000)).toBe("every 1000 seconds");
+  });
+});
+
+describe("formatBytes", () => {
+  it("uses powers of 1,000", () => {
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(999)).toBe("999 B");
+    expect(formatBytes(1000)).toBe("1.0 KB");
+    expect(formatBytes(1234)).toBe("1.2 KB");
+    expect(formatBytes(999_990)).toBe("1.0 MB");
+    expect(formatBytes(73_400_320)).toBe("73.4 MB");
+    expect(formatBytes(1_300_000_000)).toBe("1.3 GB");
   });
 });
 

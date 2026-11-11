@@ -52,6 +52,13 @@ defmodule Knowseek.Documents do
   copy of another document's) keeps the original's `monthly_views`,
   `source_updated_at` and license fields.
 
+  `:origin` (`"search"`, `"background"` or `"manual"`) and `:origin_query`
+  (the normalized query, for `"search"`) are optional too, and write-once
+  (#96, ADR 0031): a new document without them is `manual`, and for a
+  document that exists (found by URL, by alias or by content) they are
+  ignored, because the origin says why the page first entered the index. A
+  background page stays `background` when a later search fetches it again.
+
   If the stored document found by its own URL already has the same body,
   nothing is re-chunked or re-embedded. The other fields are still updated,
   and `fetched_at` moves to now (unless the caller gives one), because the
@@ -186,7 +193,7 @@ defmodule Knowseek.Documents do
     %Document{}
     |> Document.ingest_changeset(attrs)
     |> Repo.insert(
-      on_conflict: {:replace_all_except, [:id, :inserted_at]},
+      on_conflict: {:replace_all_except, [:id, :inserted_at, :origin, :origin_query]},
       conflict_target: :url,
       returning: true
     )
@@ -250,5 +257,22 @@ defmodule Knowseek.Documents do
         limit: ^limit,
         select: %{d | body: nil}
     )
+  end
+
+  @doc "How many documents each origin has."
+  @spec count_by_origin() :: %{
+          search: non_neg_integer(),
+          background: non_neg_integer(),
+          manual: non_neg_integer()
+        }
+  def count_by_origin do
+    counts =
+      Repo.all(from d in Document, group_by: d.origin, select: {d.origin, count()}) |> Map.new()
+
+    %{
+      search: Map.get(counts, "search", 0),
+      background: Map.get(counts, "background", 0),
+      manual: Map.get(counts, "manual", 0)
+    }
   end
 end

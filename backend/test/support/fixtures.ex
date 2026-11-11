@@ -306,4 +306,43 @@ defmodule Knowseek.Fixtures do
     "Article #{tag}. " <>
       String.duplicate("This sentence pads the body past the alias length floor. ", 8)
   end
+
+  @doc """
+  Logs a search through `Knowseek.Activity.record_search/4`, waits for the
+  recorder, and returns the stored `Knowseek.Activity.SearchRecord`.
+
+  Attrs: `:query`, `:coverage` (default `:none`), `:now`, and the hits, either
+  as `:hits` (`%Knowseek.Search.Hit{}` structs) or as `:documents` (one hit per
+  document: position 0, the document's origin, no passages).
+  """
+  def logged_search_fixture(attrs \\ %{}) do
+    import Ecto.Query, only: [from: 2]
+
+    attrs = Enum.into(attrs, %{})
+    n = System.unique_integer([:positive])
+    query = Map.get(attrs, :query, "logged search #{n}")
+
+    hits =
+      Map.get_lazy(attrs, :hits, fn ->
+        for document <- Map.get(attrs, :documents, []) do
+          %Knowseek.Search.Hit{
+            document_id: document.id,
+            position: 0,
+            origin: document.origin,
+            passages: []
+          }
+        end
+      end)
+
+    opts = if now = attrs[:now], do: [now: now], else: []
+    :ok = Knowseek.Activity.record_search(query, Map.get(attrs, :coverage, :none), hits, opts)
+    _ = :sys.get_state(Knowseek.Activity.Recorder)
+
+    Knowseek.Repo.one!(
+      from s in Knowseek.Activity.SearchRecord,
+        where: s.query == ^query,
+        order_by: [desc: s.id],
+        limit: 1
+    )
+  end
 end

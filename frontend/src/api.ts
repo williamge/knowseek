@@ -1,4 +1,11 @@
-import type { CardResponse, DocumentSummary, KnowseekDocument, SearchResult } from "./types";
+import type {
+  CardResponse,
+  DocumentSummary,
+  KnowseekDocument,
+  SearchesCleared,
+  SearchResult,
+  Stats,
+} from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -86,4 +93,8 @@ export const api = {
   /** Cache-only on the server: it never waits for an upstream. Poll it. */
   getCard: (query: string, signal?: AbortSignal) =>
     request<CardResponse>(`/cards?q=${encodeURIComponent(query)}`, { signal }),
+
+  getStats: (signal?: AbortSignal) => request<Stats>("/stats", { signal }),
+
+  clearSearches: () => request<SearchesCleared>("/searches", { method: "DELETE" }),
 };

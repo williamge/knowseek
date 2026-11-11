@@ -47,7 +47,12 @@ defmodule Knowseek.DataCase do
   def setup_sandbox(tags) do
     if !tags[:async] do
       pid = Sandbox.start_owner!(Knowseek.Repo, shared: true)
-      on_exit(fn -> Sandbox.stop_owner(pid) end)
+
+      on_exit(fn ->
+        # Let the search-log writer finish inside this test's sandbox.
+        _ = :sys.get_state(Knowseek.Activity.Recorder)
+        Sandbox.stop_owner(pid)
+      end)
     end
   end
 

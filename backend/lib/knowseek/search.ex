@@ -243,7 +243,9 @@ defmodule Knowseek.Search do
                license: d.license,
                attribution: d.attribution,
                modified: d.modified,
-               share: d.share
+               share: d.share,
+               position: c.position,
+               origin: d.origin
              }}
       )
       |> Map.new()
@@ -251,7 +253,12 @@ defmodule Knowseek.Search do
     for entry <- entries, row = rows[entry.chunk_id], row != nil do
       passages =
         for passage <- entry.passages, passage_row = rows[passage.chunk_id], passage_row != nil do
-          %{chunk_id: passage.chunk_id, content: passage_row.content, score: passage.score}
+          %{
+            chunk_id: passage.chunk_id,
+            content: passage_row.content,
+            score: passage.score,
+            position: passage_row.position
+          }
         end
 
       struct!(Hit, row |> Map.merge(entry) |> Map.put(:passages, passages))

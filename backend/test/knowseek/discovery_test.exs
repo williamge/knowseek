@@ -2,8 +2,18 @@ defmodule Knowseek.DiscoveryTest do
   # SeekWorker tests change the global source list.
   use Knowseek.DataCase, async: false
 
+  alias Knowseek.Activity.NetworkUsage
   alias Knowseek.Discovery
-  alias Knowseek.Discovery.{BadCandidateSource, FailingSource, FakeSource, SeekWorker}
+
+  alias Knowseek.Discovery.{
+    BadCandidateSource,
+    CountingFailingSource,
+    CountingSource,
+    FailingSource,
+    FakeSource,
+    SeekWorker
+  }
+
   alias Knowseek.Documents
 
   describe "request/1" do
@@ -59,6 +69,43 @@ defmodule Knowseek.DiscoveryTest do
                Discovery.run("tide pools", sources: [FakeSource, FailingSource])
 
       assert [%{source: "fake", title: "About tide pools"}] = Documents.list_documents()
+    end
+
+    test "the ingested documents come from a search, with the query" do
+      assert {:ok, %{ingested: 1}} = Discovery.run("tide pools", sources: [FakeSource])
+
+      assert [%{origin: "search", origin_query: "tide pools"}] = Documents.list_documents()
+    end
+
+    test "a query over 500 characters is cut in origin_query" do
+      query = String.duplicate("a", 600)
+
+      assert {:ok, %{ingested: 1}} = Discovery.run(query, sources: [FakeSource])
+
+      assert [%{origin_query: origin_query}] = Documents.list_documents()
+      assert origin_query == String.duplicate("a", 500)
+    end
+
+    test "records the bytes a source reports, once, under its name" do
+      assert {:ok, %{ingested: 1}} = Discovery.run("tide pools", sources: [CountingSource])
+
+      today = Date.utc_today()
+
+      assert [%NetworkUsage{day: ^today, source: "counting", bytes: 2_000}] =
+               Repo.all(NetworkUsage)
+    end
+
+    test "records the bytes of a source that failed, and the run still succeeds" do
+      assert {:ok, %{ingested: 0, failed: 0}} =
+               Discovery.run("tide pools", sources: [CountingFailingSource])
+
+      assert [%NetworkUsage{source: "counting_failing", bytes: 500}] = Repo.all(NetworkUsage)
+    end
+
+    test "a source that reports nothing leaves no row" do
+      assert {:ok, %{ingested: 1}} = Discovery.run("tide pools", sources: [FakeSource])
+
+      assert Repo.all(NetworkUsage) == []
     end
   end
 end

@@ -312,6 +312,91 @@ defmodule Knowseek.DocumentsTest do
     end
   end
 
+  describe "ingest/1 origin" do
+    test "a document without an origin is manual, with no query" do
+      document = document_fixture()
+      assert %Document{origin: "manual", origin_query: nil} = Documents.get_document(document.id)
+    end
+
+    test "origin and origin_query are stored on a new document" do
+      document = document_fixture(origin: "search", origin_query: "tide pools")
+
+      assert %Document{origin: "search", origin_query: "tide pools"} =
+               Documents.get_document(document.id)
+    end
+
+    test "are kept when the same URL is ingested again with another origin" do
+      original = document_fixture(url: "https://a.example/o", body: "one", origin: "background")
+
+      # A changed body.
+      {:ok, _} =
+        Documents.ingest(%{
+          url: "https://a.example/o",
+          body: "two",
+          source: "test",
+          origin: "search",
+          origin_query: "q"
+        })
+
+      assert %Document{origin: "background", origin_query: nil} =
+               Documents.get_document(original.id)
+
+      # An unchanged body.
+      {:ok, _} =
+        Documents.ingest(%{
+          url: "https://a.example/o",
+          body: "two",
+          source: "test",
+          origin: "manual",
+          origin_query: "q"
+        })
+
+      assert %Document{origin: "background", origin_query: nil} =
+               Documents.get_document(original.id)
+
+      assert Repo.aggregate(Document, :count) == 1
+    end
+
+    test "a copy of a body under a new URL keeps the original's origin" do
+      original =
+        document_fixture(url: "https://a.example/p", body: long_body("o"), origin: "background")
+
+      {:ok, merged} =
+        Documents.ingest(%{
+          url: "https://b.example/copy",
+          body: long_body("o"),
+          source: "test",
+          origin: "search",
+          origin_query: "q"
+        })
+
+      assert merged.id == original.id
+
+      assert %Document{origin: "background", origin_query: nil} =
+               Documents.get_document(original.id)
+    end
+
+    test "rejects an unknown origin" do
+      assert {:error, changeset} =
+               Documents.ingest(%{body: "Body.", source: "test", origin: "crawl"})
+
+      assert "is invalid" in errors_on(changeset).origin
+    end
+  end
+
+  describe "count_by_origin/0" do
+    test "counts the documents of each origin" do
+      assert Documents.count_by_origin() == %{search: 0, background: 0, manual: 0}
+
+      document_fixture(origin: "search")
+      document_fixture(origin: "search")
+      document_fixture(origin: "background")
+      document_fixture()
+
+      assert Documents.count_by_origin() == %{search: 2, background: 1, manual: 1}
+    end
+  end
+
   describe "ingest/1 URL canonicalization" do
     test "stores the canonical URL" do
       {:ok, document} =

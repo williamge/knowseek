@@ -49,8 +49,10 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   def name, do: @site.name
 
   @impl true
-  def discover(query, _opts) do
-    if question?(query), do: MediaWiki.discover(search_text(query), @site), else: {:ok, []}
+  def discover(query, opts) do
+    if question?(query),
+      do: MediaWiki.discover(search_text(query), @site, opts),
+      else: {:ok, []}
   end
 
   @doc """

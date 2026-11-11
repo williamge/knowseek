@@ -17,7 +17,12 @@ defmodule KnowseekWeb.DocumentController do
 
   @doc "Manual ingestion, mainly for development and seeding."
   def create(conn, %{"document" => params}) do
-    attrs = Map.put(params, "source", "manual")
+    # A caller cannot choose the origin (#96).
+    attrs =
+      params
+      |> Map.put("source", "manual")
+      |> Map.put("origin", "manual")
+      |> Map.delete("origin_query")
 
     with {:ok, document} <- Documents.ingest(attrs) do
       conn

@@ -10,9 +10,17 @@ defmodule Knowseek.Discovery do
   The insert runs in a transaction: Oban's SQLite engine checks uniqueness
   and inserts in two statements, and only the transaction's write lock
   (taken up front, ADR 0030) keeps two requests from both inserting.
+
+  Each ingested candidate carries its origin (#96, ADR 0031): `origin:
+  "search"` and the normalized query as `origin_query`. A source never sets
+  them. The bytes a source downloads are counted in memory while it runs (the
+  `:on_bytes` option of `Knowseek.Discovery.Source.discover/2`) and recorded
+  with `Knowseek.Activity.record_bytes/2` after it returned, also when it
+  failed.
   """
   require Logger
 
+  alias Knowseek.Activity
   alias Knowseek.Discovery.SeekWorker
   alias Knowseek.Documents
   alias Knowseek.Repo
@@ -54,14 +62,38 @@ defmodule Knowseek.Discovery do
   @spec normalize(String.t()) :: String.t()
   def normalize(query), do: query |> String.downcase() |> String.split() |> Enum.join(" ")
 
+  # A query longer than this is cut in `documents.origin_query`.
+  @max_origin_query 500
+
   defp discover(source, query, opts) do
-    case source.discover(query, opts) do
+    result =
+      counting_bytes(source, fn on_bytes ->
+        source.discover(query, Keyword.put(opts, :on_bytes, on_bytes))
+      end)
+
+    case result do
       {:ok, candidates} ->
-        Enum.map(candidates, &Map.put(&1, :source, source.name()))
+        # Search-time discovery is the only caller today; #89 adds "background".
+        origin = %{
+          source: source.name(),
+          origin: "search",
+          origin_query: String.slice(query, 0, @max_origin_query)
+        }
+
+        Enum.map(candidates, &Map.merge(&1, origin))
 
       {:error, reason} ->
         Logger.warning("discovery source #{inspect(source)} failed: #{inspect(reason)}")
         []
     end
+  end
+
+  # Runs `fun` with a function that counts downloaded bytes, then records the
+  # total for `source`: one write, after the external calls (rules 3 and 5).
+  defp counting_bytes(source, fun) do
+    counter = :counters.new(1, [])
+    result = fun.(fn bytes -> :counters.add(counter, 1, bytes) end)
+    Activity.record_bytes(source.name(), :counters.get(counter, 1))
+    result
   end
 end

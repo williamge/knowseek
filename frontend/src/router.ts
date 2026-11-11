@@ -8,19 +8,36 @@ import { flushSync } from "react-dom";
  *   /                 home
  *   /?q=rust+async    search results
  *   /?q=...&doc=ID    search results with a document open
+ *   /stats            the stats page
  */
+
+/** Pages other than search, by path. Each has a component in `App.tsx` (`PAGES`). */
+export const PAGE_PATHS = {
+  "/stats": "stats",
+} as const;
+
+export type Page = (typeof PAGE_PATHS)[keyof typeof PAGE_PATHS];
+
 export interface Route {
+  /** A page other than search; null for the home page and the results. */
+  page: Page | null;
   query: string | null;
   doc: string | null;
 }
 
-export function parseRoute(location: { search: string }): Route {
+export function parseRoute(location: { pathname: string; search: string }): Route {
+  const page = (PAGE_PATHS as Record<string, Page | undefined>)[location.pathname] ?? null;
+  if (page) return { page, query: null, doc: null };
   const params = new URLSearchParams(location.search);
   const query = params.get("q")?.trim() || null;
-  return { query, doc: params.get("doc") || null };
+  return { page: null, query, doc: params.get("doc") || null };
 }
 
 export function routeToUrl(route: Route): string {
+  if (route.page) {
+    const path = Object.entries(PAGE_PATHS).find(([, page]) => page === route.page)?.[0];
+    if (path) return path;
+  }
   const params = new URLSearchParams();
   if (route.query) params.set("q", route.query);
   if (route.doc) params.set("doc", route.doc);

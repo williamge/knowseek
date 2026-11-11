@@ -16,7 +16,8 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Hybrid search (full-text + vector) with a coverage assessment.
 - Weak coverage enqueues a discovery job. The job searches Wikipedia and indexes the top articles. For a question ("how do I fix a flat tire", or anything ending with `?`) it also searches Wikibooks, its Cookbook recipes first ("how do I cook eggs" finds *Cookbook:Hard Cooked Eggs*; ADR 0029).
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
-- A web UI (`frontend/`) searches and shows results as discovery adds them.
+- A web UI (`frontend/`) searches and shows results as discovery adds them. Its `/stats` page shows what Knowseek recorded: searches per day by coverage, where each page came from, the database's size and the bytes discovery downloaded.
+- A local record of your searches, of why each page was fetched (`origin`) and of the bytes discovery downloads ([ADR 0031](docs/decisions/0031-activity-record.md)). Your searches are stored in this instance's database only; `DELETE /api/searches` (or "Clear search history" on `/stats`) deletes them.
 
 See [GitHub Issues](https://github.com/williamge/knowseek/issues) for the backlog.
 
@@ -118,8 +119,12 @@ Notes:
 | `GET` | `/api/documents` | Recently fetched documents, without their `body`. Use `GET /api/documents/:id` for the full text. |
 | `GET` | `/api/documents/:id` | One document |
 | `POST` | `/api/documents` | `{document: {body, title?, url?, license?, attribution?, modified?, share?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. Without license fields the document is unknown and not shared. |
+| `GET` | `/api/stats` | The numbers over the local record (ADR 0031): `searches` (`total`, and `days`: the last 30 UTC days with their `sufficient`, `partial` and `none` counts), `pages` (documents by `origin`), `disk_bytes` (the database file), `network` (bytes per UTC day and discovery source) and `hit_share` (`background_pages`, `hit_pages`). |
+| `DELETE` | `/api/searches` | Deletes every logged search; answers `{data: {deleted}}`. |
 
 Documents and hits carry license fields ([ADR 0026](docs/decisions/0026-per-document-license-fields.md)): `license` (SPDX id, `LicenseRef-unknown` when not known), `attribution` (`{url, credit, authors}` or `null`), `modified` (the text differs from the source's) and `share` (`full`, `pointer` or `none`). Wikipedia and Wikibooks documents are `CC-BY-SA-4.0`, credited to "Wikipedia" or "Wikibooks", `modified: true`, `share: full`.
+
+Documents also carry `origin` (`search`, `background` or `manual`) and `origin_query` (the normalized query whose discovery fetched the page, or `null`): why the page first entered the index. Both are set once; `POST /api/documents` always stores `manual`. Pages indexed before this was recorded are `search` with no query ([ADR 0031](docs/decisions/0031-activity-record.md)).
 
 **Rate limits.** `GET /api/cards`, `POST /api/search` and `POST /api/documents` are limited per client address, each with its own budget: a burst, then a steady rate (defaults: cards 120 then 2 a second, search and documents 30 then one every 2 s; `backend/config/config.exs`). Over the limit the answer is `429 Too Many Requests` with `{"errors": {"detail": "Too many requests"}}` and a `Retry-After` header in seconds, and nothing else happens: no search, no ingest, no job. `GET /api/health` and the reads of `/api/documents` are not limited. The client is the socket address. Request bodies over 1 MB are answered `413`. Behind a reverse proxy, set `TRUSTED_PROXIES` (see above); without it `X-Forwarded-For` is ignored, so a client cannot choose its own address, and every client behind the proxy shares one budget. The same holds for `docker compose --profile app up`: the published Docker port hides the client address, so all clients share one budget until `TRUSTED_PROXIES` (read from `.env`) names the proxy. The limit also does not stop a flood from many addresses. See [ADR 0023](docs/decisions/0023-rate-limiting-anonymous-endpoints.md).
 

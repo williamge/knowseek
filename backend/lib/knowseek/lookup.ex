@@ -9,9 +9,13 @@ defmodule Knowseek.Lookup do
 
   Results from discovery arrive later. A caller can query again, or (a
   future task) subscribe to updates for the query.
+
+  Every successful run is handed to `Knowseek.Activity.record_search/4`, which
+  only sends a message to the log's writer (rule 6, ADR 0031). `Search.search/2`
+  called directly logs nothing; a failed search logs nothing.
   """
 
-  alias Knowseek.{Discovery, Search}
+  alias Knowseek.{Activity, Discovery, Search}
 
   @type discovery :: :not_needed | {:enqueued, pos_integer()} | {:error, term()}
 
@@ -25,6 +29,9 @@ defmodule Knowseek.Lookup do
   @spec run(String.t(), keyword()) :: {:ok, result()} | {:error, term()}
   def run(query, opts \\ []) do
     with {:ok, %{hits: hits, coverage: coverage}} <- Search.search(query, opts) do
+      # Off the request path: a message to the recorder, no database write here
+      # (rule 6, ADR 0031).
+      :ok = Activity.record_search(Discovery.normalize(query), coverage, hits)
       {:ok, %{query: query, hits: hits, coverage: coverage, discovery: discover(query, coverage)}}
     end
   end

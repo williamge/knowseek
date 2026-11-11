@@ -5,6 +5,7 @@ import type {
   KnowseekDocument,
   SearchResult,
   SportsTeamFacts,
+  Stats,
   WeatherFacts,
 } from "../src/types";
 
@@ -187,7 +188,30 @@ export function document(overrides: Partial<KnowseekDocument> = {}): KnowseekDoc
     attribution: null,
     modified: false,
     share: "none",
+    origin: "search",
+    origin_query: null,
     metadata: {},
+    ...overrides,
+  };
+}
+
+/** A response of `GET /api/stats`. The default has some searches, pages and downloads. */
+export function stats(overrides: Partial<Stats> = {}): Stats {
+  return {
+    searches: {
+      total: 42,
+      days: [
+        { day: "2026-11-10", sufficient: 3, partial: 1, none: 2 },
+        { day: "2026-11-09", sufficient: 0, partial: 0, none: 4 },
+      ],
+    },
+    pages: { search: 110, background: 0, manual: 10 },
+    disk_bytes: 73_400_320,
+    network: [
+      { day: "2026-11-10", source: "wikipedia", bytes: 512_000 },
+      { day: "2026-11-10", source: "wikibooks", bytes: 900 },
+    ],
+    hit_share: { background_pages: 0, hit_pages: 0 },
     ...overrides,
   };
 }
