@@ -134,6 +134,57 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
                        %{"pageids" => "448201", "tlnamespace" => "0", "tllimit" => "2"} = params}
 
       assert params["prop"] =~ "templates"
+      assert String.ends_with?(params["prop"], "|extlinks|templates")
+      assert %{"ellimit" => "max"} = params
+    end
+
+    test "a response whose continue has only tlcontinue triggers no extra request" do
+      # The real Wikibooks shape: `tllimit=2` makes most responses carry a
+      # `tlcontinue` and no `elcontinue`.
+      Req.Test.stub(Wikibooks, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        send(self(), {:wikibooks_request, conn.host, conn.query_params})
+
+        case conn.query_params do
+          %{"list" => "search", "srnamespace" => "102"} ->
+            Req.Test.json(conn, fixture("wikibooks", "search_cookbook_none.json"))
+
+          %{"list" => "search"} ->
+            Req.Test.json(conn, search_body([3567]))
+
+          %{"pageids" => "3567"} ->
+            body = fixture("wikibooks", "page_3567.json")
+
+            body
+            |> Map.put("continue", %{"tlcontinue" => "3567|0|Page", "continue" => "||extracts"})
+            |> with_extlinks(["https://example.org/a", "https://example.org/b"])
+            |> then(&Req.Test.json(conn, &1))
+        end
+      end)
+
+      assert {:ok, [%{links: ["https://example.org/a", "https://example.org/b"]}]} =
+               Wikibooks.discover("how do i fix a flat tire", [])
+
+      assert_received {:wikibooks_request, _host, %{"pageids" => "3567"}}
+      refute_received {:wikibooks_request, _host, %{"elcontinue" => _token}}
+      refute_received {:wikibooks_request, _host, %{"pageids" => _id}}
+    end
+
+    test "links/2 asks Wikibooks for the page's external links by its id" do
+      Req.Test.stub(Wikibooks, fn conn ->
+        conn = Plug.Conn.fetch_query_params(conn)
+        send(self(), {:wikibooks_request, conn.host, conn.query_params})
+
+        Req.Test.json(
+          conn,
+          with_extlinks(fixture("wikibooks", "page_3567.json"), ["http://a.example/"])
+        )
+      end)
+
+      assert {:ok, ["http://a.example/"]} = Wikibooks.links(%{metadata: %{"pageid" => 3567}}, [])
+
+      assert_received {:wikibooks_request, "en.wikibooks.org",
+                       %{"prop" => "extlinks", "pageids" => "3567"}}
     end
 
     test "keeps a page that transcludes only one main-namespace page" do

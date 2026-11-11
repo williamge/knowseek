@@ -345,4 +345,21 @@ defmodule Knowseek.Fixtures do
         limit: 1
     )
   end
+
+  @doc """
+  A decoded page response (for example `wikipedia/page_74020014.json`) with
+  `extlinks` set on its first page: `urls`, as `prop=extlinks` returns them.
+  With `elcontinue`, the response also carries the top-level `continue` of a
+  page that has more links. The recorded files stay as recorded.
+  """
+  def with_extlinks(page_body, urls, elcontinue \\ nil) do
+    body =
+      update_in(page_body, ["query", "pages", Access.at(0)], fn page ->
+        Map.put(page, "extlinks", Enum.map(urls, &%{"url" => &1}))
+      end)
+
+    if elcontinue,
+      do: Map.put(body, "continue", %{"elcontinue" => elcontinue, "continue" => "||"}),
+      else: body
+  end
 end

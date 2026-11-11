@@ -1,4 +1,5 @@
 import { useCallback, useState, type ComponentType } from "react";
+import { BlockedLinksPage } from "./components/BlockedLinksPage";
 import { DocumentReader } from "./components/DocumentReader";
 import { FactCard } from "./components/FactCard";
 import { RecentDocuments } from "./components/RecentDocuments";
@@ -11,7 +12,10 @@ import { DEFAULT_WATCH, useSearch, type WatchOptions } from "./lib/useSearch";
 import { DEFAULT_CARD_POLLING, useCard, type CardPolling } from "./lib/useCard";
 
 /** The pages other than search, by `Page` (`router.ts`). They take no props. */
-const PAGES: Record<Page, ComponentType> = { stats: StatsPage };
+const PAGES: Record<Page, ComponentType> = {
+  stats: StatsPage,
+  "blocked-links": BlockedLinksPage,
+};
 
 /** The wordmark: a link to the home page. */
 function HomeLink({ onHome }: { onHome: () => void }) {
@@ -41,6 +45,8 @@ export function App({
   const search = useSearch(route.query, watch, refreshKey);
   // The card has its own state and requests: the results never wait for it.
   const card = useCard(route.query, cardPolling);
+  const SubPage = route.page ? PAGES[route.page] : null;
+  const goHome = () => navigate({ page: null, query: null, doc: null });
 
   // The URL does not change when the user searches for the same query again
   // (for example to see what discovery added), so run the search again here.
@@ -61,8 +67,6 @@ export function App({
     if ((window.history.state as { reader?: boolean } | null)?.reader) window.history.back();
     else navigate({ ...parseRoute(window.location), doc: null }, { replace: true });
   }, [navigate]);
-  const SubPage = route.page ? PAGES[route.page] : null;
-  const goHome = () => navigate({ page: null, query: null, doc: null });
   const home = !SubPage && !route.query;
 
   return (

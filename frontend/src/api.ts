@@ -1,4 +1,6 @@
 import type {
+  BackfillStarted,
+  BlockedLinks,
   CardResponse,
   DocumentSummary,
   KnowseekDocument,
@@ -97,4 +99,9 @@ export const api = {
   getStats: (signal?: AbortSignal) => request<Stats>("/stats", { signal }),
 
   clearSearches: () => request<SearchesCleared>("/searches", { method: "DELETE" }),
+
+  listBlockedLinks: (signal?: AbortSignal) => request<BlockedLinks>("/blocked-links", { signal }),
+
+  backfillBlockedLinks: () =>
+    request<BackfillStarted>("/blocked-links/backfill", { method: "POST" }),
 };

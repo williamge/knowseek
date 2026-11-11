@@ -16,7 +16,13 @@ defmodule Knowseek.Discovery.Source do
   never shared.
   """
 
-  @typedoc "A document a source found. Same shape as `Knowseek.Documents.ingest/1` attrs, minus `:source`."
+  @typedoc """
+  A document a source found. Same shape as `Knowseek.Documents.ingest/1` attrs, minus `:source`.
+
+  `:links` is the page's outgoing links as the source found them (absolute or
+  protocol-relative URLs). `Knowseek.Discovery` logs the ones to hosts off the
+  allowlist and never passes them to `Knowseek.Documents.ingest/1`.
+  """
   @type candidate :: %{
           required(:url) => String.t(),
           required(:body) => String.t(),
@@ -28,7 +34,8 @@ defmodule Knowseek.Discovery.Source do
           optional(:license) => String.t(),
           optional(:attribution) => %{url: String.t(), credit: String.t(), authors: [String.t()]},
           optional(:modified) => boolean(),
-          optional(:share) => String.t()
+          optional(:share) => String.t(),
+          optional(:links) => [String.t()]
         }
 
   @doc "Short stable name. Stored in `documents.source`."
@@ -43,4 +50,14 @@ defmodule Knowseek.Discovery.Source do
   """
   @callback discover(query :: String.t(), opts :: keyword()) ::
               {:ok, [candidate()]} | {:error, term()}
+
+  @doc """
+  The outgoing links of a page this source produced earlier, for the link
+  backfill. `document` is the stored document (it has the `metadata` the
+  source set). Optional: a source without it is skipped by the backfill.
+  """
+  @callback links(document :: %{required(:metadata) => map()}, opts :: keyword()) ::
+              {:ok, [String.t()]} | {:error, term()}
+
+  @optional_callbacks links: 2
 end

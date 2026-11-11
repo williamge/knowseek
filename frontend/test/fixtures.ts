@@ -1,4 +1,5 @@
 import type {
+  BlockedLinks,
   CardEntity,
   CardResponse,
   Hit,
@@ -235,4 +236,33 @@ export function mockApi(routes: Record<string, (body: unknown) => unknown | Resp
     return new Response(JSON.stringify({ data: value }), { status: 200 });
   });
   return { calls, spy };
+}
+
+/** What `GET /api/blocked-links` returns (`KnowseekWeb.BlockedLinkJSON`). */
+export function blockedLinks(overrides: Partial<BlockedLinks> = {}): BlockedLinks {
+  return {
+    allowed_hosts: ["en.wikipedia.org", "en.wikibooks.org"],
+    total_domains: 2,
+    total_links: 5,
+    domains: [
+      {
+        host: "web.archive.org",
+        links: 3,
+        pages: 2,
+        times_seen: 4,
+        first_seen_at: "2020-11-10T22:23:02Z",
+        example_url:
+          "https://web.archive.org/web/2019/http://www.sheldonbrown.com/tires.html?a-very-long-query=1",
+      },
+      {
+        host: "sheldonbrown.com",
+        links: 2,
+        pages: 1,
+        times_seen: 1,
+        first_seen_at: "2020-11-10T22:23:02Z",
+        example_url: "http://www.sheldonbrown.com/tires.html",
+      },
+    ],
+    ...overrides,
+  };
 }

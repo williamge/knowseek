@@ -18,6 +18,7 @@ Early skeleton. The end-to-end path works with local stand-ins:
 - Embeddings come from a local Ollama (`bge-m3`) by default: real semantic search, free. `make setup` and `make start` check Ollama and pull the model. `EMBEDDINGS_ADAPTER=hashing` is the opt-out (matches words only, needs no Ollama). Voyage AI is the hosted option. See `.env.example`.
 - A web UI (`frontend/`) searches and shows results as discovery adds them. Its `/stats` page shows what Knowseek recorded: searches per day by coverage, where each page came from, the database's size and the bytes discovery downloaded.
 - A local record of your searches, of why each page was fetched (`origin`) and of the bytes discovery downloads ([ADR 0031](docs/decisions/0031-activity-record.md)). Your searches are stored in this instance's database only; `DELETE /api/searches` (or "Clear search history" on `/stats`) deletes them.
+- Links from indexed pages to sites off an allowlist (`en.wikipedia.org`, `en.wikibooks.org`) are logged, not fetched. `/blocked-links` in the web UI shows them by domain ([ADR 0032](docs/decisions/0032-crawl-allowlist-and-blocked-links.md)).
 
 See [GitHub Issues](https://github.com/williamge/knowseek/issues) for the backlog.
 
@@ -121,6 +122,8 @@ Notes:
 | `POST` | `/api/documents` | `{document: {body, title?, url?, license?, attribution?, modified?, share?}}` manual ingest. The `url` is canonicalized. A body already stored under another URL returns that document (only its `fetched_at` moves), and the URL becomes its alias. Without license fields the document is unknown and not shared. |
 | `GET` | `/api/stats` | The numbers over the local record (ADR 0031): `searches` (`total`, and `days`: the last 30 UTC days with their `sufficient`, `partial` and `none` counts), `pages` (documents by `origin`), `disk_bytes` (the database file), `network` (bytes per UTC day and discovery source) and `hit_share` (`background_pages`, `hit_pages`). |
 | `DELETE` | `/api/searches` | Deletes every logged search; answers `{data: {deleted}}`. |
+| `GET` | `/api/blocked-links` | The blocked-link log by domain: `allowed_hosts`, `total_domains`, `total_links` and up to 200 `domains` (`host`, `links`, `pages`, `times_seen`, `first_seen_at`, `example_url`), most linking pages first. |
+| `POST` | `/api/blocked-links/backfill` | No body. Enqueues one job per indexed Wikipedia or Wikibooks page that logs its blocked links; answers `202` with `{data: {enqueued}}`. |
 
 Documents and hits carry license fields ([ADR 0026](docs/decisions/0026-per-document-license-fields.md)): `license` (SPDX id, `LicenseRef-unknown` when not known), `attribution` (`{url, credit, authors}` or `null`), `modified` (the text differs from the source's) and `share` (`full`, `pointer` or `none`). Wikipedia and Wikibooks documents are `CC-BY-SA-4.0`, credited to "Wikipedia" or "Wikibooks", `modified: true`, `share: full`.
 
