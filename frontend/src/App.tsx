@@ -96,7 +96,8 @@ export function App({
           </p>
           <SearchBox variant="hero" onSearch={runSearch} autoFocus />
           <p className="hint">
-            <kbd>Enter</kbd> to search · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
+            <kbd>Enter</kbd> to search · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> in a new tab
+            · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line
           </p>
           <RecentDocuments onOpen={openDocument} />
         </main>
