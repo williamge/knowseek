@@ -17,6 +17,7 @@ defmodule KnowseekWeb.StatsJSON do
         network:
           Enum.map(stats.network, &Map.update!(&1, :day, fn day -> Date.to_iso8601(day) end)),
         hit_share: stats.hit_share,
+        gain: stats.gain,
         crawl: crawl
       }
     }

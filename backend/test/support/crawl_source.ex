@@ -10,6 +10,12 @@ defmodule Knowseek.Discovery.CrawlSource do
   its own `:url` keeps it (to test links off the allowlist). Every call reports 900
   downloaded bytes through `:on_bytes`, so a test can count the requests by the
   bytes recorded for `"crawl"`.
+
+  `page/2` answers from `pages: %{page_id => candidate}` the same way: the stored map
+  (`:title`, `:body`, optionally `:url`, `:links`) gets the url
+  `https://en.wikipedia.org/wiki/Page_<page_id>` and `metadata: %{"pageid" => page_id}`
+  unless it has its own; `{:error, reason}` is returned as it is and no entry means
+  `{:ok, nil}`. Every call reports 800 bytes.
   """
   @behaviour Knowseek.Discovery.Source
 
@@ -31,5 +37,28 @@ defmodule Knowseek.Discovery.CrawlSource do
       |> Enum.map(&Map.put_new(&1, :url, "https://en.wikipedia.org/?curid=#{&1.page_id}"))
 
     {:ok, candidates}
+  end
+
+  @impl true
+  def page(page_id, opts) do
+    if on_bytes = opts[:on_bytes], do: on_bytes.(800)
+
+    case :knowseek |> Application.get_env(__MODULE__, []) |> Keyword.get(:pages, %{}) do
+      %{^page_id => {:error, reason}} ->
+        {:error, reason}
+
+      %{^page_id => page} ->
+        {:ok,
+         Map.merge(
+           %{
+             url: "https://en.wikipedia.org/wiki/Page_#{page_id}",
+             metadata: %{"pageid" => page_id}
+           },
+           page
+         )}
+
+      _no_page ->
+        {:ok, nil}
+    end
   end
 end

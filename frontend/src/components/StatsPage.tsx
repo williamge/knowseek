@@ -19,6 +19,8 @@ const PAGE_ROWS = [
 // A day is a UTC calendar day: noon UTC shows as that date in any time zone.
 const dayLabel = (day: string) => shortDate(`${day}T12:00:00Z`);
 
+const plural = (count: number, one: string, many = `${one}s`) => (count === 1 ? one : many);
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
@@ -68,7 +70,8 @@ export function StatsPage() {
 }
 
 function StatsBody({ stats, onClear }: { stats: Stats; onClear: () => void }) {
-  const { searches, pages, hit_share: share } = stats;
+  const { searches, pages, hit_share: share, gain } = stats;
+  const stored = formatBytes(stats.crawl.stored_bytes);
 
   return (
     <>
@@ -135,6 +138,25 @@ function StatsBody({ stats, onClear }: { stats: Stats; onClear: () => void }) {
           {share.hit_pages} of {share.background_pages} background pages showed up in your top
           results ({Math.round((share.hit_pages / share.background_pages) * 100)}%).
         </p>
+      )}
+
+      <h2>Gain</h2>
+      {share.background_pages === 0 ? (
+        <p className="muted">No background pages yet.</p>
+      ) : (
+        <>
+          <p>
+            {`${gain.pages} of ${share.background_pages} background ${plural(share.background_pages, "page")} showed up where your other pages were not enough (${Math.round((gain.pages / share.background_pages) * 100)}%).`}
+          </p>
+          <p>
+            {`${gain.searches} of your ${gain.window_searches} ${plural(gain.window_searches, "search", "searches")} in the last 30 days ${gain.searches === 1 ? "was" : "were"} covered only thanks to background pages.`}
+          </p>
+          <p>
+            {gain.pages === 0
+              ? `No useful page yet (${stored} for ${share.background_pages} background ${plural(share.background_pages, "page")}).`
+              : `Stored per useful page: ${formatBytes(Math.round(stats.crawl.stored_bytes / gain.pages))} (${stored} for ${share.background_pages} background ${plural(share.background_pages, "page")}).`}
+          </p>
+        </>
       )}
 
       <h2>Crawl</h2>

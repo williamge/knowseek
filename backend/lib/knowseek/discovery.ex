@@ -11,8 +11,9 @@ defmodule Knowseek.Discovery do
   `blocked_links` (#88, ADR 0032). `allowed?/1` is the gate a crawler calls
   before it fetches a URL. `backfill_links/0` logs the links of the pages
   already indexed. `link_candidates/1` lists the pages a stored page links
-  to, for the background crawl (#89, ADR 0033): `Knowseek.Crawl` reaches a
-  source only through it.
+  to and `fetch_page/3` fetches one of them and ingests it with origin
+  `background`, for the background crawl (#89, ADR 0033): `Knowseek.Crawl`
+  reaches a source only through them.
 
   Requests for the same normalized query within one hour are deduplicated.
   The insert runs in a transaction: Oban's SQLite engine checks uniqueness
@@ -258,13 +259,50 @@ defmodule Knowseek.Discovery do
     end
   end
 
-  # The configured source with this name that can list a page's links.
+  @doc """
+  Fetches the page `page_id` of the source named `site` and ingests it with
+  origin `background`, for the background crawl (#89, ADR 0033). `url` is the
+  link the crawler follows: it must pass `allowed?/1` before any request, and
+  so must the page's own URL before it is stored. `{:ok, nil}` when the page
+  has no text to index. A page that is already indexed is returned as it is
+  (its origin does not change). The downloaded bytes are recorded for the
+  source.
+  """
+  @spec fetch_page(String.t(), integer(), String.t()) ::
+          {:ok, Documents.Document.t() | nil} | {:error, :not_allowed | :no_source | term()}
+  def fetch_page(site, page_id, url) when is_integer(page_id) do
+    with {:allowed, true} <- {:allowed, allowed?(url)},
+         {:source, source} when source != nil <- {:source, crawl_source(site)},
+         {:ok, candidate} <-
+           counting_bytes(source, fn on_bytes -> source.page(page_id, on_bytes: on_bytes) end) do
+      stored(source, candidate)
+    else
+      {:allowed, false} -> {:error, :not_allowed}
+      {:source, nil} -> {:error, :no_source}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp stored(_source, nil), do: {:ok, nil}
+
+  defp stored(source, candidate) do
+    if allowed?(candidate.url) do
+      candidate |> Map.merge(%{source: source.name(), origin: "background"}) |> ingest()
+    else
+      {:error, :not_allowed}
+    end
+  end
+
+  # The configured source with this name that can list a page's links and
+  # fetch a page.
   defp crawl_source(name) do
     Enum.find(sources(), &(crawl_source?(&1) and &1.name() == name))
   end
 
-  defp crawl_source?(source),
-    do: Code.ensure_loaded?(source) and function_exported?(source, :link_candidates, 2)
+  defp crawl_source?(source) do
+    Code.ensure_loaded?(source) and function_exported?(source, :link_candidates, 2) and
+      function_exported?(source, :page, 2)
+  end
 
   defp links_source?(source),
     do: Code.ensure_loaded?(source) and function_exported?(source, :links, 2)
@@ -288,7 +326,7 @@ defmodule Knowseek.Discovery do
 
     case result do
       {:ok, candidates} ->
-        # Search-time discovery is the only caller today; #89 adds "background".
+        # Search-time discovery; the background crawl sets its own origin in `fetch_page/3`.
         origin = %{
           source: source.name(),
           origin: "search",

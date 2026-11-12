@@ -827,4 +827,30 @@ defmodule Knowseek.DocumentsTest do
       assert Documents.summaries([]) == %{}
     end
   end
+
+  describe "stored_bytes/1" do
+    test "adds the body, the chunks' text and 4 bytes per vector dimension per chunk" do
+      # Two bytes a character, to tell bytes from characters.
+      body = String.duplicate("é", 3_000)
+      doc = document_fixture(body: body)
+      chunks = chunks(doc)
+      text = chunks |> Enum.map(&byte_size(&1.content)) |> Enum.sum()
+
+      assert chunks != []
+
+      assert Documents.stored_bytes(doc.id) ==
+               byte_size(body) + text + length(chunks) * 4 * Knowseek.Embeddings.dimensions()
+    end
+
+    test "grows with the body" do
+      short = document_fixture(body: String.duplicate("word ", 100))
+      long = document_fixture(body: String.duplicate("word ", 5_000))
+
+      assert Documents.stored_bytes(long.id) > Documents.stored_bytes(short.id)
+    end
+
+    test "is 0 for an unknown id" do
+      assert Documents.stored_bytes(Ecto.UUID.generate()) == 0
+    end
+  end
 end

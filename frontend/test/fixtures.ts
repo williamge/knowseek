@@ -215,6 +215,7 @@ export function stats(overrides: Partial<Stats> = {}): Stats {
       { day: "2026-11-10", source: "wikibooks", bytes: 900 },
     ],
     hit_share: { background_pages: 0, hit_pages: 0 },
+    gain: { pages: 0, searches: 0, window_searches: 0 },
     crawl: {
       mode: "preview",
       pages_per_day: 100,
@@ -296,6 +297,10 @@ export function crawlEntry(overrides: Partial<CrawlEntry> = {}): CrawlEntry {
     shared: 0,
     shared_count: 1,
     score: 0.65,
+    document_id: null,
+    fetched_at: null,
+    stored_bytes: null,
+    hit: false,
     ...overrides,
   };
 }
@@ -308,6 +313,7 @@ export function crawl(overrides: Partial<Crawl> = {}): Crawl {
     fetched_today: 0,
     bar: 0.4,
     next: [crawlEntry()],
+    fetched: [],
     ...overrides,
   };
 }

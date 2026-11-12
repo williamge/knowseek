@@ -252,6 +252,12 @@ export interface Stats {
   network: NetworkDay[];
   /** Background pages, and how many of them appeared in the top results of a search. */
   hit_share: { background_pages: number; hit_pages: number };
+  /**
+   * Background pages that showed up where fewer than 3 other pages did, and the
+   * searches where that happened (the last 30 days); `window_searches` is all
+   * searches of those 30 days.
+   */
+  gain: { pages: number; searches: number; window_searches: number };
   crawl: {
     mode: CrawlMode;
     pages_per_day: number;
@@ -259,13 +265,14 @@ export interface Stats {
     fetched: number;
     links_read: number;
     candidates: number;
+    /** Estimated bytes stored for all background pages. */
     stored_bytes: number;
   };
 }
 
 export type CrawlMode = "off" | "preview" | "on";
 
-/** One link the background crawl scored (`GET /api/crawl`). */
+/** A link the background crawl scored: pending in `next`, a background page in `fetched` (`GET /api/crawl`). */
 export interface CrawlEntry {
   title: string;
   description: string | null;
@@ -286,15 +293,24 @@ export interface CrawlEntry {
   /** From how many source pages it is linked. */
   shared_count: number;
   score: number;
+  /** The background page, once fetched. Then `title` and `url` are the stored page's. */
+  document_id: string | null;
+  fetched_at: string | null;
+  /** Estimated bytes the page takes. */
+  stored_bytes: number | null;
+  /** The page showed up in the top results of a search. */
+  hit: boolean;
 }
 
-/** What `GET /api/crawl` returns: the crawl's settings and the links it would fetch next. */
+/** What `GET /api/crawl` returns: the crawl's settings, the links it would fetch next and the last pages it fetched. */
 export interface Crawl {
   mode: CrawlMode;
   pages_per_day: number;
   fetched_today: number;
   bar: number;
   next: CrawlEntry[];
+  /** The last 50 background pages, newest first. */
+  fetched: CrawlEntry[];
 }
 
 /** What `DELETE /api/searches` returns. */

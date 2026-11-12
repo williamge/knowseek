@@ -23,7 +23,8 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
   but one to two orders of magnitude smaller for the same subject (ADR 0029).
   `links/2` re-reads the external links of a stored page for the link
   backfill (#88). `link_candidates/2` reads the pages it links to, in the
-  main and Cookbook namespaces, for the background crawl (#89).
+  main and Cookbook namespaces, and `page/2` fetches one of them, for the
+  background crawl (#89).
 
   Configuration (all optional; see `Knowseek.Discovery.Sources.MediaWiki`):
 
@@ -64,6 +65,9 @@ defmodule Knowseek.Discovery.Sources.Wikibooks do
 
   @impl true
   def link_candidates(document, opts), do: MediaWiki.link_candidates(document, @site, opts)
+
+  @impl true
+  def page(page_id, opts), do: MediaWiki.page(page_id, @site, opts)
 
   @doc """
   The text sent to the Wikibooks search for a question: `query` without its

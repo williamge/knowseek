@@ -15,13 +15,18 @@ defmodule Knowseek.Crawl do
   (`Knowseek.Crawl.Frontier`).
 
   `Knowseek.Crawl.Scheduler` ticks once a minute and, when `due?/1`, enqueues
-  one `Knowseek.Crawl.Worker` job, which runs `step/1`: one action, reading
-  one source page. Search always wins: an instance that was searched less
-  than `idle_seconds` ago is not idle (`Knowseek.Crawl.Idle`).
+  one `Knowseek.Crawl.Worker` job, which runs `step/1`: one action. It reads
+  one source page, or, when every source page with allowance has been read
+  and the mode is `:on`, fetches the best pending candidate through
+  `Knowseek.Discovery.fetch_page/3` (origin `background`), at most
+  `pages_per_day` a UTC day. A candidate is checked again right before its
+  fetch: it is dropped when it is indexed already, or when the pages stored
+  since it was scored have lowered its novelty under the bar. Search always
+  wins: an instance that was searched less than `idle_seconds` ago is not
+  idle (`Knowseek.Crawl.Idle`).
 
   Mode (`mode/0`): `:off`, `:preview` (reads and scores, fetches nothing; the
-  default) or `:on`. Fetching the best candidate a minute is not built yet,
-  so `:on` acts as `:preview`.
+  default) or `:on`.
 
   The crawl reaches a source only through `Knowseek.Discovery`, the search
   log through `Knowseek.Activity`, and the index through `Knowseek.Documents`
@@ -42,7 +47,7 @@ defmodule Knowseek.Crawl do
           score: float()
         }
 
-  @type action :: :none | {:read, Allowance.source()}
+  @type action :: :none | {:read, Allowance.source()} | {:fetch, [scored()]}
 
   @type entry :: %{
           title: String.t(),
@@ -59,7 +64,11 @@ defmodule Knowseek.Crawl do
           gap: float(),
           shared: float(),
           shared_count: pos_integer(),
-          score: float()
+          score: float(),
+          document_id: Ecto.UUID.t() | nil,
+          fetched_at: DateTime.t() | nil,
+          stored_bytes: non_neg_integer() | nil,
+          hit: boolean()
         }
 
   @type overview :: %{
@@ -67,10 +76,11 @@ defmodule Knowseek.Crawl do
           pages_per_day: pos_integer(),
           fetched_today: non_neg_integer(),
           bar: float(),
-          next: [entry()]
+          next: [entry()],
+          fetched: [entry()]
         }
 
-  @doc "The crawl mode from config: `:off`, `:preview` (reads and scores, fetches nothing) or `:on` (acts as `:preview` until fetching is built)."
+  @doc "The crawl mode from config: `:off`, `:preview` (reads and scores, fetches nothing) or `:on` (also fetches)."
   @spec mode() :: :off | :preview | :on
   def mode, do: config()[:mode]
 
@@ -90,9 +100,9 @@ defmodule Knowseek.Crawl do
   end
 
   @doc """
-  Does one action: reads and scores one source page's links. Never raises on
-  a failed request; the next step tries again. Does not check idleness (the
-  scheduler does).
+  Does one action: reads and scores one source page's links, or, in mode
+  `:on`, fetches one page. Never raises on a failed request; the next step
+  tries again. Does not check idleness (the scheduler does).
   """
   @spec step(keyword()) :: :ok
   def step(opts \\ []) do
@@ -103,14 +113,17 @@ defmodule Knowseek.Crawl do
 
       case next(state) do
         {:read, source} -> read(source, state)
+        {:fetch, ranked} -> fetch(ranked, state)
         :none -> :ok
       end
     end
   end
 
   @doc """
-  What the Crawl page shows: the mode, today's count, the bar and the next
-  candidates in the order they would be fetched. `:limit` (default 50).
+  What the Crawl page shows: the mode, today's count, the bar, the next
+  candidates in the order they would be fetched (in `:preview` this is what
+  mode `:on` would fetch) and the last fetched pages, newest first. `:limit`
+  (default 50) for each list.
   """
   @spec overview(keyword()) :: overview()
   def overview(opts \\ []) do
@@ -123,7 +136,8 @@ defmodule Knowseek.Crawl do
       pages_per_day: config()[:pages_per_day],
       fetched_today: fetched_today(state.now),
       bar: config()[:bar],
-      next: entries(ranked, state)
+      next: entries(ranked, state),
+      fetched: limit |> Frontier.recent_fetched() |> fetched_entries(state)
     }
   end
 
@@ -199,13 +213,25 @@ defmodule Knowseek.Crawl do
   end
 
   # The first source page, in reading order, with allowance left whose links
-  # were not read yet or were read more than `reread_days` ago.
+  # were not read yet or were read more than `reread_days` ago. Else, in mode
+  # `:on` and under today's cap, the ranked candidates.
   defp next(state) do
     reread_before = DateTime.add(state.now, -state.config[:reread_days] * @day_seconds, :second)
 
     case Enum.find(state.live, &unread?(&1, state.read, reread_before)) do
-      nil -> :none
+      nil -> next_fetch(state)
       source -> {:read, source}
+    end
+  end
+
+  defp next_fetch(state) do
+    if mode() == :on and fetched_today(state.now) < state.config[:pages_per_day] do
+      case rank(state) do
+        [] -> :none
+        ranked -> {:fetch, ranked}
+      end
+    else
+      :none
     end
   end
 
@@ -317,6 +343,86 @@ defmodule Knowseek.Crawl do
     end
   end
 
+  # --- Fetching a page ---------------------------------------------------
+
+  # Goes through the first `rechecks_per_step` ranked candidates and stops at
+  # the first one that ends in a request. Each is checked again right before
+  # it could be fetched: the page may have been stored meanwhile, and the
+  # pages stored since this candidate was scored may have used up its
+  # novelty. This is what makes a topic fill up: each fetched page lowers the
+  # novelty of its neighbours.
+  defp fetch(ranked, state) do
+    ranked |> Enum.take(state.config[:rechecks_per_step]) |> fetch_first(state)
+  end
+
+  defp fetch_first([], _state), do: :ok
+
+  defp fetch_first([%{candidate: candidate} = scored | rest], state) do
+    if MapSet.size(Documents.indexed_page_ids(candidate.site, [candidate.page_id])) > 0 do
+      Frontier.delete_page(candidate.site, candidate.page_id)
+      fetch_first(rest, state)
+    else
+      case recheck(scored, state) do
+        {:ok, rechecked} ->
+          request(rechecked, state)
+
+        :dropped ->
+          Frontier.delete(candidate)
+          fetch_first(rest, state)
+
+        {:error, reason} ->
+          Logger.warning("crawl: embedding #{candidate.title} failed: #{inspect(reason)}")
+          :ok
+      end
+    end
+  end
+
+  # The candidate's novelty and score as they are now, with the shared bonus
+  # of the ranking. `:dropped` when the score is under the bar.
+  defp recheck(%{candidate: candidate} = scored, %{config: config}) do
+    with {:ok, [vector]} <-
+           Embeddings.embed([Score.text(candidate.title, candidate.description)],
+             input_type: :document
+           ) do
+      near = Search.count_near(vector, limit: config[:novelty_full_at])
+      novelty = Score.novelty(near, config[:novelty_full_at])
+      score = Score.base(candidate.interest, novelty, candidate.gap) + scored.shared
+
+      if score >= config[:bar],
+        do: {:ok, %{scored | candidate: %{candidate | novelty: novelty}, score: score}},
+        else: :dropped
+    end
+  end
+
+  defp request(%{candidate: candidate} = scored, state) do
+    case Discovery.fetch_page(candidate.site, candidate.page_id, candidate.url) do
+      {:ok, %Documents.Document{origin: "background"} = document} ->
+        Frontier.mark_fetched(candidate, %{
+          document_id: document.id,
+          novelty: candidate.novelty,
+          shared: scored.shared,
+          shared_count: scored.shared_count,
+          score: scored.score,
+          stored_bytes: Documents.stored_bytes(document.id),
+          fetched_at: state.now
+        })
+
+      {:ok, %Documents.Document{}} ->
+        # A search stored the page under its own origin meanwhile.
+        Frontier.delete_page(candidate.site, candidate.page_id)
+
+      {:ok, nil} ->
+        Frontier.mark_skipped(candidate)
+
+      {:error, :not_allowed} ->
+        Frontier.mark_skipped(candidate)
+
+      {:error, reason} ->
+        Logger.warning("crawl: fetching #{candidate.title} failed: #{inspect(reason)}")
+        Frontier.mark_failed(candidate, state.now)
+    end
+  end
+
   # --- Ranking -----------------------------------------------------------
 
   # The pending candidates of the source pages with allowance left, in the
@@ -360,16 +466,48 @@ defmodule Knowseek.Crawl do
     %{candidate: candidate, shared: shared, shared_count: count, score: base + shared}
   end
 
-  defp entries(ranked, %{summaries: summaries, sources: sources}) do
+  # The entries of `overview/1`. `next` entries come from `rank/1`; a fetched
+  # entry shows the stored document's title and URL, and the scores that
+  # decided the fetch.
+  defp entries(ranked, state) do
+    ranked
+    |> Enum.map(fn %{candidate: candidate} = scored ->
+      {candidate,
+       %{shared: scored.shared, shared_count: scored.shared_count, score: scored.score}}
+    end)
+    |> build_entries(state, MapSet.new())
+  end
+
+  defp fetched_entries(candidates, state) do
+    hits =
+      candidates |> Enum.flat_map(&List.wrap(&1.document_id)) |> Activity.hit_documents()
+
+    candidates
+    |> Enum.map(&{&1, %{shared: &1.shared, shared_count: &1.shared_count, score: &1.score}})
+    |> build_entries(state, hits)
+  end
+
+  defp build_entries(pairs, %{sources: sources, summaries: summaries}, hits) do
     queries = Map.new(sources, &{&1.document_id, &1.queries})
 
-    Enum.map(ranked, fn %{candidate: candidate} = scored ->
+    ids =
+      pairs
+      |> Enum.flat_map(fn {candidate, _parts} ->
+        [candidate.source_document_id | List.wrap(candidate.document_id)]
+      end)
+      |> Enum.reject(&Map.has_key?(summaries, &1))
+      |> Enum.uniq()
+
+    summaries = Map.merge(summaries, Documents.summaries(ids))
+
+    Enum.map(pairs, fn {candidate, parts} ->
       source = Map.get(summaries, candidate.source_document_id, %{})
+      page = Map.get(summaries, candidate.document_id, %{})
 
       %{
-        title: candidate.title,
+        title: page[:title] || candidate.title,
         description: candidate.description,
-        url: candidate.url,
+        url: page[:url] || candidate.url,
         source: %{
           document_id: candidate.source_document_id,
           title: source[:title],
@@ -379,9 +517,13 @@ defmodule Knowseek.Crawl do
         interest: candidate.interest,
         novelty: candidate.novelty,
         gap: candidate.gap,
-        shared: scored.shared,
-        shared_count: scored.shared_count,
-        score: scored.score
+        shared: parts.shared,
+        shared_count: parts.shared_count,
+        score: parts.score,
+        document_id: candidate.document_id,
+        fetched_at: candidate.fetched_at,
+        stored_bytes: candidate.stored_bytes,
+        hit: MapSet.member?(hits, candidate.document_id)
       }
     end)
   end

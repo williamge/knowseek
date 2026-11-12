@@ -5,7 +5,7 @@ defmodule KnowseekWeb.StatsControllerTest do
   alias Knowseek.Crawl.{Candidate, SourcePage}
   alias Knowseek.Repo
 
-  @keys ~w(searches pages disk_bytes network hit_share crawl)
+  @keys ~w(searches pages disk_bytes network hit_share gain crawl)
 
   describe "GET /api/stats" do
     test "has the documented shape on an empty database", %{conn: conn} do
@@ -16,7 +16,19 @@ defmodule KnowseekWeb.StatsControllerTest do
       assert data["pages"] == %{"search" => 0, "background" => 0, "manual" => 0}
       assert data["network"] == []
       assert data["hit_share"] == %{"background_pages" => 0, "hit_pages" => 0}
+      assert data["gain"] == %{"pages" => 0, "searches" => 0, "window_searches" => 0}
       assert data["disk_bytes"] > 0
+    end
+
+    test "has the gain", %{conn: conn} do
+      background = document_fixture(origin: "background")
+      other = document_fixture(origin: "search")
+      logged_search_fixture(query: "desem", documents: [background, other])
+      logged_search_fixture(query: "bread", documents: [other])
+
+      assert %{"data" => %{"gain" => gain}} = conn |> get(~p"/api/stats") |> json_response(200)
+
+      assert gain == %{"pages" => 1, "searches" => 1, "window_searches" => 2}
     end
 
     test "has the crawl counters", %{conn: conn} do
