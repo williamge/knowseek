@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { KnowseekDocument } from "../src/types";
 import { document as doc, hit, mockApi, result } from "./fixtures";
@@ -50,6 +50,23 @@ describe("App", () => {
     render(<App watch={FAST} />);
     await userEvent.type(screen.getByLabelText("Search query"), "   {Enter}");
     expect(calls.some((c) => c.key === "POST /search")).toBe(false);
+  });
+
+  it("opens the search in a new tab on Cmd+Enter or Ctrl+Enter, and leaves this tab alone", async () => {
+    const { calls } = mockApi({ "GET /documents": () => [] });
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    render(<App watch={FAST} />);
+    const box = screen.getByLabelText("Search query");
+
+    await userEvent.type(box, "rust async{Meta>}{Enter}{/Meta}");
+    await userEvent.type(box, "{Control>}{Enter}{/Control}");
+
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(open).toHaveBeenCalledWith("/?q=rust+async", "_blank", "noopener");
+    expect(window.location.search).toBe("");
+    expect(box).toHaveValue("rust async");
+    expect(calls.some((c) => c.key === "POST /search")).toBe(false);
+    open.mockRestore();
   });
 
   it("searches again when discovery adds documents", async () => {

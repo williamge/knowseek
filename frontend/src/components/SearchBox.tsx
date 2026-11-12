@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { routeToUrl } from "../router";
 
 interface Props {
   initialQuery?: string;
@@ -43,8 +44,21 @@ export function SearchBox({ initialQuery = "", onSearch, variant, autoFocus }: P
     if (query) onSearch(query);
   };
 
+  // Cmd+Enter (Mac) or Ctrl+Enter (elsewhere) opens the search in a new tab and
+  // leaves this one as it is.
+  const searchInNewTab = () => {
+    const query = value.trim();
+    if (query) window.open(routeToUrl({ page: null, query, doc: null }), "_blank", "noopener");
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) submit(event);
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      searchInNewTab();
+    } else {
+      submit(event);
+    }
   };
 
   return (
