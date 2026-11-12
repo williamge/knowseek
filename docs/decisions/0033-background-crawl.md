@@ -52,7 +52,8 @@ and Cookbook; indexed pages, red links and disambiguation pages dropped; the
 scoring text is "Title: description"; two stages (interest first, novelty
 only above the interest floor); novelty looks at vectors only; sources come
 only from logged results, never from a background page; low CPU is the
-1-minute load average under half the cores; every request goes through the
+busy share since the last check under 60% (first version: the 1-minute load
+average under half the cores, replaced, see "Idle, and `os_mon`"); every request goes through the
 Wikimedia background slots (ADR 0027) and `Discovery.allowed?/1` (ADR 0032);
 the provenance lives in the crawler's own tables, not in `documents`.
 
@@ -155,11 +156,23 @@ longer idle.
 ### Idle, and `os_mon`
 
 The instance is idle when no search was logged for `idle_seconds` (600, from
-`CRAWL_IDLE_SECONDS`) and the 1-minute load average per core is under 0.5.
-The load comes from `:cpu_sup.avg1/0` (the `os_mon` OTP application, started
-with `start_memsup: false, start_disksup: false`, which would raise alarms). A
-load that cannot be read means **not idle**: the crawl then never runs and the
-log says so once. No search at all counts as quiet. The search log keeps the
+`CRAWL_IDLE_SECONDS`) and the CPU was busy less than `max_cpu_percent` (60)
+since the previous check. The busy share comes from `:cpu_sup.util/0` (the
+`os_mon` OTP application, started with `start_memsup: false, start_disksup:
+false`, which would raise alarms): the percentage of CPU time spent busy since
+the previous call. The scheduler checks once a minute, so it is the share over
+the last minute; `cpu_sup` keeps the previous sample per calling process, so
+only the scheduler asks. The first check after a start has no previous sample
+and is **not idle**. A share that cannot be read also means **not idle**: the
+crawl then never runs and the log says so once. No search at all counts as
+quiet.
+
+**Why not the load average.** The first version used the 1-minute load average
+per core under 0.5. On macOS the load average counts threads that wait for the
+disk or for swap, so it sat at 13 to 20 on 8 cores while the CPU was 46% busy
+(`cpu_sup:util()` returned 46.0 while `avg1` was 13.08): the condition was
+never true, and the crawl of the owner's stack never read a link. CPU
+utilisation measures what the crawl should not compete for. The search log keeps the
 first time of a search repeated within 120 seconds (ADR 0031), so idle can
 start up to 2 minutes early.
 

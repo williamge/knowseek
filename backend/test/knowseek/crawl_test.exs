@@ -52,7 +52,7 @@ defmodule Knowseek.CrawlTest do
       reread_days: 7,
       retry_minutes: 60,
       idle_seconds: 600,
-      max_load: 0.5
+      max_cpu_percent: 60
     )
 
     # A background page is never a source page: it fills a search's results
@@ -245,8 +245,8 @@ defmodule Knowseek.CrawlTest do
       source_page(filler, 1, @query)
       now = DateTime.utc_now()
 
-      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -10), load: 0.0)
-      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -3_600), load: 2.0)
+      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -10), cpu: 0.0)
+      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -3_600), cpu: 90.0)
     end
 
     test "is false when there is nothing to do", %{filler: filler} do
@@ -1286,7 +1286,7 @@ defmodule Knowseek.CrawlTest do
   # Options that make `Crawl.due?/1` see an idle instance.
   defp idle_opts do
     now = DateTime.utc_now()
-    [now: now, last_search_at: DateTime.add(now, -3_600), load: 0.0]
+    [now: now, last_search_at: DateTime.add(now, -3_600), cpu: 0.0]
   end
 
   defp set_links(links) do
