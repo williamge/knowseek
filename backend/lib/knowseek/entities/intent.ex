@@ -1,7 +1,7 @@
 defmodule Knowseek.Entities.Intent do
   @moduledoc """
   Splits an intent word off a query before it is resolved. Plain code, not an
-  LLM; task 007 (query planning) may replace it.
+  LLM; query planning (GitHub issue #50) may replace it.
 
   `weather in tokyo` finds nothing in Wikidata, so the query is split into the
   intent `:weather` and the text `tokyo`. Two shapes are recognised, ignoring

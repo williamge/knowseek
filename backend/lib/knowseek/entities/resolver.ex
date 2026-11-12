@@ -1,7 +1,7 @@
 defmodule Knowseek.Entities.Resolver do
   @moduledoc """
   Behaviour for a place that turns text into candidate entities: Wikidata
-  now, maybe an LLM step later (task 007).
+  now, maybe an LLM step later (GitHub issue #50).
 
   A resolver only finds candidates, with the details a card provider needs.
   Which candidate is the top entity is decided by `Knowseek.Entities`. A

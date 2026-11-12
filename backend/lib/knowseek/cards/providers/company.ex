@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.Providers.Company do
   @moduledoc """
   `Knowseek.Cards.Provider` for a public company: "what is this company", from
-  the SEC's EDGAR (`Knowseek.Cards.Edgar`). Task 032, ADR 0021. No price: no
+  the SEC's EDGAR (`Knowseek.Cards.Edgar`). ADR 0021. No price: no
   keyless source of quotes allows automated use (ADR 0021).
 
   ## Which entities

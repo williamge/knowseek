@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.Edgar do
   @moduledoc """
   A small client for the SEC's EDGAR data API (`https://data.sec.gov`), for
-  `Knowseek.Cards.Providers.Company` (task 032, ADR 0021).
+  `Knowseek.Cards.Providers.Company` (ADR 0021).
 
   The data is public and the SEC allows reuse ("Information presented on
   sec.gov is considered public information and may be copied or further

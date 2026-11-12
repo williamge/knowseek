@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.Providers.OpenMeteo do
   @moduledoc """
   `Knowseek.Cards.Provider` for the weather of a place, from Open-Meteo's forecast API
-  (`Knowseek.Cards.OpenMeteo`). Task 033, ADR 0022.
+  (`Knowseek.Cards.OpenMeteo`). ADR 0022.
 
   ## Which queries
 
