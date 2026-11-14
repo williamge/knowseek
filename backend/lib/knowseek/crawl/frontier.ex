@@ -104,6 +104,79 @@ defmodule Knowseek.Crawl.Frontier do
     )
   end
 
+  @doc "The last `limit` `fetched` candidates, newest first."
+  @spec recent_fetched(pos_integer()) :: [Candidate.t()]
+  def recent_fetched(limit) do
+    Repo.all(
+      from c in Candidate,
+        where: c.state == "fetched",
+        order_by: [desc: c.fetched_at, desc: c.page_id],
+        limit: ^limit
+    )
+  end
+
+  @doc """
+  Marks `candidate` `fetched` with `attrs` (the background page's
+  `document_id`, the score parts that decided the fetch, `stored_bytes` and
+  `fetched_at`) and deletes the other `pending` rows of the same page, in one
+  transaction.
+  """
+  @spec mark_fetched(Candidate.t(), map()) :: :ok
+  def mark_fetched(candidate, attrs), do: settle(candidate, Map.put(attrs, :state, "fetched"))
+
+  @doc """
+  Marks `candidate` `skipped` (the page gave no text, or its URL is off the
+  allowlist) and deletes the other `pending` rows of the same page. A skipped
+  page is not a candidate again.
+  """
+  @spec mark_skipped(Candidate.t()) :: :ok
+  def mark_skipped(candidate), do: settle(candidate, %{state: "skipped"})
+
+  defp settle(candidate, attrs) do
+    {:ok, :ok} =
+      Repo.transact(fn ->
+        Repo.update_all(row(candidate), set: Map.to_list(attrs))
+        delete_pending(candidate.site, candidate.page_id)
+        {:ok, :ok}
+      end)
+
+    :ok
+  end
+
+  @doc "Records a failed fetch of `candidate` at `now`; it is left alone until `Knowseek.Crawl`'s `retry_minutes` have passed."
+  @spec mark_failed(Candidate.t(), DateTime.t()) :: :ok
+  def mark_failed(candidate, now) do
+    Repo.update_all(row(candidate), set: [failed_at: now])
+    :ok
+  end
+
+  @doc "Deletes the `pending` row of `candidate`."
+  @spec delete(Candidate.t()) :: :ok
+  def delete(candidate) do
+    Repo.delete_all(from c in row(candidate), where: c.state == "pending")
+    :ok
+  end
+
+  @doc "Deletes every `pending` row of the page `page_id` of `site`."
+  @spec delete_page(String.t(), integer()) :: :ok
+  def delete_page(site, page_id) do
+    delete_pending(site, page_id)
+    :ok
+  end
+
+  defp delete_pending(site, page_id) do
+    Repo.delete_all(
+      from c in Candidate,
+        where: c.site == ^site and c.page_id == ^page_id and c.state == "pending"
+    )
+  end
+
+  defp row(candidate) do
+    from c in Candidate,
+      where:
+        c.source_document_id == ^candidate.source_document_id and c.page_id == ^candidate.page_id
+  end
+
   @doc "The counters for `/stats`: links read, pending candidates, fetched candidates and their stored bytes."
   @spec totals() :: %{
           links_read: non_neg_integer(),

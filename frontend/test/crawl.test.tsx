@@ -14,10 +14,10 @@ describe("crawl page", () => {
       "preview",
       "Preview: Knowseek scores the links of the pages your searches found, and fetches nothing. Set CRAWL_MODE=on to let it fetch.",
     ],
-    ["on", "Fetching is not built yet: until it is, the crawl only scores links, like preview."],
+    ["on", "3 of 100 pages fetched today. One page a minute while you are not searching."],
     ["off", "The background crawl is off."],
   ] as const)("says what mode %s does", async (mode, text) => {
-    mockApi({ "GET /crawl": () => crawl({ mode }) });
+    mockApi({ "GET /crawl": () => crawl({ mode, fetched_today: 3 }) });
     openCrawl();
     render(<App />);
 
@@ -166,6 +166,107 @@ describe("crawl page", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("lists the fetched pages with when they were fetched and whether a search showed them", async () => {
+    mockApi({
+      "GET /crawl": () =>
+        crawl({
+          next: [],
+          fetched: [
+            crawlEntry({
+              title: "Desem",
+              description: "Sourdough starter",
+              url: "https://en.wikipedia.org/wiki/Desem",
+              document_id: "bg-1",
+              fetched_at: "2026-11-10T09:30:00Z",
+              stored_bytes: 120_000,
+              hit: true,
+              score: 0.69,
+            }),
+            crawlEntry({
+              title: "Poolish",
+              description: null,
+              url: "https://en.wikipedia.org/wiki/Poolish",
+              source: { document_id: "doc-2", title: null, url: null, queries: [] },
+              document_id: "bg-2",
+              fetched_at: "2026-11-09T09:30:00Z",
+              hit: false,
+            }),
+          ],
+        }),
+    });
+    openCrawl();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Fetched" })).toBeInTheDocument();
+    expect(screen.getByText("No candidates yet.", { exact: false })).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    expect(
+      within(rows[0])
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      "Page",
+      "Linked from",
+      "Interest",
+      "Novelty",
+      "Gap",
+      "Shared",
+      "Score",
+      "Fetched",
+      "In your results",
+    ]);
+    expect(
+      within(rows[1])
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      "DesemSourdough starter",
+      "Bicyclefrom your search “road bike”",
+      "0.80",
+      "0.50",
+      "–",
+      "–",
+      "0.69",
+      "Nov 10",
+      "Yes",
+    ]);
+    const second = within(rows[2]).getAllByRole("cell");
+    expect(second[1]).toHaveTextContent("(page removed)");
+    expect(second[7]).toHaveTextContent("Nov 9");
+    expect(second[8]).toHaveTextContent("No");
+    expect(screen.getByRole("link", { name: "Desem" })).toHaveAttribute(
+      "href",
+      "https://en.wikipedia.org/wiki/Desem",
+    );
+  });
+
+  it("links the source page of a fetched page to the reader", async () => {
+    mockApi({
+      "GET /crawl": () =>
+        crawl({
+          next: [],
+          fetched: [crawlEntry({ document_id: "bg-1", fetched_at: "2026-11-10T09:30:00Z" })],
+        }),
+      "GET /documents/doc-1": () => doc({ id: "doc-1", title: "Bicycle" }),
+    });
+    openCrawl();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("link", { name: "Bicycle" }));
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Second paragraph");
+    expect(window.location.search).toBe("?doc=doc-1");
+  });
+
+  it("says nothing was fetched yet", async () => {
+    mockApi({ "GET /crawl": () => crawl({ mode: "on", fetched: [] }) });
+    openCrawl();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Fetched" })).toBeInTheDocument();
+    expect(screen.getByText("Nothing fetched yet.")).toBeInTheDocument();
   });
 
   it("shows an alert when the crawl does not load", async () => {

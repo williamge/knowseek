@@ -176,7 +176,8 @@ defmodule Knowseek.ActivityTest do
                searches: %{total: 0, days: []},
                pages: %{search: 0, background: 0, manual: 0},
                network: [],
-               hit_share: %{background_pages: 0, hit_pages: 0}
+               hit_share: %{background_pages: 0, hit_pages: 0},
+               gain: %{pages: 0, searches: 0, window_searches: 0}
              } = stats = stats()
 
       assert stats.disk_bytes > 0
@@ -240,6 +241,54 @@ defmodule Knowseek.ActivityTest do
 
       assert %{hit_share: %{background_pages: 2, hit_pages: 1}} = stats()
     end
+
+    test "gain is zero on an empty database" do
+      assert %{gain: %{pages: 0, searches: 0, window_searches: 0}} = stats()
+    end
+
+    test "gain counts a search with a background page and fewer than 3 other pages" do
+      background = document_fixture(origin: "background")
+      [a, b, c] = for _ <- 1..3, do: document_fixture(origin: "search")
+      now = DateTime.new!(@today, ~T[10:00:00], "Etc/UTC")
+
+      logged_search_fixture(query: "one", documents: [background, a, b], now: now)
+      logged_search_fixture(query: "full", documents: [background, a, b, c], now: now)
+      logged_search_fixture(query: "no background", documents: [a], now: now)
+
+      assert %{gain: %{pages: 1, searches: 1, window_searches: 3}} = stats()
+    end
+
+    test "gain counts a search with only background pages" do
+      one = document_fixture(origin: "background")
+      two = document_fixture(origin: "background")
+      now = DateTime.new!(@today, ~T[10:00:00], "Etc/UTC")
+
+      logged_search_fixture(query: "only", documents: [one, two], now: now)
+
+      assert %{gain: %{pages: 2, searches: 1}} = stats()
+    end
+
+    test "gain counts a background page once, and the searches that used it" do
+      background = document_fixture(origin: "background")
+      other = document_fixture(origin: "search")
+      now = DateTime.new!(@today, ~T[10:00:00], "Etc/UTC")
+
+      logged_search_fixture(query: "first", documents: [background, other], now: now)
+      logged_search_fixture(query: "second", documents: [background], now: now)
+
+      assert %{gain: %{pages: 1, searches: 2, window_searches: 2}} = stats()
+    end
+
+    test "gain pages cover the whole log, searches only the last 30 days" do
+      background = document_fixture(origin: "background")
+      old = DateTime.new!(~D[2026-10-10], ~T[12:00:00], "Etc/UTC")
+      recent = DateTime.new!(@today, ~T[12:00:00], "Etc/UTC")
+
+      logged_search_fixture(query: "old", documents: [background], now: old)
+      logged_search_fixture(query: "recent", documents: [], now: recent)
+
+      assert %{gain: %{pages: 1, searches: 0, window_searches: 1}} = stats()
+    end
   end
 
   describe "result_pages/1" do
@@ -302,6 +351,22 @@ defmodule Knowseek.ActivityTest do
       logged_search_fixture(query: "kelp", now: DateTime.add(@t0, 60))
 
       assert Activity.last_search_at() == @t0
+    end
+  end
+
+  describe "hit_documents/1" do
+    test "returns the documents that appeared in a logged search" do
+      shown = document_fixture()
+      unseen = document_fixture()
+      logged_search_fixture(query: "one", documents: [shown])
+      logged_search_fixture(query: "two", documents: [shown])
+
+      assert Activity.hit_documents([shown.id, unseen.id, Ecto.UUID.generate()]) ==
+               MapSet.new([shown.id])
+    end
+
+    test "is empty for no ids" do
+      assert Activity.hit_documents([]) == MapSet.new()
     end
   end
 end

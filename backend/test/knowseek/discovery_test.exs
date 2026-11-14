@@ -493,6 +493,8 @@ defmodule Knowseek.DiscoveryTest do
           opts[:on_bytes].(300)
           {:error, :unavailable}
         end
+
+        def page(_page_id, _opts), do: {:error, :unavailable}
       end
 
       config = Application.fetch_env!(:knowseek, Discovery)
@@ -501,6 +503,126 @@ defmodule Knowseek.DiscoveryTest do
 
       assert {:error, :unavailable} = Discovery.link_candidates(document)
       assert [%NetworkUsage{source: "crawl", bytes: 300}] = Repo.all(NetworkUsage)
+    end
+  end
+
+  describe "fetch_page/3" do
+    @url "https://en.wikipedia.org/?curid=100"
+
+    setup do
+      config = Application.fetch_env!(:knowseek, Discovery)
+
+      on_exit(fn ->
+        Application.put_env(:knowseek, Discovery, config)
+        Application.delete_env(:knowseek, CrawlSource)
+      end)
+
+      Application.put_env(
+        :knowseek,
+        Discovery,
+        Keyword.put(config, :sources, [FakeSource, CrawlSource])
+      )
+
+      Application.put_env(:knowseek, CrawlSource,
+        pages: %{100 => %{title: "Desem", body: "Desem is a sourdough starter."}}
+      )
+
+      :ok
+    end
+
+    test "ingests the page with origin background and no origin query, and records the bytes" do
+      assert {:ok,
+              %Documents.Document{
+                origin: "background",
+                origin_query: nil,
+                source: "crawl",
+                title: "Desem",
+                url: "https://en.wikipedia.org/wiki/Page_100"
+              } = document} = Discovery.fetch_page("crawl", 100, @url)
+
+      assert Documents.get_document(document.id)
+      today = Date.utc_today()
+      assert [%NetworkUsage{day: ^today, source: "crawl", bytes: 800}] = Repo.all(NetworkUsage)
+    end
+
+    test "logs the links of the page that go off the allowlist" do
+      Application.put_env(:knowseek, CrawlSource,
+        pages: %{
+          100 => %{
+            title: "Desem",
+            body: "Desem is a sourdough starter.",
+            links: ["https://example.com/a", "https://en.wikipedia.org/wiki/Flour"]
+          }
+        }
+      )
+
+      assert {:ok, document} = Discovery.fetch_page("crawl", 100, @url)
+
+      assert [%BlockedLink{url: "https://example.com/a", host: "example.com"}] =
+               blocked_links(document.id)
+    end
+
+    test "is {:error, :not_allowed} for a URL off the allowlist, without a request" do
+      assert {:error, :not_allowed} =
+               Discovery.fetch_page("crawl", 100, "https://example.com/?curid=100")
+
+      assert Repo.all(NetworkUsage) == []
+      assert Repo.aggregate(Documents.Document, :count) == 0
+    end
+
+    test "is {:error, :not_allowed} when the page's own URL is off the allowlist" do
+      Application.put_env(:knowseek, CrawlSource,
+        pages: %{
+          100 => %{
+            title: "Desem",
+            body: "Desem is a sourdough starter.",
+            url: "https://example.com/desem"
+          }
+        }
+      )
+
+      assert {:error, :not_allowed} = Discovery.fetch_page("crawl", 100, @url)
+
+      assert Repo.aggregate(Documents.Document, :count) == 0
+      # The request was made, so its bytes are recorded.
+      assert [%NetworkUsage{source: "crawl", bytes: 800}] = Repo.all(NetworkUsage)
+    end
+
+    test "passes {:ok, nil} through when the page has no text" do
+      assert {:ok, nil} =
+               Discovery.fetch_page("crawl", 999, "https://en.wikipedia.org/?curid=999")
+
+      assert Repo.aggregate(Documents.Document, :count) == 0
+      assert [%NetworkUsage{source: "crawl", bytes: 800}] = Repo.all(NetworkUsage)
+    end
+
+    test "returns a page that is indexed already with its own origin" do
+      existing =
+        document_fixture(
+          source: "crawl",
+          origin: "search",
+          origin_query: "desem",
+          url: "https://en.wikipedia.org/wiki/Page_100",
+          body: "Old text."
+        )
+
+      assert {:ok, %Documents.Document{id: id, origin: "search", origin_query: "desem"}} =
+               Discovery.fetch_page("crawl", 100, @url)
+
+      assert id == existing.id
+    end
+
+    test "is {:error, :no_source} for a site that is not configured or cannot fetch pages" do
+      assert {:error, :no_source} = Discovery.fetch_page("not configured", 100, @url)
+      assert {:error, :no_source} = Discovery.fetch_page("fake", 100, @url)
+      assert Repo.all(NetworkUsage) == []
+    end
+
+    test "returns the source's error, and still records the bytes it downloaded" do
+      Application.put_env(:knowseek, CrawlSource, pages: %{100 => {:error, :unavailable}})
+
+      assert {:error, :unavailable} = Discovery.fetch_page("crawl", 100, @url)
+      assert [%NetworkUsage{source: "crawl", bytes: 800}] = Repo.all(NetworkUsage)
     end
   end
 

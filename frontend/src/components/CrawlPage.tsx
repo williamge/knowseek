@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { shortDate } from "../lib/format";
 import { routeToUrl } from "../router";
-import type { Crawl, CrawlEntry, CrawlMode } from "../types";
+import type { Crawl, CrawlEntry } from "../types";
 
-const STATUS: Record<CrawlMode, string> = {
-  preview:
-    "Preview: Knowseek scores the links of the pages your searches found, and fetches nothing. Set CRAWL_MODE=on to let it fetch.",
-  on: "Fetching is not built yet: until it is, the crawl only scores links, like preview.",
-  off: "The background crawl is off.",
-};
+function status(crawl: Crawl): string {
+  switch (crawl.mode) {
+    case "preview":
+      return "Preview: Knowseek scores the links of the pages your searches found, and fetches nothing. Set CRAWL_MODE=on to let it fetch.";
+    case "on":
+      return `${crawl.fetched_today.toLocaleString("en")} of ${crawl.pages_per_day.toLocaleString("en")} pages fetched today. One page a minute while you are not searching.`;
+    case "off":
+      return "The background crawl is off.";
+  }
+}
 
 const score = (value: number) => value.toFixed(2);
 
@@ -33,7 +38,81 @@ function fromSearches(queries: string[]): string | null {
   return `from your ${queries.length === 1 ? "search" : "searches"} ${list}`;
 }
 
-/** The links the background crawl would fetch next, with what makes up each score. */
+/**
+ * Scored links with what makes up each score: the ones the background crawl
+ * would fetch next, or (with `fetched`) the pages it fetched, which also show
+ * when and whether a search of yours showed them.
+ */
+function EntryTable({
+  entries,
+  fetched = false,
+  onOpenDocument,
+}: {
+  entries: CrawlEntry[];
+  fetched?: boolean;
+  onOpenDocument: (id: string) => void;
+}) {
+  return (
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th>Page</th>
+          <th>Linked from</th>
+          <th className="num">Interest</th>
+          <th className="num">Novelty</th>
+          <th className="num">Gap</th>
+          <th className="num">Shared</th>
+          <th className="num">Score</th>
+          {fetched && <th>Fetched</th>}
+          {fetched && <th>In your results</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {entries.map((entry) => (
+          <tr key={`${entry.source.document_id}-${entry.url}`}>
+            <td>
+              <a href={entry.url} rel="noreferrer noopener" target="_blank">
+                {entry.title}
+              </a>
+              {entry.description && <div className="muted">{entry.description}</div>}
+            </td>
+            <td>
+              {entry.source.title === null ? (
+                "(page removed)"
+              ) : (
+                <a
+                  href={routeToUrl({
+                    page: "crawl",
+                    query: null,
+                    doc: entry.source.document_id,
+                  })}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onOpenDocument(entry.source.document_id);
+                  }}
+                >
+                  {entry.source.title}
+                </a>
+              )}
+              {fromSearches(entry.source.queries) && (
+                <div className="muted">{fromSearches(entry.source.queries)}</div>
+              )}
+            </td>
+            <td className="num">{score(entry.interest)}</td>
+            <td className="num">{score(entry.novelty)}</td>
+            <td className="num">{bonus(entry.gap)}</td>
+            <td className="num">{shared(entry)}</td>
+            <td className="num">{score(entry.score)}</td>
+            {fetched && <td>{entry.fetched_at ? shortDate(entry.fetched_at) : "–"}</td>}
+            {fetched && <td>{entry.hit ? "Yes" : "No"}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** What the background crawl would fetch next, and what it fetched, with what makes up each score. */
 export function CrawlPage({ onOpenDocument }: { onOpenDocument: (id: string) => void }) {
   const [crawl, setCrawl] = useState<Crawl | null>(null);
   const [failed, setFailed] = useState(false);
@@ -58,7 +137,7 @@ export function CrawlPage({ onOpenDocument }: { onOpenDocument: (id: string) => 
         <p className="muted">Loading…</p>
       ) : (
         <>
-          <p className="muted">{STATUS[crawl.mode]}</p>
+          <p className="muted">{status(crawl)}</p>
 
           <h2>Next</h2>
           {crawl.next.length === 0 ? (
@@ -67,58 +146,14 @@ export function CrawlPage({ onOpenDocument }: { onOpenDocument: (id: string) => 
               while.
             </div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Page</th>
-                  <th>Linked from</th>
-                  <th className="num">Interest</th>
-                  <th className="num">Novelty</th>
-                  <th className="num">Gap</th>
-                  <th className="num">Shared</th>
-                  <th className="num">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {crawl.next.map((entry) => (
-                  <tr key={entry.url}>
-                    <td>
-                      <a href={entry.url} rel="noreferrer noopener" target="_blank">
-                        {entry.title}
-                      </a>
-                      {entry.description && <div className="muted">{entry.description}</div>}
-                    </td>
-                    <td>
-                      {entry.source.title === null ? (
-                        "(page removed)"
-                      ) : (
-                        <a
-                          href={routeToUrl({
-                            page: "crawl",
-                            query: null,
-                            doc: entry.source.document_id,
-                          })}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            onOpenDocument(entry.source.document_id);
-                          }}
-                        >
-                          {entry.source.title}
-                        </a>
-                      )}
-                      {fromSearches(entry.source.queries) && (
-                        <div className="muted">{fromSearches(entry.source.queries)}</div>
-                      )}
-                    </td>
-                    <td className="num">{score(entry.interest)}</td>
-                    <td className="num">{score(entry.novelty)}</td>
-                    <td className="num">{bonus(entry.gap)}</td>
-                    <td className="num">{shared(entry)}</td>
-                    <td className="num">{score(entry.score)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <EntryTable entries={crawl.next} onOpenDocument={onOpenDocument} />
+          )}
+
+          <h2>Fetched</h2>
+          {crawl.fetched.length === 0 ? (
+            <p className="muted">Nothing fetched yet.</p>
+          ) : (
+            <EntryTable entries={crawl.fetched} fetched onOpenDocument={onOpenDocument} />
           )}
         </>
       )}

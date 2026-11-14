@@ -20,7 +20,7 @@ Without `make`: `API_PORT=4000 WEB_PORT=4001 npm run dev`.
 
 - `src/App.tsx`: the home page, the results page, the other pages (`PAGES`) and the document reader.
 - `src/router.ts`: state in the URL (`/?q=...&doc=...`, and a path for each other page: `/stats`, `/blocked-links`, `/crawl`; a page other than search may also carry `?doc=` to open the reader over it).
-- `src/components/StatsPage.tsx`: the `/stats` page (#96). `src/components/BlockedLinksPage.tsx`: the blocked-link log by domain, and the button that starts the backfill (#88). `src/components/CrawlPage.tsx`: the `/crawl` page (#89): the crawl mode and the candidates the background crawl would fetch next, read-only. `src/components/SiteNav.tsx`: the links to the other pages at the bottom of every page.
+- `src/components/StatsPage.tsx`: the `/stats` page (#96). `src/components/BlockedLinksPage.tsx`: the blocked-link log by domain, and the button that starts the backfill (#88). `src/components/CrawlPage.tsx`: the `/crawl` page (#89): the crawl mode, the candidates the background crawl would fetch next and the pages it fetched, read-only. `src/components/SiteNav.tsx`: the links to the other pages at the bottom of every page.
 - `src/api.ts`, `src/types.ts`: API client and response types.
 - `src/lib/useSearch.ts`: runs a search. After a search that enqueued discovery, it polls for new documents and searches again.
 - `test/`: tests and fixtures.

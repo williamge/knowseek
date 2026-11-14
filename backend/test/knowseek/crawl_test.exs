@@ -52,7 +52,7 @@ defmodule Knowseek.CrawlTest do
       reread_days: 7,
       retry_minutes: 60,
       idle_seconds: 600,
-      max_load: 0.5
+      max_cpu_percent: 60
     )
 
     # A background page is never a source page: it fills a search's results
@@ -128,13 +128,28 @@ defmodule Knowseek.CrawlTest do
       assert id == source.id
     end
 
-    test "is not {:fetch, _} even in mode :on, with candidates above the bar", %{filler: filler} do
+    test "is {:fetch, _} in mode :on once every page was read, with candidates above the bar", %{
+      filler: filler
+    } do
       configure(mode: :on)
       source_page(filler, 1, @query)
       set_links(%{1 => [link(100, "Desem", @starter)]})
 
       # Reads come first.
       assert {:read, _source} = Crawl.next_action()
+
+      assert :ok = Crawl.step()
+      assert [%Candidate{page_id: 100}] = candidates()
+
+      assert {:fetch, [%{candidate: %Candidate{page_id: 100}, score: score}]} =
+               Crawl.next_action()
+
+      assert_in_delta score, @desem, 0.001
+    end
+
+    test "is :none in mode :preview once every page was read", %{filler: filler} do
+      source_page(filler, 1, @query)
+      set_links(%{1 => [link(100, "Desem", @starter)]})
 
       assert :ok = Crawl.step()
       assert [%Candidate{page_id: 100}] = candidates()
@@ -230,8 +245,8 @@ defmodule Knowseek.CrawlTest do
       source_page(filler, 1, @query)
       now = DateTime.utc_now()
 
-      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -10), load: 0.0)
-      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -3_600), load: 2.0)
+      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -10), cpu: 0.0)
+      refute Crawl.due?(now: now, last_search_at: DateTime.add(now, -3_600), cpu: 90.0)
     end
 
     test "is false when there is nothing to do", %{filler: filler} do
@@ -553,6 +568,7 @@ defmodule Knowseek.CrawlTest do
         def name, do: "crawl"
         def discover(_query, _opts), do: {:ok, []}
         def link_candidates(_document, _opts), do: {:error, :unavailable}
+        def page(_page_id, _opts), do: {:error, :unavailable}
       end
 
       source_page(filler, 1, @query)
@@ -604,8 +620,7 @@ defmodule Knowseek.CrawlTest do
       assert Repo.all(SourcePage) == []
     end
 
-    test "in mode :on it reads and scores like :preview, and fetches nothing", %{filler: filler} do
-      configure(mode: :on)
+    test "in mode :preview it reads and scores, and fetches nothing", %{filler: filler} do
       source_page(filler, 1, @query)
       set_links(%{1 => [link(100, "Desem", @starter)]})
       documents = Repo.aggregate(Documents.Document, :count)
@@ -613,13 +628,362 @@ defmodule Knowseek.CrawlTest do
       assert Documents.count_by_origin().background == 1
 
       assert :ok = Crawl.step()
+      assert :ok = Crawl.step()
 
       assert requests() == 1
       assert [%Candidate{page_id: 100, state: "pending", document_id: nil}] = candidates()
       assert Repo.aggregate(Documents.Document, :count) == documents
       assert Documents.count_by_origin().background == 1
       assert Crawl.next_action() == :none
-      assert %{mode: :on, fetched: 0, fetched_today: 0} = Crawl.stats()
+      assert %{mode: :preview, fetched: 0, fetched_today: 0} = Crawl.stats()
+    end
+  end
+
+  describe "step/1 fetching" do
+    setup %{filler: filler} do
+      configure(mode: :on, rechecks_per_step: 5)
+      source = source_page(filler, 1, @query, title: "Sourdough")
+
+      set_links(%{
+        1 => [link(100, "Desem", @starter), link(101, "Poolish", "sourdough starter dough")]
+      })
+
+      set_pages(%{
+        100 => %{
+          title: "Desem",
+          body: "Desem is a sourdough starter made from whole wheat flour."
+        },
+        101 => %{
+          title: "Poolish",
+          body: "A poolish is a pre-ferment of equal parts flour and water."
+        }
+      })
+
+      # The first step reads the links (a 900-byte request).
+      assert :ok = Crawl.step()
+      assert crawl_bytes() == 900
+
+      %{source: source}
+    end
+
+    test "fetches the best candidate as a background page, and records it", %{source: source} do
+      assert {:fetch, [%{candidate: %{page_id: 100}}, %{candidate: %{page_id: 101}}]} =
+               Crawl.next_action()
+
+      assert :ok = Crawl.step()
+
+      assert %Documents.Document{
+               id: id,
+               origin: "background",
+               origin_query: nil,
+               source: "crawl",
+               title: "Desem"
+             } = Repo.get_by!(Documents.Document, url: "https://en.wikipedia.org/wiki/Page_100")
+
+      source_id = source.id
+
+      assert [
+               %Candidate{
+                 page_id: 100,
+                 state: "fetched",
+                 source_document_id: ^source_id,
+                 document_id: ^id,
+                 stored_bytes: stored_bytes,
+                 fetched_at: %DateTime{}
+               } = fetched,
+               %Candidate{page_id: 101, state: "pending", document_id: nil}
+             ] = candidates()
+
+      assert stored_bytes == Documents.stored_bytes(id)
+      assert stored_bytes > 0
+      assert_in_delta fetched.novelty, 1.0, 0.001
+      assert_in_delta fetched.score, @desem, 0.001
+      # The page request was counted for the source: 900 + 800 bytes.
+      assert crawl_bytes() == 1_700
+    end
+
+    test "fetches one page a step, the best first, and then has nothing left" do
+      assert :ok = Crawl.step()
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [
+               {100, "fetched"},
+               {101, "fetched"}
+             ]
+
+      assert Documents.count_by_origin().background == 3
+      assert Crawl.next_action() == :none
+
+      assert :ok = Crawl.step()
+      assert crawl_bytes() == 900 + 2 * 800
+    end
+
+    test "reads every source page before it fetches", %{filler: filler} do
+      source_page(filler, 2, "starter sourdough", title: "Starter")
+      set_links(%{1 => [], 2 => [link(102, "Levain", "sourdough starter")]})
+
+      assert {:read, _source} = Crawl.next_action()
+      assert :ok = Crawl.step()
+
+      assert crawl_bytes() == 1_800
+      assert Documents.count_by_origin().background == 1
+      assert {:fetch, _ranked} = Crawl.next_action()
+    end
+
+    test "deletes the other pending rows of a page that two source pages link to", %{
+      filler: filler
+    } do
+      source_page(filler, 2, "starter sourdough", title: "Starter")
+      set_links(%{2 => [link(100, "Desem", @starter)]})
+      assert :ok = Crawl.step()
+      assert Enum.count(candidates(), &(&1.page_id == 100)) == 2
+
+      assert :ok = Crawl.step()
+
+      assert [%Candidate{state: "fetched"}] = Enum.filter(candidates(), &(&1.page_id == 100))
+    end
+
+    test "logs the links of the page that go off the allowlist" do
+      set_pages(%{
+        100 => %{
+          title: "Desem",
+          body: "Desem is a sourdough starter made from whole wheat flour.",
+          links: ["https://example.com/a", "https://en.wikipedia.org/wiki/Flour"]
+        }
+      })
+
+      assert :ok = Crawl.step()
+
+      assert %{domains: [%{host: "example.com", links: 1, pages: 1}]} =
+               Discovery.blocked_domains()
+    end
+
+    test "fetches nothing in mode :preview" do
+      configure(mode: :preview)
+
+      assert Crawl.next_action() == :none
+      refute Crawl.due?(idle_opts())
+
+      assert :ok = Crawl.step()
+
+      assert crawl_bytes() == 900
+      assert Documents.count_by_origin().background == 1
+      assert [%Candidate{state: "pending"}, %Candidate{state: "pending"}] = candidates()
+    end
+
+    test "is due in mode :on when a candidate is left" do
+      assert Crawl.due?(idle_opts())
+    end
+
+    test "stops at pages_per_day, and starts again the next UTC day" do
+      configure(pages_per_day: 1)
+      assert :ok = Crawl.step()
+
+      assert Crawl.next_action() == :none
+      refute Crawl.due?(idle_opts())
+      assert :ok = Crawl.step()
+      assert crawl_bytes() == 1_700
+
+      tomorrow = DateTime.add(DateTime.utc_now(), 1 * @day)
+      assert {:fetch, [%{candidate: %{page_id: 101}}]} = Crawl.next_action(now: tomorrow)
+    end
+
+    test "a fetched page uses up the source page's allowance" do
+      configure(earn_top: 1)
+      assert :ok = Crawl.step()
+
+      assert Crawl.next_action() == :none
+      assert [%{page_id: 100, state: "fetched"}, %{page_id: 101, state: "pending"}] = candidates()
+    end
+
+    test "scores the candidate again right before the fetch" do
+      store_near(3)
+
+      assert :ok = Crawl.step()
+
+      assert [%Candidate{page_id: 100, state: "fetched"} = fetched | _rest] = candidates()
+      assert_in_delta fetched.novelty, 0.7, 0.001
+      assert_in_delta fetched.score, @desem * 0.7, 0.001
+    end
+
+    test "drops a candidate whose novelty fell under the bar, and fetches the next one" do
+      store_near(10)
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [{101, "fetched"}]
+      # Only the page of the second candidate was requested.
+      assert crawl_bytes() == 900 + 800
+      refute Repo.get_by(Documents.Document, url: "https://en.wikipedia.org/wiki/Page_100")
+    end
+
+    test "tries at most rechecks_per_step candidates in a step" do
+      configure(rechecks_per_step: 1)
+      store_near(10)
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [{101, "pending"}]
+      assert crawl_bytes() == 900
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [{101, "fetched"}]
+    end
+
+    test "deletes a candidate whose page was indexed meanwhile, without a request" do
+      document_fixture(
+        source: "crawl",
+        url: "https://en.wikipedia.org/wiki/Page_100",
+        title: "Desem",
+        body: "Stored by a search.",
+        metadata: %{"pageid" => 100}
+      )
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [{101, "fetched"}]
+      assert crawl_bytes() == 900 + 800
+    end
+
+    test "keeps the origin of a page that a search stored under its own URL meanwhile" do
+      existing =
+        document_fixture(
+          source: "crawl",
+          origin: "search",
+          origin_query: "desem",
+          url: "https://en.wikipedia.org/wiki/Page_100",
+          title: "Desem",
+          body: "Stored by a search."
+        )
+
+      assert :ok = Crawl.step()
+
+      assert %Documents.Document{origin: "search", origin_query: "desem"} =
+               Documents.get_document(existing.id)
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [{101, "pending"}]
+    end
+
+    test "skips a page that has no text, and never offers it again" do
+      set_pages(%{101 => %{title: "Poolish", body: "A poolish is a pre-ferment."}})
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [
+               {100, "skipped"},
+               {101, "pending"}
+             ]
+
+      assert Documents.count_by_origin().background == 1
+      assert crawl_bytes() == 900 + 800
+      assert {:fetch, [%{candidate: %{page_id: 101}}]} = Crawl.next_action()
+    end
+
+    test "skips a candidate whose URL is off the allowlist, without a request" do
+      Repo.update_all(from(c in Candidate, where: c.page_id == 100),
+        set: [url: "https://example.com/?curid=100"]
+      )
+
+      assert :ok = Crawl.step()
+
+      assert Enum.map(candidates(), &{&1.page_id, &1.state}) == [
+               {100, "skipped"},
+               {101, "pending"}
+             ]
+
+      assert crawl_bytes() == 900
+    end
+
+    test "a failed request leaves the candidate alone for retry_minutes" do
+      set_pages(%{
+        100 => {:error, :boom},
+        101 => %{title: "Poolish", body: "A poolish is a pre-ferment of equal parts flour."}
+      })
+
+      log = capture_log(fn -> assert :ok = Crawl.step() end)
+
+      assert log =~ "crawl: fetching Desem failed: :boom"
+
+      assert [%Candidate{page_id: 100, state: "pending", failed_at: %DateTime{}}, _] =
+               candidates()
+
+      # Desem waits; the next step takes Poolish.
+      assert {:fetch, [%{candidate: %{page_id: 101}}]} = Crawl.next_action()
+      assert :ok = Crawl.step()
+      assert Crawl.next_action() == :none
+
+      later = DateTime.add(DateTime.utc_now(), 61 * 60)
+      assert {:fetch, [%{candidate: %{page_id: 100}}]} = Crawl.next_action(now: later)
+    end
+
+    test "a failed embedding stops the step before any request" do
+      config = Application.fetch_env!(:knowseek, Embeddings)
+      on_exit(fn -> Application.put_env(:knowseek, Embeddings, config) end)
+
+      Application.put_env(
+        :knowseek,
+        Embeddings,
+        Keyword.put(config, :adapter, Knowseek.Embeddings.ShortAdapter)
+      )
+
+      log = capture_log(fn -> assert :ok = Crawl.step() end)
+
+      assert log =~ "crawl: embedding Desem failed"
+      assert crawl_bytes() == 900
+      assert [%Candidate{state: "pending"}, %Candidate{state: "pending"}] = candidates()
+    end
+
+    test "overview/1 lists the fetched pages with their source page and whether a search showed them" do
+      assert :ok = Crawl.step()
+      url = "https://en.wikipedia.org/wiki/Page_100"
+      %Documents.Document{id: id} = Repo.get_by!(Documents.Document, url: url)
+
+      assert %{
+               fetched_today: 1,
+               next: [%{title: "Poolish", document_id: nil, fetched_at: nil, hit: false}],
+               fetched: [fetched]
+             } = Crawl.overview()
+
+      assert %{
+               title: "Desem",
+               description: "sourdough starter",
+               url: ^url,
+               source: %{title: "Sourdough", queries: [@query]},
+               document_id: ^id,
+               stored_bytes: stored_bytes,
+               hit: false,
+               shared_count: 1
+             } = fetched
+
+      assert stored_bytes == Documents.stored_bytes(id)
+      assert %DateTime{} = fetched.fetched_at
+      assert_in_delta fetched.score, @desem, 0.001
+
+      logged_search_fixture(query: "desem", documents: [Documents.get_document(id)])
+
+      assert %{fetched: [%{hit: true}]} = Crawl.overview()
+    end
+
+    test "overview/1 lists the fetched pages newest first, cut by :limit", %{source: source} do
+      now = DateTime.utc_now(:second)
+      insert_candidate(source.id, 901, state: "fetched", fetched_at: DateTime.add(now, -60))
+      insert_candidate(source.id, 902, state: "fetched", fetched_at: now)
+      insert_candidate(source.id, 903, state: "fetched", fetched_at: DateTime.add(now, -120))
+
+      assert %{fetched: fetched} = Crawl.overview()
+      assert Enum.map(fetched, & &1.title) == ["Title 902", "Title 901", "Title 903"]
+
+      assert %{fetched: [%{title: "Title 902"}]} = Crawl.overview(limit: 1)
+    end
+
+    test "stats/1 counts the fetched pages and their stored bytes" do
+      assert :ok = Crawl.step()
+      url = "https://en.wikipedia.org/wiki/Page_100"
+      %Documents.Document{id: id} = Repo.get_by!(Documents.Document, url: url)
+
+      assert %{fetched: 1, fetched_today: 1, stored_bytes: bytes} = Crawl.stats()
+      assert bytes == Documents.stored_bytes(id)
     end
   end
 
@@ -670,7 +1034,7 @@ defmodule Knowseek.CrawlTest do
       assert_in_delta levain.score, 0.5, 0.001
 
       assert desem |> Map.keys() |> Enum.sort() ==
-               ~w(description gap interest novelty score shared shared_count source title url)a
+               ~w(description document_id fetched_at gap hit interest novelty score shared shared_count source stored_bytes title url)a
     end
 
     test ":limit cuts the list", %{filler: filler} do
@@ -922,10 +1286,23 @@ defmodule Knowseek.CrawlTest do
   # Options that make `Crawl.due?/1` see an idle instance.
   defp idle_opts do
     now = DateTime.utc_now()
-    [now: now, last_search_at: DateTime.add(now, -3_600), load: 0.0]
+    [now: now, last_search_at: DateTime.add(now, -3_600), cpu: 0.0]
   end
 
-  defp set_links(links), do: Application.put_env(:knowseek, CrawlSource, links: links)
+  defp set_links(links) do
+    config = Application.get_env(:knowseek, CrawlSource, [])
+    Application.put_env(:knowseek, CrawlSource, Keyword.put(config, :links, links))
+  end
+
+  defp set_pages(pages) do
+    config = Application.get_env(:knowseek, CrawlSource, [])
+    Application.put_env(:knowseek, CrawlSource, Keyword.put(config, :pages, pages))
+  end
+
+  # The bytes recorded for "crawl": 900 for each read, 800 for each page.
+  defp crawl_bytes do
+    Repo.aggregate(from(n in NetworkUsage, where: n.source == "crawl"), :sum, :bytes) || 0
+  end
 
   defp link(page_id, title, description \\ nil),
     do: %{page_id: page_id, title: title, description: description}

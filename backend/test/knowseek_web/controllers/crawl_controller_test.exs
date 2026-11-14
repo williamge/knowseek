@@ -24,7 +24,8 @@ defmodule KnowseekWeb.CrawlControllerTest do
                "pages_per_day" => 100,
                "fetched_today" => 0,
                "bar" => 0.4,
-               "next" => []
+               "next" => [],
+               "fetched" => []
              }
     end
 
@@ -84,7 +85,11 @@ defmodule KnowseekWeb.CrawlControllerTest do
                "gap" => 0.1,
                "shared" => 0.0,
                "shared_count" => 1,
-               "score" => 0.83
+               "score" => 0.83,
+               "document_id" => nil,
+               "fetched_at" => nil,
+               "stored_bytes" => nil,
+               "hit" => false
              }
     end
 
@@ -107,6 +112,70 @@ defmodule KnowseekWeb.CrawlControllerTest do
       })
 
       assert %{"data" => %{"next" => []}} = conn |> get(~p"/api/crawl") |> json_response(200)
+    end
+
+    test "lists a fetched page with its stored title and URL, the time and bytes", %{
+      conn: conn,
+      original: original
+    } do
+      put_crawl(original, mode: :on, bar: 0.4)
+
+      source = crawl_source_fixture(title: "Sourdough", query: "sourdough starter")
+
+      page =
+        document_fixture(
+          title: "Desem",
+          url: "https://en.wikipedia.org/wiki/Desem",
+          origin: "background"
+        )
+
+      logged_search_fixture(query: "desem", documents: [page])
+      fetched_at = ~U[2026-11-11 09:30:00Z]
+
+      Repo.insert!(%Candidate{
+        source_document_id: source.id,
+        page_id: 77,
+        site: "crawl",
+        title: "Desem (link title)",
+        description: "sourdough starter",
+        url: "https://en.wikipedia.org/?curid=77",
+        interest: 0.91234,
+        novelty: 0.7,
+        gap: 0.0,
+        shared: 0.05,
+        shared_count: 2,
+        score: 0.68888,
+        state: "fetched",
+        document_id: page.id,
+        stored_bytes: 123_456,
+        scored_at: ~U[2026-11-11 09:00:00Z],
+        fetched_at: fetched_at
+      })
+
+      assert %{"data" => %{"next" => [], "fetched" => [entry]}} =
+               conn |> get(~p"/api/crawl") |> json_response(200)
+
+      assert entry == %{
+               "title" => "Desem",
+               "description" => "sourdough starter",
+               "url" => "https://en.wikipedia.org/wiki/Desem",
+               "source" => %{
+                 "document_id" => source.id,
+                 "title" => source.title,
+                 "url" => source.url,
+                 "queries" => ["sourdough starter"]
+               },
+               "interest" => 0.912,
+               "novelty" => 0.7,
+               "gap" => 0.0,
+               "shared" => 0.05,
+               "shared_count" => 2,
+               "score" => 0.689,
+               "document_id" => page.id,
+               "fetched_at" => "2026-11-11T09:30:00Z",
+               "stored_bytes" => 123_456,
+               "hit" => true
+             }
     end
   end
 end

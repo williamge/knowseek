@@ -163,3 +163,6 @@ it at `/stats`, with links at the bottom of every page.
   search, the `background` writer and the columns for "the page and link it
   came from". #88 adds the link backfill; its downloaded bytes are counted
   through the same `:on_bytes` option.
+  Update: #89 built the `background` writer and the gain figure, from the
+  logged hits alone, with no second coverage check ([ADR
+  0033](0033-background-crawl.md)).

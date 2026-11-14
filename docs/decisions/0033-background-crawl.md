@@ -9,15 +9,12 @@ Related: issue [#89](https://github.com/williamge/knowseek/issues/89),
 [0031](0031-activity-record.md) (the search log),
 [0032](0032-crawl-allowlist-and-blocked-links.md) (the allowlist gate).
 
-**What this change is.** The work is split in two pull requests, and this is
-the first (PR A, "preview"). It **reads, scores and shows only**: it reads
-the links of pages your searches showed, scores them, keeps the good ones in
-a table, and lists them on a Crawl page. It **fetches nothing**. Fetching, the
-re-check before a fetch, gain, the stored-bytes figure and the "Fetched"
-table arrive in the second PR (PR B). Until then `CRAWL_MODE=on` acts as
-`preview`. The issue stays open for PR B (this PR says "Part of #89"). The
-sections below describe the whole design; "Built here" and "Not built here"
-say which part is which.
+**What this decision covers.** The work was split in two pull requests: PR A
+("preview", #100) reads the links of pages your searches showed, scores them,
+keeps the good ones in a table and lists them on a Crawl page; PR B ("fetch
+and gain") fetches the best candidate a minute while idle (mode `on`),
+checks it again right before the fetch, and measures the gain. The sections
+below describe the whole design.
 
 ## Context
 
@@ -55,7 +52,8 @@ and Cookbook; indexed pages, red links and disambiguation pages dropped; the
 scoring text is "Title: description"; two stages (interest first, novelty
 only above the interest floor); novelty looks at vectors only; sources come
 only from logged results, never from a background page; low CPU is the
-1-minute load average under half the cores; every request goes through the
+busy share since the last check under 60% (first version: the 1-minute load
+average under half the cores, replaced, see "Idle, and `os_mon`"); every request goes through the
 Wikimedia background slots (ADR 0027) and `Discovery.allowed?/1` (ADR 0032);
 the provenance lives in the crawler's own tables, not in `documents`.
 
@@ -81,15 +79,17 @@ Measured on the dev index with bge-m3 (2026-11-11):
 
 `Knowseek.Crawl` (`backend/lib/knowseek/crawl.ex` and `crawl/`) owns two
 tables and the logic. It reaches a source only through
-`Knowseek.Discovery.link_candidates/1` (PR B adds `Discovery.fetch_page/3`),
-the search log through `Knowseek.Activity` (`result_pages/1`,
-`last_search_at/0`), and the index through `Knowseek.Documents`
-(`indexed_page_ids/2`, `summaries/1`) and `Knowseek.Search.count_near/2`. Its
-tables have foreign keys to `documents` in the database only; no Ecto
-association crosses the context. `Source` gains the optional callback
-`link_candidates/2`; `MediaWiki`, `Wikipedia` and `Wikibooks` implement it.
-The crawl calls `Discovery.allowed?/1` through `Discovery` (it drops links off
-the allowlist), and a source never writes (rule 3).
+`Knowseek.Discovery.link_candidates/1` and `Discovery.fetch_page/3`, the
+search log through `Knowseek.Activity` (`result_pages/1`, `last_search_at/0`,
+`hit_documents/1`), and the index through `Knowseek.Documents`
+(`indexed_page_ids/2`, `summaries/1`, `stored_bytes/1`) and
+`Knowseek.Search.count_near/2`. Its tables have foreign keys to `documents` in
+the database only; no Ecto association crosses the context. `Source` gains
+the optional callbacks `link_candidates/2` and `page/2`; `MediaWiki`,
+`Wikipedia` and `Wikibooks` implement them. `Discovery` applies
+`Discovery.allowed?/1` to every link it returns and to the URL of every page
+it fetches, and ingests with origin `background`; a source never writes
+(rule 3).
 
 ### One step out, earned depth
 
@@ -98,9 +98,9 @@ A **source page** is a document in the logged results of a search of the last
 it fetched. A source page earns an **allowance** of link-fetches from the log:
 5 each time it is in a search's top 3, 15 when it was the only result, 1 at
 ranks 4 to 10. The allowance expires with the 30 days and is spent by fetches
-(none yet in PR A). Source pages are read in this order: pages that were a
-search's only result first, then the most shown, then the most recently
-shown.
+(a `fetched` candidate of the source page). Source pages are read in this
+order: pages that were a search's only result first, then the most shown,
+then the most recently shown.
 
 ### The score
 
@@ -125,11 +125,10 @@ ranking.
 links are read, a candidate is stored when `interest >= 0.40` (the floor;
 below it the index is not even asked) and `interest * novelty + gap + 0.10 >=
 0.40` (it could pass with the largest shared bonus). At most 50 are kept per
-source page. A candidate is meant to be fetched only when `score >= bar`,
-with `near` and `shared` computed again just before the fetch, so that "a
-topic is full at about 10 pages" holds within one day even though the
-candidates were scored earlier. The re-check is PR B; in PR A the list shows
-the score at the time of the last read, with the shared bonus of now.
+source page. A candidate is fetched only when `score >= bar`, with `near` and
+`shared` computed again just before the fetch ("Fetching"), so that "a topic
+is full at about 10 pages" holds within one day even though the candidates
+were scored earlier.
 
 **Why the shared bonus is computed at ranking time.** It depends on the other
 source pages. A source page read later changes the count for candidates
@@ -157,35 +156,80 @@ longer idle.
 ### Idle, and `os_mon`
 
 The instance is idle when no search was logged for `idle_seconds` (600, from
-`CRAWL_IDLE_SECONDS`) and the 1-minute load average per core is under 0.5.
-The load comes from `:cpu_sup.avg1/0` (the `os_mon` OTP application, started
-with `start_memsup: false, start_disksup: false`, which would raise alarms). A
-load that cannot be read means **not idle**: the crawl then never runs and the
-log says so once. No search at all counts as quiet. The search log keeps the
+`CRAWL_IDLE_SECONDS`) and the CPU was busy less than `max_cpu_percent` (60)
+since the previous check. The busy share comes from `:cpu_sup.util/0` (the
+`os_mon` OTP application, started with `start_memsup: false, start_disksup:
+false`, which would raise alarms): the percentage of CPU time spent busy since
+the previous call. The scheduler checks once a minute, so it is the share over
+the last minute; `cpu_sup` keeps the previous sample per calling process, so
+only the scheduler asks. The first check after a start has no previous sample
+and is **not idle**. A share that cannot be read also means **not idle**: the
+crawl then never runs and the log says so once. No search at all counts as
+quiet.
+
+**Why not the load average.** The first version used the 1-minute load average
+per core under 0.5. On macOS the load average counts threads that wait for the
+disk or for swap, so it sat at 13 to 20 on 8 cores while the CPU was 46% busy
+(`cpu_sup:util()` returned 46.0 while `avg1` was 13.08): the condition was
+never true, and the crawl of the owner's stack never read a link. CPU
+utilisation measures what the crawl should not compete for. The search log keeps the
 first time of a search repeated within 120 seconds (ADR 0031), so idle can
 start up to 2 minutes early.
 
 ### Modes
 
 `CRAWL_MODE` (config `mode`): `off` (nothing runs), `preview` (reads and
-scores, fetches nothing) and `on` (fetches the best candidate a minute, under
-100 pages a day). **`preview` is the default**, so an instance that is updated
-changes nothing it fetches; the owner reads the Crawl page, tunes the bar in
-config and switches on with `CRAWL_MODE=on` and a restart. There is no switch
-in the UI (a write endpoint without authentication). **In PR A `on` acts as
-`preview`.**
+scores, fetches nothing) and `on` (also fetches the best candidate a minute,
+under 100 pages a day, a UTC day). **`preview` is the default**, so an
+instance that is updated changes nothing it fetches; the owner reads the
+Crawl page, tunes the bar in config and switches on with `CRAWL_MODE=on` and a
+restart. There is no switch in the UI (a write endpoint without
+authentication).
 
-### Gain, and stored bytes (PR B)
+### Fetching
 
-Gain is computed from the search log alone, with no new writes: a background
-page has gain when it appears in the logged top 10 of a search made after it
-was fetched, counted in pages and in searches; a hit with fewer than 3 other
-pages in the results is the strong case. Stored bytes per useful page is the
-stored bytes of all background pages divided by the pages with gain. Stored
-bytes are an **estimate**: the text twice (body and chunks) plus the vectors.
-The full-text index is not counted, so the figure is about 10% low. Neither is
-in PR A: `crawl_candidates.stored_bytes` exists and `GET /api/stats` shows
-`crawl.stored_bytes`, which is 0 until fetching exists.
+In mode `on`, a step that has no source page left to read fetches. Reads come
+first, so that the link counts are as complete as they can be. The step takes
+the ranked candidates (score at the bar or above, shared bonus included, best
+first) and goes through the first `rechecks_per_step` (5) of them, stopping at
+the first one that ends in a request:
+
+1. A page that was indexed meanwhile (a search fetched it) is dropped.
+2. The candidate's text is embedded again and its `near`, `novelty` and
+   score are computed again with the shared bonus of the ranking. Under the
+   bar, it is dropped without a request. This is what makes a topic fill up:
+   each fetched page lowers the novelty of its neighbours, so a topic stops
+   at about 10 pages. The owner approved the re-check.
+3. `Discovery.fetch_page/3` checks the link and the page's own URL against the
+   allowlist, makes the request (`Source.page/2`: the same request as a
+   page fetched by a search), and ingests the page with origin `background`
+   through the existing path, so its blocked links are logged too. The
+   candidate becomes `fetched` with the scores that decided it and the
+   stored bytes. A page with no text, or whose URL is off the allowlist, is
+   `skipped`; a failed request sets `failed_at`, and the candidate waits 60
+   minutes. A page a search stored meanwhile keeps its origin and the
+   candidates for it are deleted.
+
+A fetched page uses up one link-fetch of its source page's allowance. The
+daily cap counts `fetched` rows since 00:00 UTC.
+
+### Gain, and stored bytes
+
+Gain is computed from the search log alone, with no new writes. The log
+keeps, for each of a search's top 10 hits, whether the page was a background
+page *at the time of the search*, so every such search was made after the
+fetch. A search **counts** when at least one of its hits is a background
+page and fewer than 3 (`min_strong_hits`, where coverage becomes
+`sufficient`) are not: without the background page the search would not have
+been well covered. `gain.pages` is the number of distinct background pages in
+those searches (whole log), `gain.searches` the searches themselves in the
+last 30 days, `gain.window_searches` all searches of those 30 days. No second
+search is run. Stored bytes per useful page is the stored bytes of all
+background pages (`crawl.stored_bytes`) divided by `gain.pages`; it is shown
+on `/stats`. Stored bytes are an **estimate**
+(`Documents.stored_bytes/1`): the body, the chunks' text and 4 bytes per
+vector dimension per chunk, recorded when the page is fetched. The full-text
+index and row overhead are not counted, so the figure is about 10% low.
 
 ### Storage
 
@@ -197,9 +241,11 @@ tables hold nothing you typed:
   is too long for a `WITHOUT ROWID` row. About 2 KB per source page.
 - `crawl_candidates`: one row per source page and linked page (`WITHOUT
   ROWID`), with the score parts, a `state` of `pending`, `fetched` or
-  `skipped`, and the columns that PR B fills. About 250 bytes a row, at most 50
-  pending per source page. A `fetched` or `skipped` page is never a
-  candidate again.
+  `skipped`, and, once fetched, the background page's `document_id`, its
+  `stored_bytes` and `fetched_at`: the provenance of a background page. About
+  250 bytes a row, at most 50 pending per source page. A `fetched` or
+  `skipped` page is never a candidate again; fetching a page deletes the
+  other pending rows of the same page.
 - An expression index on `documents` (`source`, `json_extract(metadata,
   '$.pageid')`) lets `indexed_page_ids/2` answer without reading the bodies
   (about 40 bytes a document).
@@ -209,28 +255,34 @@ Both tables go with their source document (`ON DELETE CASCADE`).
 
 ### The Crawl page
 
-`GET /api/crawl` and `/crawl` in the web UI are read-only. In PR A they show
-the mode, the bar, how many pages were fetched today of the 100, and the next
+`GET /api/crawl` and `/crawl` in the web UI are read-only. They show the
+mode, the bar, how many pages were fetched today of the 100, the next
 candidates in the order they would be fetched (title, description, link, the
-source page, and the score parts). There are no buttons.
+source page and the searches that showed it, and the score parts) and the
+last 50 pages fetched (the same columns, plus when, and whether a search of
+yours showed the page). In `preview` the "Next" list is what `on` would
+fetch. There are no buttons.
 
-## Built here (PR A)
+## What was built
 
-The migration; `Source.link_candidates/2` and its three implementations;
-`Discovery.link_candidates/1`; `Search.count_near/2`;
+PR A (#100, preview): the migration; `Source.link_candidates/2` and its three
+implementations; `Discovery.link_candidates/1`; `Search.count_near/2`;
 `Activity.result_pages/1` and `last_search_at/0`;
 `Documents.indexed_page_ids/2` and `summaries/1`; the context `Knowseek.Crawl`
 (allowance, score, idle, frontier, scheduler, worker, `step/1` with the read
-branch only); `GET /api/crawl`; the Crawl page; the `crawl` key of
-`GET /api/stats`; config and `CRAWL_MODE`, `CRAWL_IDLE_SECONDS`; the `crawl`
-queue; `os_mon`.
+branch); `GET /api/crawl`; the Crawl page; the `crawl` key of `GET
+/api/stats`; config and `CRAWL_MODE`, `CRAWL_IDLE_SECONDS`; the `crawl` queue;
+`os_mon`.
 
-## Not built here
+PR B (fetch and gain): `Source.page/2` and its three implementations;
+`Discovery.fetch_page/3`; the fetch branch of `Crawl.step/1` with the
+re-check before a fetch (`rechecks_per_step`), the daily cap and mode `on`;
+`Documents.stored_bytes/1`; `Activity.hit_documents/1` and gain in `GET
+/api/stats`; the Gain section of `/stats`; the `fetched` list of `GET
+/api/crawl` (and `document_id`, `fetched_at`, `stored_bytes`, `hit` on every
+entry) and the "Fetched" table of the Crawl page.
 
-Left for PR B (the second part of #89): `Source.page/2`,
-`Discovery.fetch_page/3`, the fetch branch of `Crawl.step/1`, the re-check
-before a fetch, `Documents.stored_bytes/1`, `Activity.hit_documents/1` and
-gain in `/api/stats`, the Gain section and the "Fetched" table.
+## Not built
 
 Not planned in #89 at all (non-goals): a link out of a background page and
 any second step; "more like this"; book chapters; retries of thin searches
@@ -251,8 +303,9 @@ forgetting (#91).
 
 ## Consequences
 
-- The crawl reads and scores only; the index does not grow by it until PR B.
-  The owner tunes `bar` and `interest_floor` in preview.
+- The index grows by the crawl: at most 100 pages a day, one a minute while
+  idle, each about 100 to 160 KB. The owner tunes `bar` and `interest_floor`
+  in preview before switching on.
 - A thin search log gives a thin crawl: a search answered empty and never
   repeated has no logged results, so it creates no source page.
 - Links are scored on the title and the short description only. A link in a

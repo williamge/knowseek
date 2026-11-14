@@ -9,6 +9,12 @@ defmodule Knowseek.Activity do
   before is the same search (the web UI repeats a search while discovery
   runs): the row keeps its time and first coverage and takes the newest top
   results.
+
+  `stats/1` also counts **gain** (#89, ADR 0033), from this log alone: a
+  search counts when at least one of its logged results is a background page
+  and fewer than `min_strong_hits` are not. `pages` are the distinct
+  background pages of those searches, `searches` the searches themselves in
+  the last 30 days.
   """
   import Ecto.Query
 
@@ -41,7 +47,12 @@ defmodule Knowseek.Activity do
           },
           disk_bytes: non_neg_integer(),
           network: [%{day: Date.t(), source: String.t(), bytes: non_neg_integer()}],
-          hit_share: %{background_pages: non_neg_integer(), hit_pages: non_neg_integer()}
+          hit_share: %{background_pages: non_neg_integer(), hit_pages: non_neg_integer()},
+          gain: %{
+            pages: non_neg_integer(),
+            searches: non_neg_integer(),
+            window_searches: non_neg_integer()
+          }
         }
 
   @doc """
@@ -123,7 +134,8 @@ defmodule Knowseek.Activity do
       pages: pages,
       disk_bytes: disk_bytes(),
       network: network(first_day),
-      hit_share: %{background_pages: pages.background, hit_pages: hit_pages()}
+      hit_share: %{background_pages: pages.background, hit_pages: hit_pages()},
+      gain: gain(first_day)
     }
   end
 
@@ -220,5 +232,55 @@ defmodule Knowseek.Activity do
 
   defp hit_pages do
     Repo.one(from h in SearchHit, where: h.background, select: count(h.document_id, :distinct))
+  end
+
+  @doc "Which of `document_ids` appeared in the logged results of a search."
+  @spec hit_documents([Ecto.UUID.t()]) :: MapSet.t(Ecto.UUID.t())
+  def hit_documents([]), do: MapSet.new()
+
+  def hit_documents(document_ids) do
+    document_ids
+    |> Enum.chunk_every(500)
+    |> Enum.flat_map(fn chunk ->
+      Repo.all(
+        from h in SearchHit, where: h.document_id in ^chunk, distinct: true, select: h.document_id
+      )
+    end)
+    |> MapSet.new()
+  end
+
+  # Gain (#89, ADR 0033): a search counts when at least one of its logged
+  # results is a background page and fewer than `min_strong_hits` are not:
+  # without the background page, coverage would not have been `sufficient`.
+  # The hit's `background` flag was written at search time, so such a search
+  # was made after the fetch.
+  defp gain(first_day) do
+    since = DateTime.new!(first_day, ~T[00:00:00], "Etc/UTC")
+    min_strong = Application.fetch_env!(:knowseek, Knowseek.Search)[:min_strong_hits]
+
+    counted =
+      from h in SearchHit,
+        group_by: h.search_id,
+        having:
+          fragment("sum(?) > 0", h.background) and
+            fragment("sum(NOT ?) < ?", h.background, ^min_strong),
+        select: h.search_id
+
+    %{
+      pages:
+        Repo.one(
+          from h in SearchHit,
+            where: h.background and h.search_id in subquery(counted),
+            select: count(h.document_id, :distinct)
+        ),
+      searches:
+        Repo.one(
+          from s in SearchRecord,
+            where: s.inserted_at >= ^since and s.id in subquery(counted),
+            select: count()
+        ),
+      window_searches:
+        Repo.one(from s in SearchRecord, where: s.inserted_at >= ^since, select: count())
+    }
   end
 end

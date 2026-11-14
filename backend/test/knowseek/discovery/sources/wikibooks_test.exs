@@ -396,6 +396,25 @@ defmodule Knowseek.Discovery.Sources.WikibooksTest do
     end
   end
 
+  describe "page/2" do
+    test "fetches one page by its id on Wikibooks, as discover/2 would" do
+      stub_wikibooks()
+
+      assert {:ok, %{url: "https://en.wikibooks.org/" <> _} = candidate} =
+               Wikibooks.page(123_791, [])
+
+      assert candidate.title == "Cookbook:Hard Cooked Eggs"
+      assert candidate.metadata == %{"pageid" => 123_791}
+      assert_received {:wikibooks_request, "en.wikibooks.org", %{"pageids" => "123791"}}
+    end
+
+    test "is {:ok, nil} for a compilation" do
+      stub_wikibooks()
+
+      assert {:ok, nil} = Wikibooks.page(448_201, [])
+    end
+  end
+
   describe "with Discovery.run/2" do
     test "ingests a question's pages as wikibooks documents, next to Wikipedia's" do
       stub_wikibooks()

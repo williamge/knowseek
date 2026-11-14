@@ -33,23 +33,25 @@ config :knowseek, Oban,
   plugins: [{Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60}]
 
 # The background crawl (#89, ADR 0033): while the instance is idle it reads
-# the links of the pages your searches showed and scores them. Fetching the
-# best one a minute arrives in a later change: until then mode :on acts as
-# :preview.
+# the links of the pages your searches showed, scores them, and (mode :on)
+# fetches the best one a minute.
 #   mode: :off | :preview | :on. :preview reads and scores, fetches nothing.
-#   Idle: no logged search for `idle_seconds`, and the 1-minute load average
-#   per core under `max_load`.
+#   Idle: no logged search for `idle_seconds`, and the CPU busy under
+#   `max_cpu_percent` since the scheduler's previous tick (not the load
+#   average: on macOS it counts threads waiting for the disk).
 #   Allowance: a page earns `earn_top` link-fetches each time it is in a
 #   search's first `top_ranks` results, `earn_single` as the only result,
 #   `earn_rest` at a lower rank, over the last `window_days`.
 #   Score: interest * novelty + gap_bonus + shared bonus (at most `shared_bonus`).
-#   Kept above `interest_floor`; fetched at `bar` or more.
+#   Kept above `interest_floor`; fetched at `bar` or more, `pages_per_day` at
+#   most. Before a fetch a candidate is scored again (novelty falls as its
+#   topic fills up); `rechecks_per_step` of them at most are tried in one step.
 config :knowseek, Knowseek.Crawl,
   mode: :preview,
   scheduler: true,
   tick_ms: 60_000,
   idle_seconds: 600,
-  max_load: 0.5,
+  max_cpu_percent: 60,
   pages_per_day: 100,
   window_days: 30,
   top_ranks: 3,
@@ -64,9 +66,10 @@ config :knowseek, Knowseek.Crawl,
   shared_bonus: 0.10,
   max_candidates: 50,
   reread_days: 7,
-  retry_minutes: 60
+  retry_minutes: 60,
+  rechecks_per_step: 5
 
-# Only cpu_sup is used (the load average); memsup and disksup would log alarms.
+# Only cpu_sup is used (the CPU utilisation); memsup and disksup would log alarms.
 config :os_mon, start_memsup: false, start_disksup: false
 
 # Embedding provider. `dimensions` must match the `float[N]` size of

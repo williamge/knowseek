@@ -64,7 +64,9 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   `prop=description`, one request, two for a page with more than 500 links),
   for the background crawl (#89, ADR 0033). It keeps real pages of the
   site's `link_namespaces` and leaves out red links, disambiguation pages and
-  the page itself.
+  the page itself. `page/3` fetches one such page by its id, as `discover/3`
+  would return it (same request, same fields, same `:links`), for the same
+  crawl.
 
   Configuration, under the source module's key (all optional):
 
@@ -323,6 +325,16 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
   end
 
   def link_candidates(_document, _site, _opts), do: {:ok, []}
+
+  @doc """
+  One page by its page id, as `discover/3` returns it: the same request, the
+  same fields and the same `:links`. `{:ok, nil}` when the page yields no
+  candidate (missing, a disambiguation page, no text, a compilation).
+  """
+  @spec page(integer(), site(), keyword()) ::
+          {:ok, Knowseek.Discovery.Source.candidate() | nil} | {:error, term()}
+  def page(page_id, site, opts) when is_integer(page_id),
+    do: fetch_page(page_id, site, config(site, opts))
 
   defp linked_pages(%{"query" => %{"pages" => pages}}) when is_list(pages), do: pages
   defp linked_pages(_body), do: []

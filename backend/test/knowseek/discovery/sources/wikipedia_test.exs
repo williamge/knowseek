@@ -595,6 +595,58 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
     end
   end
 
+  describe "page/2" do
+    test "returns the same candidate as discover/2 for that page" do
+      stub_api()
+      assert {:ok, [vector_db, _hnsw]} = Wikipedia.discover("pgvector", [])
+
+      assert {:ok, ^vector_db} = Wikipedia.page(74_020_014, [])
+    end
+
+    test "sends one request for the page, with its text and a User-Agent" do
+      stub_api()
+
+      assert {:ok, %{links: []}} = Wikipedia.page(74_020_014, [])
+
+      assert_received {:request, params, [user_agent]}
+      assert user_agent =~ "Knowseek"
+      assert %{"pageids" => "74020014", "explaintext" => "1", "ellimit" => "max"} = params
+      assert params["prop"] =~ "extracts"
+      refute_received {:request, _params, _agent}
+    end
+
+    test "is {:ok, nil} for a missing page and for a disambiguation page" do
+      stub_api()
+
+      assert {:ok, nil} = Wikipedia.page(1, [])
+      assert {:ok, nil} = Wikipedia.page(19_007, [])
+    end
+
+    test "returns the error of a failed request" do
+      Req.Test.stub(Wikipedia, fn conn -> Plug.Conn.send_resp(conn, 404, "") end)
+
+      assert {:error, {:http_status, 404}} = Wikipedia.page(74_020_014, [])
+    end
+
+    test "reports the size of the response body to :on_bytes" do
+      test_pid = self()
+
+      Req.Test.stub(Wikipedia, fn conn ->
+        json = Jason.encode!(fixture("page_74020014.json"))
+        send(test_pid, {:sent, byte_size(json)})
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(200, json)
+      end)
+
+      assert {:ok, %{}} = Wikipedia.page(74_020_014, on_bytes: &send(test_pid, {:bytes, &1}))
+
+      assert [size] = messages(:sent)
+      assert messages(:bytes) == [size]
+    end
+  end
+
   describe "with Discovery.run/2" do
     test "ingests the pages as wikipedia documents" do
       stub_api()

@@ -78,5 +78,13 @@ defmodule Knowseek.Discovery.Source do
   @callback link_candidates(document :: %{required(:metadata) => map()}, opts :: keyword()) ::
               {:ok, [link_candidate()]} | {:error, term()}
 
-  @optional_callbacks links: 2, link_candidates: 2
+  @doc """
+  One page by the id the source gave it in `link_candidates/2`, as a
+  candidate; `nil` when the page has no text to index. For the background
+  crawl (#89). Optional. `opts` may hold `:on_bytes`.
+  """
+  @callback page(page_id :: integer(), opts :: keyword()) ::
+              {:ok, candidate() | nil} | {:error, term()}
+
+  @optional_callbacks links: 2, link_candidates: 2, page: 2
 end

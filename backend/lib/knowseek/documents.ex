@@ -327,4 +327,28 @@ defmodule Knowseek.Documents do
     end)
     |> Map.new()
   end
+
+  @doc """
+  An estimate of the bytes document `id` takes: its body, its chunks' text and
+  4 bytes per vector dimension per chunk. The full-text index and row
+  overhead are not counted. 0 for an unknown id.
+  """
+  @spec stored_bytes(Ecto.UUID.t()) :: non_neg_integer()
+  def stored_bytes(id) do
+    body =
+      Repo.one(
+        from d in Document,
+          where: d.id == ^id,
+          select: fragment("length(CAST(? AS BLOB))", d.body)
+      ) || 0
+
+    {text, chunks} =
+      Repo.one(
+        from c in Chunk,
+          where: c.document_id == ^id,
+          select: {coalesce(sum(fragment("length(CAST(? AS BLOB))", c.content)), 0), count()}
+      )
+
+    body + text + chunks * 4 * Embeddings.dimensions()
+  end
 end

@@ -72,7 +72,81 @@ describe("the stats page", () => {
 
     mockApi({ "GET /stats": () => stats() });
     render(<App watch={FAST} />);
-    expect(await screen.findByText("No background pages yet.")).toBeInTheDocument();
+    expect(await screen.findAllByText("No background pages yet.")).toHaveLength(2);
+  });
+
+  it("shows the gain of the background pages, and the bytes stored per useful page", async () => {
+    mockApi({
+      "GET /stats": () =>
+        stats({
+          pages: { search: 110, background: 20, manual: 10 },
+          hit_share: { background_pages: 20, hit_pages: 3 },
+          gain: { pages: 4, searches: 9, window_searches: 240 },
+          crawl: {
+            mode: "on",
+            pages_per_day: 100,
+            fetched_today: 3,
+            fetched: 20,
+            links_read: 1234,
+            candidates: 87,
+            stored_bytes: 2_400_000,
+          },
+        }),
+    });
+    render(<App watch={FAST} />);
+
+    expect(await screen.findByRole("heading", { name: "Gain" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "4 of 20 background pages showed up where your other pages were not enough (20%).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "9 of your 240 searches in the last 30 days were covered only thanks to background pages.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Stored per useful page: 600.0 KB (2.4 MB for 20 background pages)."),
+    ).toBeInTheDocument();
+  });
+
+  it("says so when background pages exist but none was useful yet", async () => {
+    mockApi({
+      "GET /stats": () =>
+        stats({
+          pages: { search: 110, background: 20, manual: 10 },
+          hit_share: { background_pages: 20, hit_pages: 0 },
+          gain: { pages: 0, searches: 0, window_searches: 240 },
+          crawl: {
+            mode: "on",
+            pages_per_day: 100,
+            fetched_today: 3,
+            fetched: 20,
+            links_read: 1234,
+            candidates: 87,
+            stored_bytes: 2_400_000,
+          },
+        }),
+    });
+    render(<App watch={FAST} />);
+
+    expect(
+      await screen.findByText("No useful page yet (2.4 MB for 20 background pages)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "0 of your 240 searches in the last 30 days were covered only thanks to background pages.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("has no gain to show without background pages", async () => {
+    mockApi({ "GET /stats": () => stats() });
+    render(<App watch={FAST} />);
+
+    expect(await screen.findByRole("heading", { name: "Gain" })).toBeInTheDocument();
+    expect(screen.getAllByText("No background pages yet.")).toHaveLength(2);
   });
 
   it("shows the crawl mode and its counts", async () => {
