@@ -88,15 +88,16 @@ defmodule Knowseek.Crawl do
   def mode, do: config()[:mode]
 
   @doc """
-  Whether a step should run now: the mode is not `:off`, the instance is idle
-  (`Knowseek.Crawl.Idle.idle?/1`), no budget holds background work back
-  (`Knowseek.Activity.hold/1`) and `next_action/1` is not `:none`. Only
-  reads.
+  Whether a step should run now: the mode is not `:off`, no re-embed is
+  running (`Documents.reembedding?/0`: novelty would see only the pages
+  already redone, ADR 0035), the instance is idle (`Knowseek.Crawl.Idle.idle?/1`),
+  no budget holds background work back (`Knowseek.Activity.hold/1`) and
+  `next_action/1` is not `:none`. Only reads.
   """
   @spec due?(keyword()) :: boolean()
   def due?(opts \\ []) do
-    mode() != :off and Idle.idle?(opts) and Activity.hold(:background) == nil and
-      next_action(opts) != :none
+    mode() != :off and not Documents.reembedding?() and Idle.idle?(opts) and
+      Activity.hold(:background) == nil and next_action(opts) != :none
   end
 
   @doc "What `step/1` would do now. Only reads. Option `:now` (tests)."
@@ -202,6 +203,7 @@ defmodule Knowseek.Crawl do
       config: config,
       sources: sources,
       summaries: summaries,
+      model_since: Documents.model_since(),
       read: Frontier.source_pages(ids),
       live: Enum.filter(sources, &(allowance(&1, spent) > 0))
     }
@@ -226,7 +228,7 @@ defmodule Knowseek.Crawl do
   defp next(state) do
     reread_before = DateTime.add(state.now, -state.config[:reread_days] * @day_seconds, :second)
 
-    case Enum.find(state.live, &unread?(&1, state.read, reread_before)) do
+    case Enum.find(state.live, &unread?(&1, state.read, reread_before, state.model_since)) do
       nil -> next_fetch(state)
       source -> {:read, source}
     end
@@ -243,10 +245,16 @@ defmodule Knowseek.Crawl do
     end
   end
 
-  defp unread?(source, read, reread_before) do
+  # A source page read before the current embedding model's row was created
+  # is read again: its candidates were scored with another model (ADR 0035).
+  defp unread?(source, read, reread_before, model_since) do
     case Map.get(read, source.document_id) do
-      nil -> true
-      %{read_at: read_at} -> DateTime.compare(read_at, reread_before) == :lt
+      nil ->
+        true
+
+      %{read_at: read_at} ->
+        DateTime.compare(read_at, reread_before) == :lt or
+          (model_since != nil and DateTime.compare(read_at, model_since) == :lt)
     end
   end
 
@@ -439,7 +447,16 @@ defmodule Knowseek.Crawl do
   defp rank(state) do
     config = state.config
     retry_before = DateTime.add(state.now, -config[:retry_minutes] * 60, :second)
-    pending = state.live |> Enum.map(& &1.document_id) |> Frontier.pending(retry_before)
+
+    # Candidates scored before the current model's row was created were scored
+    # with another model: they are not ranked until their source page is read
+    # again (ADR 0035).
+    pending =
+      state.live
+      |> Enum.map(& &1.document_id)
+      |> Frontier.pending(retry_before)
+      |> Enum.reject(&scored_before?(&1.scored_at, state.model_since))
+
     freq = link_frequencies(state.read)
     counts = Map.new(state.read, fn {id, row} -> {id, counts(row, freq)} end)
 
@@ -451,6 +468,9 @@ defmodule Knowseek.Crawl do
     |> Enum.sort_by(& &1.score, :desc)
     |> Enum.uniq_by(&{&1.candidate.site, &1.candidate.page_id})
   end
+
+  defp scored_before?(_scored_at, nil), do: false
+  defp scored_before?(scored_at, since), do: DateTime.compare(scored_at, since) == :lt
 
   # Per site, in how many read source pages each page id is linked.
   defp link_frequencies(read) do

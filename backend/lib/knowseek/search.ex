@@ -7,7 +7,8 @@ defmodule Knowseek.Search do
     1. full-text search in the FTS5 table `chunks_fts`, ranked by `bm25`;
        `Knowseek.Search.FtsQuery` turns the query text into the FTS5 query
     2. vector search in the sqlite-vec table `chunk_vectors` (cosine
-       distance, an exact scan)
+       distance, an exact scan) over the vectors of the configured embedding
+       model only (the partition key `embedding_model_id`, ADR 0035)
 
   It merges the two ranked lists with reciprocal rank fusion (RRF), drops
   the chunks that are not relevant (see `Knowseek.Search.Hit.relevant?/2`),
@@ -29,6 +30,10 @@ defmodule Knowseek.Search do
   list at most 4096, sqlite-vec's cap), so that grouping still fills `limit`
   documents. See ADR 0011.
 
+  While pages are being embedded again after a change of model, the vector
+  list holds only the pages already redone: the others are found by keyword
+  only, and the vectors of another model are never compared with the query.
+
   `count_near/2` counts the stored documents near a vector, for the background
   crawl (#89).
 
@@ -37,6 +42,7 @@ defmodule Knowseek.Search do
   """
   import Ecto.Query
 
+  alias Knowseek.Documents
   alias Knowseek.Documents.{Chunk, Document, Vector}
   alias Knowseek.Embeddings
   alias Knowseek.Repo
@@ -56,9 +62,11 @@ defmodule Knowseek.Search do
     candidates = limit * config(:candidate_factor)
     min_similarity = Keyword.get(opts, :min_similarity, config(:min_similarity))
 
-    with {:ok, [vector]} <- Embeddings.embed([query], input_type: :query) do
+    # The query is embedded first, so a provider that is down fails as it always did.
+    with {:ok, [vector]} <- Embeddings.embed([query], input_type: :query),
+         {:ok, model_id} <- Documents.current_model_id() do
       keyword = keyword_matches(query, candidates)
-      semantic = semantic_matches(vector, candidates)
+      semantic = semantic_matches(vector, candidates, model_id)
 
       hits =
         keyword
@@ -83,10 +91,18 @@ defmodule Knowseek.Search do
   (default 10). The vector side of search only: no keywords, no prior, no
   log. The background crawl uses it as "how many pages near this are already
   stored" (#89). It looks at the nearest `:limit * :candidate_factor` chunks
-  (at most 4096).
+  (at most 4096) of the configured embedding model: 0 when no vector of that
+  model exists or the model cannot be read.
   """
   @spec count_near(Embeddings.vector(), keyword()) :: non_neg_integer()
   def count_near(vector, opts \\ []) do
+    case Documents.current_model_id() do
+      {:ok, model_id} when not is_nil(model_id) -> count_near(vector, opts, model_id)
+      _ -> 0
+    end
+  end
+
+  defp count_near(vector, opts, model_id) do
     limit = Keyword.get(opts, :limit, 10)
     min_similarity = Keyword.get(opts, :min_similarity, config(:min_similarity))
     k = min(limit * config(:candidate_factor), @max_k)
@@ -95,13 +111,14 @@ defmodule Knowseek.Search do
       Repo.query!(
         """
         WITH knn AS MATERIALIZED (
-          SELECT rowid, distance FROM chunk_vectors WHERE embedding MATCH ?1 AND k = ?2
+          SELECT rowid, distance FROM chunk_vectors
+          WHERE embedding MATCH ?1 AND k = ?2 AND embedding_model_id = ?4
         )
         SELECT count(DISTINCT c.document_id) FROM knn
         JOIN chunks AS c ON c.seq = knn.rowid
         WHERE 1.0 - knn.distance >= ?3
         """,
-        [{:blob, Vector.encode(vector)}, k, min_similarity]
+        [{:blob, Vector.encode(vector)}, k, min_similarity, model_id]
       )
 
     min(count, limit)
@@ -134,17 +151,20 @@ defmodule Knowseek.Search do
   # exact. Equal distances keep insertion order. The KNN query is
   # MATERIALIZED: vec0 accepts no other ORDER BY term than its distance, and
   # SQLite would otherwise merge the outer one into it.
-  defp semantic_matches(vector, limit) do
+  defp semantic_matches(_vector, _limit, nil), do: []
+
+  defp semantic_matches(vector, limit, model_id) do
     Repo.query!(
       """
       WITH knn AS MATERIALIZED (
-        SELECT rowid, distance FROM chunk_vectors WHERE embedding MATCH ?1 AND k = ?2
+        SELECT rowid, distance FROM chunk_vectors
+        WHERE embedding MATCH ?1 AND k = ?2 AND embedding_model_id = ?3
       )
       SELECT c.id, 1.0 - knn.distance FROM knn
       JOIN chunks AS c ON c.seq = knn.rowid
       ORDER BY knn.distance, knn.rowid
       """,
-      [{:blob, Vector.encode(vector)}, min(limit, @max_k)]
+      [{:blob, Vector.encode(vector)}, min(limit, @max_k), model_id]
     ).rows
     |> Enum.map(fn [id, similarity] -> {id, similarity} end)
   end

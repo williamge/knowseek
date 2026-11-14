@@ -58,6 +58,8 @@ export interface SearchResult {
   query: string;
   coverage: Coverage;
   discovery: Discovery;
+  /** While pages are embedded again after a change of model: older pages are found by keyword only. */
+  reembedding: { done: number; total: number } | null;
   hits: Hit[];
 }
 
@@ -263,6 +265,15 @@ export interface NetworkDay {
   bytes: number;
 }
 
+/** The embedding model that made the stored vectors (`Knowseek.Documents.index_status/0`). */
+export interface EmbeddingModel {
+  name: string;
+  /** "" when the provider has none. */
+  digest: string;
+  dimensions: number;
+  quantization: string;
+}
+
 /** What `GET /api/stats` returns. The day lists cover the last 30 days, newest first. */
 export interface Stats {
   searches: { total: number; days: SearchDay[] };
@@ -288,6 +299,15 @@ export interface Stats {
     candidates: number;
     /** Estimated bytes stored for all background pages. */
     stored_bytes: number;
+  };
+  index: {
+    /** null while the provider has not answered since the start. */
+    model: EmbeddingModel | null;
+    passages: number;
+    /** Passages whose vectors come from `model`. */
+    current_passages: number;
+    /** null when nothing is left to re-embed. */
+    eta_seconds: number | null;
   };
 }
 

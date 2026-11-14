@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  aboutDuration,
   clockTime,
   displayHost,
   everyInterval,
@@ -51,6 +52,22 @@ describe("everyInterval", () => {
   });
   it("falls back to seconds", () => {
     expect(everyInterval(1000)).toBe("every 1000 seconds");
+  });
+});
+
+describe("aboutDuration", () => {
+  it("says under a minute below 60 seconds", () => {
+    expect(aboutDuration(0)).toBe("under a minute");
+    expect(aboutDuration(59)).toBe("under a minute");
+  });
+  it("rounds minutes up below 2 hours", () => {
+    expect(aboutDuration(60)).toBe("about 1 min");
+    expect(aboutDuration(1280)).toBe("about 22 min");
+    expect(aboutDuration(7199)).toBe("about 120 min");
+  });
+  it("uses hours from 2 hours", () => {
+    expect(aboutDuration(7200)).toBe("about 2 h");
+    expect(aboutDuration(10_800)).toBe("about 3 h");
   });
 });
 

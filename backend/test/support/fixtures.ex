@@ -17,6 +17,36 @@ defmodule Knowseek.Fixtures do
     document
   end
 
+  @doc """
+  Stands in a change of embedding model: the Hashing adapter now says it is
+  `hashing/<version>` (its vectors stay the same), and the remembered model is
+  refreshed. Both are put back when the test ends.
+  """
+  def switch_embedding_model(version) do
+    Application.put_env(:knowseek, Knowseek.Embeddings.Hashing, version: version)
+    {:ok, _model} = Knowseek.Embeddings.refresh_model()
+
+    ExUnit.Callbacks.on_exit(fn ->
+      Application.delete_env(:knowseek, Knowseek.Embeddings.Hashing)
+      Knowseek.Embeddings.refresh_model()
+    end)
+
+    :ok
+  end
+
+  @doc "The `embedding_model_id` of each vector row of `document`'s chunks, ordered by position."
+  def vector_model_ids(%Knowseek.Documents.Document{id: id}) do
+    Knowseek.Repo.query!(
+      """
+      SELECT v.embedding_model_id FROM chunks AS c
+      JOIN chunk_vectors AS v ON v.rowid = c.seq
+      WHERE c.document_id = ?1 ORDER BY c.position
+      """,
+      [id]
+    ).rows
+    |> Enum.map(&hd/1)
+  end
+
   @doc "The stored embedding of `chunk` (a list of floats), read from `chunk_vectors`."
   def chunk_embedding(%Knowseek.Documents.Chunk{seq: seq}),
     do: Knowseek.Repo.get!(Knowseek.Documents.ChunkVector, seq).embedding

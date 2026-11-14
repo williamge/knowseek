@@ -83,6 +83,10 @@ config :knowseek, Knowseek.Entities.Wikidata,
 # mode or a threshold puts it with Application.put_env/3 and restores it.
 config :knowseek, Knowseek.Crawl, mode: :off, scheduler: false
 
+# Nothing re-embeds by itself in tests (#84): a test runs the job or calls
+# `Knowseek.Documents.reembed_stale/1`.
+config :knowseek, Knowseek.Documents.Reembed, watch: false
+
 # Tests of the limit turn it on and inject a limiter with a fake clock.
 config :knowseek, KnowseekWeb.RateLimit, enabled: false
 

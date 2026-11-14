@@ -488,6 +488,53 @@ defmodule Knowseek.SearchTest do
     if popular_first?, do: {a, b}, else: {b, a}
   end
 
+  describe "search/2 after a change of embedding model" do
+    test "a page with old vectors is no vector hit but still a keyword hit, until it is re-embedded" do
+      page = document_fixture(body: "Sourdough starter needs flour and water.")
+      switch_embedding_model(2)
+
+      assert {:ok, %{hits: [stale]}} = Search.search("sourdough starter")
+      assert stale.document_id == page.id
+      assert stale.keyword_rank == 1
+      assert stale.semantic_rank == nil
+
+      assert {:ok, %{documents: 1}} = Knowseek.Documents.reembed_stale()
+
+      assert {:ok, %{hits: [redone]}} = Search.search("sourdough starter")
+      assert redone.document_id == page.id
+      assert redone.keyword_rank == 1
+      assert redone.semantic_rank == 1
+    end
+
+    test "the vector list is filled from the current model's rows: a nearer stale page takes no slot" do
+      config = Application.fetch_env!(:knowseek, Search)
+      on_exit(fn -> Application.put_env(:knowseek, Search, config) end)
+      Application.put_env(:knowseek, Search, Keyword.put(config, :candidate_factor, 1))
+
+      stale = for _ <- 1..3, do: document_fixture(body: "sourdough starter")
+      switch_embedding_model(2)
+      current = document_fixture(body: "sourdough starter bread")
+
+      assert {:ok, %{hits: hits}} = Search.search("sourdough starter", limit: 2)
+
+      assert %Hit{semantic_rank: 1} = Enum.find(hits, &(&1.document_id == current.id))
+      stale_ids = Enum.map(stale, & &1.id)
+
+      for hit <- hits, hit.document_id in stale_ids do
+        assert hit.semantic_rank == nil
+      end
+    end
+
+    test "finds a page by keyword only while no vector of the model exists" do
+      document_fixture(body: "Octopuses have three hearts.")
+      switch_embedding_model(2)
+      assert {:ok, nil} = Knowseek.Documents.current_model_id()
+
+      assert {:ok, %{hits: [%Hit{semantic_rank: nil, keyword_rank: 1}]}} =
+               Search.search("octopuses hearts")
+    end
+  end
+
   describe "count_near/2" do
     defp embed_one(text) do
       {:ok, [vector]} = Knowseek.Embeddings.embed([text], input_type: :query)
@@ -521,6 +568,40 @@ defmodule Knowseek.SearchTest do
       for _ <- 1..3, do: document_fixture(body: "sourdough starter")
 
       assert Search.count_near(embed_one("sourdough starter"), limit: 2) == 2
+    end
+
+    test "ignores the vectors of other models, and is 0 when none of the model exists" do
+      document_fixture(body: "sourdough starter")
+      switch_embedding_model(2)
+
+      assert Search.count_near(embed_one("sourdough starter")) == 0
+
+      document_fixture(body: "sourdough starter, again")
+      assert Search.count_near(embed_one("sourdough starter")) == 1
+
+      assert {:ok, _} = Knowseek.Documents.reembed_stale()
+      assert Search.count_near(embed_one("sourdough starter")) == 2
+    end
+
+    test "is 0 when the model cannot be read" do
+      config = Application.fetch_env!(:knowseek, Knowseek.Embeddings)
+      vector = embed_one("sourdough starter")
+      document_fixture(body: "sourdough starter")
+
+      on_exit(fn ->
+        Application.put_env(:knowseek, Knowseek.Embeddings, config)
+        Knowseek.Embeddings.refresh_model()
+      end)
+
+      Application.put_env(
+        :knowseek,
+        Knowseek.Embeddings,
+        Keyword.put(config, :adapter, Knowseek.Embeddings.Ollama)
+      )
+
+      Req.Test.stub(Knowseek.Embeddings.Ollama, &Req.Test.transport_error(&1, :econnrefused))
+
+      assert Search.count_near(vector) == 0
     end
   end
 end

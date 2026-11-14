@@ -8,6 +8,7 @@ defmodule KnowseekWeb.SearchJSON do
         query: result.query,
         coverage: result.coverage,
         discovery: discovery(result.discovery),
+        reembedding: result.reembedding,
         hits: Enum.map(result.hits, &hit/1)
       }
     }

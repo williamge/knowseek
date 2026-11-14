@@ -5,7 +5,7 @@ defmodule KnowseekWeb.StatsControllerTest do
   alias Knowseek.Crawl.{Candidate, SourcePage}
   alias Knowseek.Repo
 
-  @keys ~w(searches pages passages budget network hit_share gain crawl)
+  @keys ~w(searches pages passages budget network hit_share gain crawl index)
 
   describe "GET /api/stats" do
     test "has the documented shape on an empty database", %{conn: conn} do
@@ -41,6 +41,37 @@ defmodule KnowseekWeb.StatsControllerTest do
 
       assert %{"data" => %{"passages" => ^expected}} =
                conn |> get(~p"/api/stats") |> json_response(200)
+    end
+
+    test "has the embedding model and the passage counts", %{conn: conn} do
+      document_fixture(body: "Some text.")
+
+      assert %{"data" => %{"index" => index}} = conn |> get(~p"/api/stats") |> json_response(200)
+
+      assert index == %{
+               "model" => %{
+                 "name" => "hashing/1",
+                 "digest" => "",
+                 "dimensions" => 1024,
+                 "quantization" => "float32"
+               },
+               "passages" => 1,
+               "current_passages" => 1,
+               "eta_seconds" => nil
+             }
+    end
+
+    test "has the progress and an ETA while pages are re-embedded", %{conn: conn} do
+      for i <- 1..4, do: document_fixture(body: "Some text #{i}.")
+      switch_embedding_model(2)
+
+      assert %{"data" => %{"index" => index}} = conn |> get(~p"/api/stats") |> json_response(200)
+
+      assert %{"model" => %{"name" => "hashing/2"}, "passages" => 4, "current_passages" => 0} =
+               index
+
+      # 4 passages at 75 ms each: 0.3 s, rounded up to 1.
+      assert index["eta_seconds"] == 1
     end
 
     test "has the gain", %{conn: conn} do

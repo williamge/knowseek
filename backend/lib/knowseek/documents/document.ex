@@ -55,6 +55,9 @@ defmodule Knowseek.Documents.Document do
     field :share, :string, default: "none"
     field :origin, :string, default: "manual"
     field :origin_query, :string
+    # The model that made the page's vectors; nil when none is known. Set by
+    # `Knowseek.Documents` (never cast), see `Knowseek.Documents.EmbeddingModel`.
+    field :embedding_model_id, :integer
 
     has_many :chunks, Knowseek.Documents.Chunk
 

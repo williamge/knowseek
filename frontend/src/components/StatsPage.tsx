@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { formatBytes, shortDate } from "../lib/format";
+import { aboutDuration, formatBytes, shortDate } from "../lib/format";
 import type { BudgetLine, Stats } from "../types";
 
 /** The Coverage labels of the results page (`StatusBar.tsx`). */
@@ -204,6 +204,25 @@ function StatsBody({ stats, onClear }: { stats: Stats; onClear: () => void }) {
         {stats.crawl.links_read.toLocaleString("en")} links read,{" "}
         {stats.crawl.candidates.toLocaleString("en")} kept as candidates.
       </p>
+
+      <h2>Index</h2>
+      {stats.index.model === null ? (
+        <p className="muted">Embedding model: not known yet (the provider has not answered).</p>
+      ) : (
+        <p>
+          Embedding model: {stats.index.model.name}
+          {stats.index.model.digest !== "" && ` (${stats.index.model.digest.slice(0, 7)})`},{" "}
+          {stats.index.model.dimensions} dimensions, {stats.index.model.quantization}.
+        </p>
+      )}
+      {stats.index.current_passages < stats.index.passages && (
+        <p>
+          Re-embedding: {stats.index.current_passages.toLocaleString("en")} of{" "}
+          {stats.index.passages.toLocaleString("en")} passages
+          {stats.index.eta_seconds !== null && `, ${aboutDuration(stats.index.eta_seconds)} left`}.
+          Until it finishes, older pages are found by keyword only.
+        </p>
+      )}
 
       <h2>Disk</h2>
       <BudgetBar

@@ -212,6 +212,78 @@ describe("the stats page", () => {
   });
 });
 
+describe("the index section of the stats page", () => {
+  beforeEach(openStats);
+  afterEach(() => {
+    window.history.pushState(null, "", "/");
+    vi.restoreAllMocks();
+  });
+
+  const model = {
+    name: "ollama/bge-m3:latest",
+    digest: "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+    dimensions: 1024,
+    quantization: "float32",
+  };
+
+  it("shows the model with a digest cut to 7 characters, and no re-embedding line when current", async () => {
+    mockApi({ "GET /stats": () => stats() });
+    render(<App watch={FAST} />);
+
+    expect(
+      await screen.findByText(
+        "Embedding model: ollama/bge-m3:latest (7907646), 1024 dimensions, float32.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Re-embedding:/)).not.toBeInTheDocument();
+  });
+
+  it("leaves out the brackets when the model has no digest", async () => {
+    mockApi({
+      "GET /stats": () =>
+        stats({
+          index: {
+            model: { ...model, name: "hashing/1", digest: "" },
+            passages: 3,
+            current_passages: 3,
+            eta_seconds: null,
+          },
+        }),
+    });
+    render(<App watch={FAST} />);
+
+    expect(
+      await screen.findByText("Embedding model: hashing/1, 1024 dimensions, float32."),
+    ).toBeInTheDocument();
+  });
+
+  it("says when the provider has not answered", async () => {
+    mockApi({
+      "GET /stats": () =>
+        stats({ index: { model: null, passages: 3, current_passages: 0, eta_seconds: null } }),
+    });
+    render(<App watch={FAST} />);
+
+    expect(
+      await screen.findByText("Embedding model: not known yet (the provider has not answered)."),
+    ).toHaveClass("muted");
+  });
+
+  it("shows the progress and the time left while passages are left", async () => {
+    mockApi({
+      "GET /stats": () =>
+        stats({ index: { model, passages: 18_300, current_passages: 1240, eta_seconds: 1280 } }),
+    });
+    render(<App watch={FAST} />);
+
+    expect(
+      await screen.findByText(
+        "Re-embedding: 1,240 of 18,300 passages, about 22 min left. Until it finishes, older pages are found by keyword only.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("the nav", () => {
   afterEach(() => {
     window.history.pushState(null, "", "/");
