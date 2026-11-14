@@ -85,7 +85,11 @@ defmodule Knowseek.Embeddings.Voyage do
   defp estimate_tokens(text), do: div(byte_size(text), 3) + 1
 
   defp new_request(api_key, config, input_type) do
-    [base_url: Keyword.get(config, :base_url, @default_base_url), auth: {:bearer, api_key}]
+    [
+      base_url: Keyword.get(config, :base_url, @default_base_url),
+      auth: {:bearer, api_key},
+      compressed: true
+    ]
     |> Keyword.merge(limits(input_type))
     |> Keyword.merge(Keyword.get(config, :req_options, []))
     |> Req.new()

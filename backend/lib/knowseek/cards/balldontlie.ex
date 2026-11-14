@@ -64,6 +64,7 @@ defmodule Knowseek.Cards.Balldontlie do
         params: params,
         headers: [user_agent: config[:user_agent], authorization: config[:api_key] || ""],
         receive_timeout: config[:receive_timeout],
+        compressed: true,
         retry: false
       )
       |> Req.merge(config[:req_options])

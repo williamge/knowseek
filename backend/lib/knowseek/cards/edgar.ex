@@ -63,6 +63,7 @@ defmodule Knowseek.Cards.Edgar do
         url: config[:base_url] <> "/" <> path,
         headers: [user_agent: config[:user_agent]],
         receive_timeout: config[:receive_timeout],
+        compressed: true,
         retry: false
       )
       |> Req.merge(config[:req_options])

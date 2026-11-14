@@ -497,6 +497,7 @@ defmodule Knowseek.Discovery.Sources.MediaWiki do
         url: config[:base_url],
         params: [action: "query", format: "json", formatversion: 2, maxlag: 5] ++ params,
         headers: [user_agent: config[:user_agent]],
+        compressed: true,
         receive_timeout: 15_000
       )
       |> Req.merge(config[:req_options])

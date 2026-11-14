@@ -310,6 +310,11 @@ says why it is paused; the search page says only when a fetch was refused.
 - Counts are best effort and can only be low. Wikidata's size is unknown
   until the first day of data; if one lookup is hundreds of KB, typed
   searches become the main network consumer.
+- Until #111 no client asked for compressed responses, so the counter
+  recorded full sizes. Every remote client now sends `accept-encoding` with
+  `gzip` (`compressed: true`), and the counter records the compressed sizes
+  (on a preview, one weather card and one search: Wikidata 1.5 MB to 0.28 MB).
+  What is counted (headers plus the body as received) did not change.
 - The recorder gets more messages: two per Wikidata lookup and one per card
   refresh. It is one process; a long ingest delays the counts, never a search.
 - `disksup` runs `df` every 30 minutes and on each background check. The

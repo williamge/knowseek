@@ -13,6 +13,22 @@ defmodule Knowseek.Embeddings.VoyageTest do
     %{config: config}
   end
 
+  describe "compressed responses" do
+    test "asks Voyage for gzip" do
+      test_pid = self()
+
+      Req.Test.stub(Voyage, fn conn ->
+        send(test_pid, {:accept_encoding, Plug.Conn.get_req_header(conn, "accept-encoding")})
+        respond(conn, decode_body(conn))
+      end)
+
+      assert {:ok, [_]} = Voyage.embed(["one"], dimensions: 4, input_type: :query)
+
+      assert_received {:accept_encoding, [accept_encoding]}
+      assert accept_encoding =~ "gzip"
+    end
+  end
+
   describe "download counting" do
     test "counts the bytes of every response for the source voyage" do
       Knowseek.DownloadSink.capture()

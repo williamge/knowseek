@@ -47,6 +47,22 @@ defmodule Knowseek.Entities.WikidataTest do
     }
   end
 
+  describe "compressed responses" do
+    test "asks Wikidata for gzip" do
+      test_pid = self()
+
+      Req.Test.stub(Wikidata, fn conn ->
+        send(test_pid, {:accept_encoding, Plug.Conn.get_req_header(conn, "accept-encoding")})
+        Req.Test.json(conn, %{"success" => 1, "search" => []})
+      end)
+
+      search("tokyo")
+
+      assert_received {:accept_encoding, [accept_encoding]}
+      assert accept_encoding =~ "gzip"
+    end
+  end
+
   describe "search/2 with the recorded answers" do
     setup do
       stub_wikidata()
