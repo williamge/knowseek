@@ -209,7 +209,13 @@ export function stats(overrides: Partial<Stats> = {}): Stats {
       ],
     },
     pages: { search: 110, background: 0, manual: 10 },
-    disk_bytes: 73_400_320,
+    budget: {
+      disk: { used: 124_000_000, limit: 5_000_000_000, state: "ok" },
+      network: { used: 812_345, limit: 200_000_000, state: "ok" },
+      free_disk: { bytes: 11_600_000_000, floor: 1_000_000_000, low: false },
+      background_share: 0.9,
+    },
+    passages: 16_200,
     network: [
       { day: "2026-11-10", source: "wikipedia", bytes: 512_000 },
       { day: "2026-11-10", source: "wikibooks", bytes: 900 },
@@ -311,6 +317,7 @@ export function crawl(overrides: Partial<Crawl> = {}): Crawl {
     mode: "preview",
     pages_per_day: 100,
     fetched_today: 0,
+    paused: null,
     bar: 0.4,
     next: [crawlEntry()],
     fetched: [],

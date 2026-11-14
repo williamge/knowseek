@@ -397,6 +397,18 @@ defmodule Knowseek.DocumentsTest do
     end
   end
 
+  describe "count_chunks/0" do
+    test "is 0 on an empty index and the number of chunks after two ingests" do
+      assert Documents.count_chunks() == 0
+
+      first = document_fixture(body: "First note.")
+      second = document_fixture(body: "Second note.")
+
+      assert Documents.count_chunks() == length(chunks(first)) + length(chunks(second))
+      assert Documents.count_chunks() >= 2
+    end
+  end
+
   describe "ingest/1 URL canonicalization" do
     test "stores the canonical URL" do
       {:ok, document} =

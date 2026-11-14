@@ -18,6 +18,8 @@ defmodule Knowseek.Cards.OpenMeteo do
         user_agent: "...",
         receive_timeout: 4_000,
         req_options: []     # merged into every request (tests stub here)
+
+  Downloads are counted for the network budget, source `open_meteo` (ADR 0034).
   """
 
   require Logger
@@ -46,6 +48,7 @@ defmodule Knowseek.Cards.OpenMeteo do
         retry: false
       )
       |> Req.merge(config[:req_options])
+      |> Knowseek.Download.count("open_meteo")
 
     case Req.get(request) do
       {:ok, %Req.Response{status: 200, body: %{} = body}} ->

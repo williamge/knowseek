@@ -41,6 +41,10 @@ function discoveryText({ result, watching, discovered }: Done): string {
       return found;
     case "error":
       return `${found} Could not start the search for new sources.`;
+    case "refused":
+      return `${found} Not looking for new sources: ${
+        result.discovery.reason === "disk" ? "the disk budget" : "today's network budget"
+      } is used up.`;
     case "enqueued":
       if (watching) return `${found} Looking for new sources…`;
       if (discovered > 0) return found;

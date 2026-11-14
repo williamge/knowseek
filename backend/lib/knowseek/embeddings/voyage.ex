@@ -22,6 +22,8 @@ defmodule Knowseek.Embeddings.Voyage do
   `:query` requests wait for a user, so they have no retries and a 10 s limit
   (`Knowseek.Embeddings.query_request_options/0`). A failure in any batch
   fails the whole call.
+
+  Downloads are counted for the network budget, source `voyage` (ADR 0034).
   """
   @behaviour Knowseek.Embeddings
 
@@ -87,6 +89,7 @@ defmodule Knowseek.Embeddings.Voyage do
     |> Keyword.merge(limits(input_type))
     |> Keyword.merge(Keyword.get(config, :req_options, []))
     |> Req.new()
+    |> Knowseek.Download.count("voyage")
   end
 
   defp limits(:query), do: Embeddings.query_request_options()

@@ -25,6 +25,8 @@ defmodule Knowseek.Cards.Balldontlie do
         user_agent: "...",
         receive_timeout: 4_000,
         req_options: []     # merged into every request (tests stub here)
+
+  Downloads are counted for the network budget, source `balldontlie` (ADR 0034).
   """
 
   require Logger
@@ -65,6 +67,7 @@ defmodule Knowseek.Cards.Balldontlie do
         retry: false
       )
       |> Req.merge(config[:req_options])
+      |> Knowseek.Download.count("balldontlie")
 
     case Req.get(request) do
       {:ok, %Req.Response{status: 200, body: %{} = body}} ->

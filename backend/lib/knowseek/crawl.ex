@@ -23,7 +23,9 @@ defmodule Knowseek.Crawl do
   fetch: it is dropped when it is indexed already, or when the pages stored
   since it was scored have lowered its novelty under the bar. Search always
   wins: an instance that was searched less than `idle_seconds` ago is not
-  idle (`Knowseek.Crawl.Idle`).
+  idle (`Knowseek.Crawl.Idle`). Nothing runs while
+  `Knowseek.Activity.hold(:background)` gives a reason (#90, ADR 0034): a
+  budget at 90% or low (or unreadable) free disk space.
 
   Mode (`mode/0`): `:off`, `:preview` (reads and scores, fetches nothing; the
   default) or `:on`.
@@ -77,6 +79,7 @@ defmodule Knowseek.Crawl do
           fetched_today: non_neg_integer(),
           bar: float(),
           next: [entry()],
+          paused: Knowseek.Activity.hold() | nil,
           fetched: [entry()]
         }
 
@@ -86,12 +89,15 @@ defmodule Knowseek.Crawl do
 
   @doc """
   Whether a step should run now: the mode is not `:off`, the instance is idle
-  (`Knowseek.Crawl.Idle.idle?/1`) and `next_action/1` is not `:none`. Only
+  (`Knowseek.Crawl.Idle.idle?/1`), no budget holds background work back
+  (`Knowseek.Activity.hold/1`) and `next_action/1` is not `:none`. Only
   reads.
   """
   @spec due?(keyword()) :: boolean()
-  def due?(opts \\ []),
-    do: mode() != :off and Idle.idle?(opts) and next_action(opts) != :none
+  def due?(opts \\ []) do
+    mode() != :off and Idle.idle?(opts) and Activity.hold(:background) == nil and
+      next_action(opts) != :none
+  end
 
   @doc "What `step/1` would do now. Only reads. Option `:now` (tests)."
   @spec next_action(keyword()) :: action()
@@ -106,7 +112,7 @@ defmodule Knowseek.Crawl do
   """
   @spec step(keyword()) :: :ok
   def step(opts \\ []) do
-    if mode() == :off do
+    if mode() == :off or Activity.hold(:background) != nil do
       :ok
     else
       state = state(opts)
@@ -120,10 +126,11 @@ defmodule Knowseek.Crawl do
   end
 
   @doc """
-  What the Crawl page shows: the mode, today's count, the bar, the next
-  candidates in the order they would be fetched (in `:preview` this is what
-  mode `:on` would fetch) and the last fetched pages, newest first. `:limit`
-  (default 50) for each list.
+  What the Crawl page shows: the mode, today's count, the bar, why
+  background work is paused (`paused`: `Knowseek.Activity.hold(:background)`,
+  or `nil`), the next candidates in the order they would be fetched (in
+  `:preview` this is what mode `:on` would fetch) and the last fetched pages,
+  newest first. `:limit` (default 50) for each list.
   """
   @spec overview(keyword()) :: overview()
   def overview(opts \\ []) do
@@ -136,6 +143,7 @@ defmodule Knowseek.Crawl do
       pages_per_day: config()[:pages_per_day],
       fetched_today: fetched_today(state.now),
       bar: config()[:bar],
+      paused: Activity.hold(:background),
       next: entries(ranked, state),
       fetched: limit |> Frontier.recent_fetched() |> fetched_entries(state)
     }

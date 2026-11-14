@@ -25,6 +25,25 @@ describe("crawl page", () => {
     expect(await screen.findByText(text)).toBeInTheDocument();
   });
 
+  it.each([
+    ["disk", "Paused: the disk budget is nearly used up. See Stats."],
+    ["network", "Paused: today's network budget is nearly used up. It starts again at 00:00 UTC."],
+    ["free_disk", "Paused: this disk is nearly full, or its free space cannot be read. See Stats."],
+  ] as const)("says why it is paused: %s", async (paused, text) => {
+    mockApi({ "GET /crawl": () => crawl({ paused }) });
+    openCrawl();
+    render(<App />);
+    expect(await screen.findByText(text)).toBeInTheDocument();
+  });
+
+  it("shows no pause line when it is not paused", async () => {
+    mockApi({ "GET /crawl": () => crawl() });
+    openCrawl();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Next" });
+    expect(screen.queryByText(/^Paused:/)).not.toBeInTheDocument();
+  });
+
   it("lists the next links with their scores", async () => {
     mockApi({
       "GET /crawl": () =>

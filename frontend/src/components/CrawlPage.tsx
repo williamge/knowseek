@@ -15,6 +15,12 @@ function status(crawl: Crawl): string {
   }
 }
 
+const PAUSED: Record<NonNullable<Crawl["paused"]>, string> = {
+  disk: "Paused: the disk budget is nearly used up. See Stats.",
+  network: "Paused: today's network budget is nearly used up. It starts again at 00:00 UTC.",
+  free_disk: "Paused: this disk is nearly full, or its free space cannot be read. See Stats.",
+};
+
 const score = (value: number) => value.toFixed(2);
 
 /** A bonus as "+0.10", or "–" when there is none. */
@@ -138,6 +144,11 @@ export function CrawlPage({ onOpenDocument }: { onOpenDocument: (id: string) => 
       ) : (
         <>
           <p className="muted">{status(crawl)}</p>
+          {crawl.paused && (
+            <div className="notice">
+              <p>{PAUSED[crawl.paused]}</p>
+            </div>
+          )}
 
           <h2>Next</h2>
           {crawl.next.length === 0 ? (

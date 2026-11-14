@@ -276,6 +276,10 @@ defmodule Knowseek.Documents do
     }
   end
 
+  @doc "How many passages (chunks) are stored."
+  @spec count_chunks() :: non_neg_integer()
+  def count_chunks, do: Repo.aggregate(Chunk, :count)
+
   @doc "The ids of the documents whose `source` is one of `sources`, oldest first."
   @spec ids_by_source([String.t()]) :: [Ecto.UUID.t()]
   def ids_by_source(sources) do

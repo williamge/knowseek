@@ -8,7 +8,9 @@ defmodule Knowseek.Lookup do
       result.discovery  #=> {:enqueued, job_id}
 
   Results from discovery arrive later. A caller can query again, or (a
-  future task) subscribe to updates for the query.
+  future task) subscribe to updates for the query. When a budget is used up
+  (#90, ADR 0034) nothing is enqueued and `discovery` is `{:refused,
+  :disk | :network}`; the hits come from the index as always.
 
   Every successful run is handed to `Knowseek.Activity.record_search/4`, which
   only sends a message to the log's writer (rule 6, ADR 0031). `Search.search/2`
@@ -17,7 +19,11 @@ defmodule Knowseek.Lookup do
 
   alias Knowseek.{Activity, Discovery, Search}
 
-  @type discovery :: :not_needed | {:enqueued, pos_integer()} | {:error, term()}
+  @type discovery ::
+          :not_needed
+          | {:enqueued, pos_integer()}
+          | {:refused, Knowseek.Activity.hold()}
+          | {:error, term()}
 
   @type result :: %{
           query: String.t(),
@@ -41,6 +47,7 @@ defmodule Knowseek.Lookup do
   defp discover(query, _coverage) do
     case Discovery.request(query) do
       {:ok, job} -> {:enqueued, job.id}
+      {:error, {:budget, reason}} -> {:refused, reason}
       {:error, reason} -> {:error, reason}
     end
   end

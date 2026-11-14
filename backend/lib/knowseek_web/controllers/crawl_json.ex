@@ -13,6 +13,7 @@ defmodule KnowseekWeb.CrawlJSON do
         pages_per_day: overview.pages_per_day,
         fetched_today: overview.fetched_today,
         bar: overview.bar,
+        paused: overview.paused,
         next: Enum.map(overview.next, &entry/1),
         fetched: Enum.map(overview.fetched, &entry/1)
       }

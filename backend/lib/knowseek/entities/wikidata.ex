@@ -55,6 +55,8 @@ defmodule Knowseek.Entities.Wikidata do
         search_limit: 20,      # candidates per query; the API allows 50
         user_agent: "...",
         req_options: []        # merged into every Req request (tests stub here)
+
+  Downloads are counted for the network budget, source `wikidata` (ADR 0034).
   """
   @behaviour Knowseek.Entities.Resolver
 
@@ -233,6 +235,7 @@ defmodule Knowseek.Entities.Wikidata do
         retry: false
       )
       |> Req.merge(config[:req_options])
+      |> Knowseek.Download.count("wikidata")
 
     case Knowseek.Wikimedia.run(:interactive, fn -> Req.get(request) end) do
       {:ok, %Req.Response{status: 200, body: %{"error" => %{"code" => "maxlag"}}} = response} ->

@@ -25,9 +25,11 @@ defmodule Knowseek.CrawlTest do
   setup do
     discovery = Application.fetch_env!(:knowseek, Discovery)
     crawl = Application.fetch_env!(:knowseek, Crawl)
+    activity = Application.fetch_env!(:knowseek, Knowseek.Activity)
 
     on_exit(fn ->
       Application.put_env(:knowseek, Discovery, discovery)
+      Application.put_env(:knowseek, Knowseek.Activity, activity)
       Application.put_env(:knowseek, Crawl, crawl)
       Application.delete_env(:knowseek, CrawlSource)
     end)
@@ -702,6 +704,27 @@ defmodule Knowseek.CrawlTest do
       assert crawl_bytes() == 1_700
     end
 
+    test "a held budget sends no request and stores nothing", %{source: source} do
+      before_action = Crawl.next_action()
+      assert {:fetch, [_, _]} = before_action
+      source_id = source.id
+
+      limit_budget(disk_budget_bytes: 0)
+
+      assert :ok = Crawl.step()
+
+      assert crawl_bytes() == 900
+      assert Repo.get_by(Documents.Document, url: "https://en.wikipedia.org/wiki/Page_100") == nil
+      assert [%Candidate{state: "pending"}, %Candidate{state: "pending"}] = candidates()
+      assert [%SourcePage{document_id: ^source_id}] = Repo.all(SourcePage)
+      assert Crawl.next_action() == before_action
+      refute Crawl.due?(idle_opts())
+
+      limit_budget(disk_budget_bytes: 5_000_000_000)
+      assert :ok = Crawl.step()
+      assert crawl_bytes() == 1_700
+    end
+
     test "fetches one page a step, the best first, and then has nothing left" do
       assert :ok = Crawl.step()
       assert :ok = Crawl.step()
@@ -1242,6 +1265,69 @@ defmodule Knowseek.CrawlTest do
     end
   end
 
+  describe "a held budget" do
+    test "makes due?/1 false although the instance is idle and a page is unread", %{
+      filler: filler
+    } do
+      source_page(filler, 1, @query)
+      assert Crawl.due?(idle_opts())
+
+      limit_budget(disk_budget_bytes: 0)
+      refute Crawl.due?(idle_opts())
+
+      limit_budget(disk_budget_bytes: 5_000_000_000, network_budget_bytes: 0)
+      refute Crawl.due?(idle_opts())
+
+      limit_budget(network_budget_bytes: 200_000_000)
+      assert Crawl.due?(idle_opts())
+    end
+
+    test "makes step/1 send no request and store nothing for a read", %{filler: filler} do
+      source_page(filler, 1, @query)
+      set_links(%{1 => [link(100, "Desem", @starter)]})
+      before_action = Crawl.next_action()
+      assert {:read, _source} = before_action
+
+      limit_budget(network_budget_bytes: 0)
+
+      assert :ok = Crawl.step()
+
+      assert requests() == 0
+      assert Repo.all(SourcePage) == []
+      assert candidates() == []
+      assert Crawl.next_action() == before_action
+
+      limit_budget(network_budget_bytes: 200_000_000)
+      assert :ok = Crawl.step()
+      assert requests() == 1
+      assert [%Candidate{page_id: 100}] = candidates()
+    end
+
+    test "stops the crawl at the background share, before the limit", %{filler: filler} do
+      source_page(filler, 1, @query)
+      # Today's usage is 900 bytes: 90% of 1,000 is 900, so background work is held.
+      Knowseek.Activity.record_bytes("elsewhere", 900)
+      limit_budget(network_budget_bytes: 1_000)
+
+      refute Crawl.due?(idle_opts())
+      assert Knowseek.Activity.hold(:search) == nil
+      assert %{paused: :network} = Crawl.overview()
+    end
+
+    test "shows in overview/1 as paused, and nil when nothing holds" do
+      assert %{paused: nil} = Crawl.overview()
+
+      limit_budget(disk_budget_bytes: 0)
+      assert %{paused: :disk} = Crawl.overview()
+
+      limit_budget(disk_budget_bytes: 5_000_000_000, network_budget_bytes: 0)
+      assert %{paused: :network} = Crawl.overview()
+
+      limit_budget(network_budget_bytes: 200_000_000)
+      assert %{paused: nil} = Crawl.overview()
+    end
+  end
+
   describe "clear_pending/0" do
     test "deletes the link lists and the pending candidates, and keeps the fetched rows", %{
       filler: filler
@@ -1273,6 +1359,15 @@ defmodule Knowseek.CrawlTest do
     test "is {:ok, 0} when there is nothing" do
       assert {:ok, 0} = Crawl.clear_pending()
     end
+  end
+
+  # Overrides the budget limits (the test config makes no free-disk reading).
+  defp limit_budget(overrides) do
+    Application.put_env(
+      :knowseek,
+      Knowseek.Activity,
+      Keyword.merge(Application.fetch_env!(:knowseek, Knowseek.Activity), overrides)
+    )
   end
 
   defp configure(overrides) do

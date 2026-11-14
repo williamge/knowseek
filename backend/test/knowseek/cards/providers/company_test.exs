@@ -36,6 +36,19 @@ defmodule Knowseek.Cards.Providers.CompanyTest do
     end
   end
 
+  describe "download counting" do
+    test "counts the bytes of every EDGAR response for the source edgar" do
+      Knowseek.DownloadSink.capture()
+      stub_edgar()
+
+      assert {:ok, _card, _ttl} = Company.fetch(nvidia())
+
+      # The submissions and the shares outstanding.
+      assert_receive {:downloaded, "edgar", first} when first > 0
+      assert_receive {:downloaded, "edgar", second} when second > 0
+    end
+  end
+
   describe "handles?/1" do
     test "a company with a CIK" do
       assert Company.handles?(nvidia())

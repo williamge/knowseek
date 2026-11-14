@@ -45,8 +45,9 @@ defmodule Knowseek.Discovery.Source do
   Finds documents relevant to `query`.
 
   `opts` may hold `:on_bytes`, a function of one argument. A source that
-  downloads calls it with the body size in bytes of every HTTP response it
-  receives. It must not write anything itself (rule 3).
+  downloads calls it with the size in bytes of every HTTP response it
+  receives (`Knowseek.Download.size/1`: headers and body). It must not write
+  anything itself (rule 3).
   """
   @callback discover(query :: String.t(), opts :: keyword()) ::
               {:ok, [candidate()]} | {:error, term()}

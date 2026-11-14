@@ -166,21 +166,212 @@ defmodule Knowseek.ActivityTest do
     end
   end
 
+  describe "count_bytes/2" do
+    test "the recorder adds the bytes to today's count for the source" do
+      assert :ok = Activity.count_bytes("wikidata", 120)
+      assert :ok = Activity.count_bytes("wikidata", 80)
+      assert :ok = Activity.count_bytes("edgar", 5)
+      _ = drain()
+
+      today = Date.utc_today()
+
+      assert Enum.sort(Repo.all(from n in NetworkUsage, select: {n.day, n.source, n.bytes})) ==
+               [{today, "edgar", 5}, {today, "wikidata", 200}]
+    end
+
+    test "zero sends nothing" do
+      assert :ok = Activity.count_bytes("wikidata", 0)
+      _ = drain()
+
+      assert Repo.aggregate(NetworkUsage, :count) == 0
+    end
+  end
+
+  # Sets budget options for the test and restores the config after it.
+  defp put_budget(attrs) do
+    config = Application.fetch_env!(:knowseek, Activity)
+    on_exit(fn -> Application.put_env(:knowseek, Activity, config) end)
+    Application.put_env(:knowseek, Activity, Keyword.merge(config, attrs))
+  end
+
+  describe "budget/1" do
+    @budget_day ~D[2026-11-10]
+
+    test "limits and share come from the config" do
+      put_budget(disk_budget_bytes: 123, network_budget_bytes: 456, background_share: 0.5)
+
+      assert %{disk: %{limit: 123}, network: %{limit: 456}, background_share: 0.5} =
+               Activity.budget()
+    end
+
+    test "disk used is positive and grows after an ingest" do
+      before = Activity.budget().disk.used
+      assert before > 0
+
+      for i <- 1..10, do: document_fixture(body: long_body("grow #{i}"))
+
+      assert Activity.budget().disk.used > before
+    end
+
+    test "disk state follows the level of used against the limit" do
+      used = Activity.budget().disk.used
+
+      put_budget(disk_budget_bytes: used * 100)
+      assert Activity.budget().disk.state == :ok
+
+      put_budget(disk_budget_bytes: 0)
+      assert Activity.budget().disk.state == :full
+    end
+
+    test "network used is the sum of today's rows of all sources, not yesterday's" do
+      Activity.record_bytes("wikipedia", 100, day: @budget_day)
+      Activity.record_bytes("wikidata", 20, day: @budget_day)
+      Activity.record_bytes("wikipedia", 5_000, day: Date.add(@budget_day, -1))
+
+      assert %{network: %{used: 120}} = Activity.budget(today: @budget_day)
+      assert %{network: %{used: 0}} = Activity.budget(today: Date.add(@budget_day, 1))
+    end
+
+    test "network state is :ok, :near at the share and :full at the limit" do
+      put_budget(network_budget_bytes: 1_000, background_share: 0.9)
+
+      assert %{network: %{state: :ok}} = Activity.budget(today: @budget_day)
+
+      Activity.record_bytes("wikipedia", 900, day: @budget_day)
+      assert %{network: %{state: :near}} = Activity.budget(today: @budget_day)
+
+      Activity.record_bytes("wikipedia", 100, day: @budget_day)
+      assert %{network: %{state: :full}} = Activity.budget(today: @budget_day)
+    end
+
+    test "a free disk reading under the floor is low, at the floor it is not" do
+      put_budget(min_free_disk_bytes: 1_000)
+
+      assert %{free_disk: %{bytes: 999, floor: 1_000, low: true}} =
+               Activity.budget(free_disk_bytes: 999)
+
+      assert %{free_disk: %{bytes: 1_000, floor: 1_000, low: false}} =
+               Activity.budget(free_disk_bytes: 1_000)
+    end
+
+    test "a floor of 0 turns the check off: no reading, not low" do
+      put_budget(min_free_disk_bytes: 0)
+
+      assert %{free_disk: %{bytes: nil, floor: 0, low: false}} =
+               Activity.budget(free_disk_bytes: 5)
+    end
+
+    test "free_disk: false makes no reading and is not low" do
+      put_budget(min_free_disk_bytes: 1_000)
+
+      assert %{free_disk: %{bytes: nil, floor: 1_000, low: false}} =
+               Activity.budget(free_disk: false, free_disk_bytes: 5)
+    end
+
+    test "an unreadable free disk (nil) with a floor above 0 is low" do
+      put_budget(min_free_disk_bytes: 1_000)
+
+      assert %{free_disk: %{bytes: nil, floor: 1_000, low: true}} =
+               Activity.budget(free_disk_bytes: nil)
+    end
+
+    test "reads the real free disk space when no reading is given" do
+      put_budget(min_free_disk_bytes: 1_000_000_000)
+
+      # An unreadable space logs one warning per start.
+      capture_log(fn ->
+        assert %{free_disk: %{bytes: bytes, floor: 1_000_000_000, low: low}} = Activity.budget()
+
+        assert is_integer(bytes) or is_nil(bytes)
+        assert low == (is_nil(bytes) or bytes < 1_000_000_000)
+      end)
+    end
+  end
+
+  describe "hold/2" do
+    test "is nil with every budget well under its limit" do
+      assert Activity.hold(:background) == nil
+      assert Activity.hold(:search) == nil
+    end
+
+    test "a disk budget of 0 holds both kinds" do
+      put_budget(disk_budget_bytes: 0)
+
+      assert Activity.hold(:background) == :disk
+      assert Activity.hold(:search) == :disk
+    end
+
+    test "network: background from 90% of today's bytes, search only at 100%" do
+      put_budget(network_budget_bytes: 1_000)
+
+      Activity.record_bytes("wikipedia", 900)
+      assert Activity.hold(:background) == :network
+      assert Activity.hold(:search) == nil
+
+      Activity.record_bytes("wikidata", 100)
+      assert Activity.hold(:background) == :network
+      assert Activity.hold(:search) == :network
+    end
+
+    test "a network budget of 0 holds both kinds" do
+      put_budget(network_budget_bytes: 0)
+
+      assert Activity.hold(:background) == :network
+      assert Activity.hold(:search) == :network
+    end
+
+    test "low free disk holds background work only" do
+      put_budget(min_free_disk_bytes: 1_000)
+
+      assert Activity.hold(:background, free_disk_bytes: 999) == :free_disk
+      assert Activity.hold(:background, free_disk_bytes: 1_000) == nil
+      assert Activity.hold(:search, free_disk_bytes: 999) == nil
+    end
+
+    test "an unreadable free disk holds background work back, never a search" do
+      put_budget(min_free_disk_bytes: 1_000)
+
+      assert Activity.hold(:background, free_disk_bytes: nil) == :free_disk
+      assert Activity.hold(:search, free_disk_bytes: nil) == nil
+    end
+
+    test "an unreadable free disk does not hold when the floor is 0" do
+      put_budget(min_free_disk_bytes: 0)
+
+      assert Activity.hold(:background, free_disk_bytes: nil) == nil
+    end
+  end
+
   describe "stats/1" do
     @today ~D[2026-11-10]
 
     defp stats, do: Activity.stats(today: @today)
 
-    test "is empty on an empty database, with a disk size" do
+    test "is empty on an empty database, with the budget and no passages" do
       assert %{
                searches: %{total: 0, days: []},
                pages: %{search: 0, background: 0, manual: 0},
+               passages: 0,
                network: [],
                hit_share: %{background_pages: 0, hit_pages: 0},
                gain: %{pages: 0, searches: 0, window_searches: 0}
              } = stats = stats()
 
-      assert stats.disk_bytes > 0
+      assert stats.budget.disk.used > 0
+      refute Map.has_key?(stats, :disk_bytes)
+    end
+
+    test "budget is the one of budget/1 for the day, and passages counts the chunks" do
+      Activity.record_bytes("wikipedia", 70, day: @today)
+      Activity.record_bytes("wikipedia", 900, day: Date.add(@today, -1))
+      document_fixture()
+      document_fixture()
+
+      assert %{budget: budget, passages: passages} = stats()
+      assert budget.network.used == 70
+      assert budget == Activity.budget(today: @today)
+      assert passages == Knowseek.Documents.count_chunks()
+      assert passages >= 2
     end
 
     test "counts searches, pivots the last 30 days by coverage, newest first" do
