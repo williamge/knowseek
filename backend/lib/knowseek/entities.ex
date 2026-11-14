@@ -2,7 +2,7 @@ defmodule Knowseek.Entities do
   @moduledoc """
   Entity resolution: turns a search query into the entity it is about (and
   alternatives) that a card provider can use. Decided in ADR 0017; the cards
-  (tasks 031-034) are its callers.
+  (`Knowseek.Cards`) are its callers.
 
   `resolve/2` is cache-only, like the cards. It reads the in-memory cache of
   `Knowseek.Cache` and never calls Wikidata in the caller's process:
@@ -95,7 +95,7 @@ defmodule Knowseek.Entities do
   See `config/config.exs`: `resolver`, `ttl`, `backoff`, `timeout`,
   `max_alternatives`, `max_query_length` (longer queries are `:none`: no one
   names an entity in a paragraph), `supported_types`. `config/config.exs`
-  lists the Wikidata ids seen in the probes of task 028 and task 030.
+  lists the Wikidata ids seen in the probes run while building entity resolution.
   """
 
   alias Knowseek.Cache

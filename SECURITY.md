@@ -12,7 +12,7 @@ Out of scope: the missing authentication (see below), the committed dev and test
 
 ## Known limitation: no authentication
 
-The API has no authentication yet (task 009, parked). Anyone who can reach it can read and write the index and trigger outbound requests to external sources. It is **not meant to be deployed on the public internet as it is**. Run it on localhost or behind your own access control. `/dev/dashboard` exists only in the dev environment.
+The API has no authentication yet (see #86). Anyone who can reach it can read and write the index and trigger outbound requests to external sources. It is **not meant to be deployed on the public internet as it is**. Run it on localhost or behind your own access control. `/dev/dashboard` exists only in the dev environment.
 
 ## Supported versions
 

@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.OpenMeteo do
   @moduledoc """
   A small client for Open-Meteo's forecast API (`https://api.open-meteo.com/v1/forecast`),
-  for `Knowseek.Cards.Providers.OpenMeteo` (task 033, ADR 0022).
+  for `Knowseek.Cards.Providers.OpenMeteo` (ADR 0022).
 
   The free API needs no key. It is for non-commercial use and its data is CC BY 4.0, so
   the card shows the credit (ADR 0022).

@@ -116,14 +116,14 @@ config :knowseek, Knowseek.Discovery,
 # the `discovery` queue runs 5 jobs and the entity cache 4 resolutions.
 config :knowseek, Knowseek.Wikimedia, max_concurrent: 3, background_max: 2
 
-# Entity resolution (ADR 0017, task 030). `resolver` implements
+# Entity resolution (ADR 0017). `resolver` implements
 # Knowseek.Entities.Resolver. `ttl`, `backoff` and `timeout` (milliseconds)
 # go to Knowseek.Cache: entities rarely change, so a long TTL, and a failed
 # Wikidata call is not retried for a minute. `max_query_length`: a longer
 # query is not an entity name. `supported_types` says which Wikidata
 # `instance of` ids make an entity a kind a card provider handles (see
 # "Supported types" in the Knowseek.Entities docs). Ids marked "seen" appeared
-# in the probes of tasks 028 and 030; the others were checked by label.
+# in the probes run while building entity resolution; the others were checked by label.
 # `cache`: start options of the entity cache. Its keys come from user queries,
 # so at most 4 Wikidata resolutions run at once (and share the Wikimedia slots,
 # see Knowseek.Wikimedia above) and 5000 entries are kept.
@@ -186,7 +186,7 @@ config :knowseek, Knowseek.Entities.Wikidata,
   user_agent: "Knowseek/0.1.0 (https://github.com/williamge/knowseek)",
   req_options: []
 
-# Live fact cards (ADR 0017, task 031). `providers` implement
+# Live fact cards (ADR 0017). `providers` implement
 # Knowseek.Cards.Provider and are tried in order. `backoff` and `timeout`
 # (milliseconds) go to Knowseek.Cache: a failed fetch is not retried for
 # 10 s, and a fetch (at most a few requests of 4 s) is killed after 12 s.
@@ -222,7 +222,7 @@ config :knowseek, Knowseek.Cards.Balldontlie,
   receive_timeout: 4_000,
   req_options: []
 
-# Per-client rate limit of the anonymous endpoints (ADR 0023, task 039). A
+# Per-client rate limit of the anonymous endpoints (ADR 0023). A
 # bucket's `{limit, window_ms}` is a burst of `limit` requests that refills
 # `limit` per `window_ms`: `cards` allows 120 requests, then 2 a second (the
 # card poller asks every 0.7 s while a query is pending), `search` and
@@ -242,7 +242,7 @@ config :knowseek, Knowseek.RateLimiter,
   max_buckets: 50_000,
   sweep_interval: :timer.minutes(1)
 
-# Open-Meteo's forecast API (task 033, ADR 0022): no key; free for non-commercial
+# Open-Meteo's forecast API (ADR 0022): no key; free for non-commercial
 # use only, with attribution. `receive_timeout` is per request.
 config :knowseek, Knowseek.Cards.OpenMeteo,
   base_url: "https://api.open-meteo.com/v1/forecast",
@@ -250,7 +250,7 @@ config :knowseek, Knowseek.Cards.OpenMeteo,
   receive_timeout: 4_000,
   req_options: []
 
-# SEC EDGAR for the company card (task 032, ADR 0021): no key. The SEC asks for
+# SEC EDGAR for the company card (ADR 0021): no key. The SEC asks for
 # a declared User-Agent with a contact and can block an undeclared tool (HTTP
 # 403); the default is accepted today, and runtime.exs reads SEC_USER_AGENT
 # (for example "My Company admin@example.com"). `receive_timeout` is per request.

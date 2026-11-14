@@ -1,7 +1,7 @@
 defmodule Knowseek.Cards.Providers.Nba do
   @moduledoc """
   `Knowseek.Cards.Provider` for NBA teams, from the balldontlie API
-  (`Knowseek.Cards.Balldontlie`, free tier). ADR 0028; task 031 before it.
+  (`Knowseek.Cards.Balldontlie`, free tier). ADR 0028.
 
   ## Which entities
 

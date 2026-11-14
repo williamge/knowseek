@@ -6,7 +6,7 @@ You send a query: a question, a subject, or a description of what you want to kn
 
 ## Status and security
 
-There is no authentication yet (task 009, parked). Do not expose the API to the public internet. `/dev/dashboard` exists only in the dev environment. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+There is no authentication yet (see #86). Do not expose the API to the public internet. `/dev/dashboard` exists only in the dev environment. To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## Status
 
@@ -74,7 +74,7 @@ docker compose --profile app down       # remove the app container (the appdata 
 
 Never use `docker compose down -v`: it deletes the `appdata` volume with every database file in it.
 
-The web UI is not in the image yet (task 018). The container serves only the JSON API.
+The web UI is not in the image yet. The container serves only the JSON API.
 
 ### Environment variables
 
