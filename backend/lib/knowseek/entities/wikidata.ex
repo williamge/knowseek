@@ -232,6 +232,7 @@ defmodule Knowseek.Entities.Wikidata do
         params: [format: "json"] ++ params,
         headers: [user_agent: config[:user_agent]],
         receive_timeout: 10_000,
+        compressed: true,
         retry: false
       )
       |> Req.merge(config[:req_options])

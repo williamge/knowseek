@@ -211,6 +211,20 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
     end
   end
 
+  describe "discover/2 compressed responses" do
+    test "asks the MediaWiki API for gzip" do
+      Req.Test.stub(Wikipedia, fn conn ->
+        send(self(), {:accept_encoding, Plug.Conn.get_req_header(conn, "accept-encoding")})
+        Req.Test.json(conn, %{"batchcomplete" => true})
+      end)
+
+      Wikipedia.discover("pgvector", [])
+
+      assert_received {:accept_encoding, [accept_encoding]}
+      assert accept_encoding =~ "gzip"
+    end
+  end
+
   describe "discover/2 with :on_bytes" do
     test "reports the size of every response body, and works without it" do
       test_pid = self()

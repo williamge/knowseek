@@ -68,6 +68,22 @@ defmodule Knowseek.Cards.Providers.NbaTest do
     end
   end
 
+  describe "compressed responses" do
+    test "asks balldontlie for gzip" do
+      test_pid = self()
+
+      Req.Test.stub(Balldontlie, fn conn ->
+        send(test_pid, {:accept_encoding, Plug.Conn.get_req_header(conn, "accept-encoding")})
+        Req.Test.json(conn, %{"data" => []})
+      end)
+
+      Nba.fetch(team("New York Knicks"))
+
+      assert_received {:accept_encoding, [accept_encoding]}
+      assert accept_encoding =~ "gzip"
+    end
+  end
+
   describe "download counting" do
     test "counts the bytes of every balldontlie response for the source balldontlie" do
       Knowseek.DownloadSink.capture()

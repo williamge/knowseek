@@ -25,6 +25,22 @@ defmodule Knowseek.Cards.Providers.OpenMeteoTest do
     )
   end
 
+  describe "compressed responses" do
+    test "asks Open-Meteo for gzip" do
+      test_pid = self()
+
+      Req.Test.stub(Knowseek.Cards.OpenMeteo, fn conn ->
+        send(test_pid, {:accept_encoding, Plug.Conn.get_req_header(conn, "accept-encoding")})
+        Req.Test.json(conn, %{})
+      end)
+
+      OpenMeteo.fetch(place())
+
+      assert_received {:accept_encoding, [accept_encoding]}
+      assert accept_encoding =~ "gzip"
+    end
+  end
+
   describe "download counting" do
     test "counts the bytes of the forecast response for the source open_meteo" do
       Knowseek.DownloadSink.capture()

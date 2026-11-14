@@ -68,6 +68,32 @@ defmodule Knowseek.DownloadTest do
       assert Download.measure(request, nil) == request
       assert Req.get!(request).body == "hello"
     end
+
+    test "counts the compressed body of a gzip response, and the caller gets it decoded" do
+      body = String.duplicate("knowseek ", 500)
+      gzipped = :zlib.gzip(body)
+
+      Req.Test.stub(@stub, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-encoding", "gzip")
+        |> Plug.Conn.send_resp(200, gzipped)
+      end)
+
+      test_pid = self()
+
+      response =
+        [url: "http://download.test/", plug: {Req.Test, @stub}, retry: false, compressed: true]
+        |> Req.new()
+        |> Download.measure(&send(test_pid, {:size, &1}))
+        |> Req.get!()
+
+      assert response.body == body
+      assert_received {:size, size}
+      # The gzipped body and a few header lines, not the 4500 bytes decoded.
+      assert size > byte_size(gzipped)
+      assert size < byte_size(gzipped) + 500
+      assert size < byte_size(body)
+    end
   end
 
   describe "count/2" do
