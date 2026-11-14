@@ -6,8 +6,18 @@ defmodule Knowseek.Embeddings.Hashing do
   the result is L2-normalized. Texts that share words get similar vectors.
   It has no notion of meaning, so it is only a stand-in for dev and test
   until a real model adapter exists.
+
+  Its model is `hashing/<version>`. The version is 1 unless
+  `config :knowseek, Knowseek.Embeddings.Hashing, version: n` says otherwise;
+  the key exists so that a test can stand in a change of model.
   """
   @behaviour Knowseek.Embeddings
+
+  @impl true
+  def model do
+    version = Application.get_env(:knowseek, __MODULE__, [])[:version] || 1
+    {:ok, %{name: "hashing/#{version}", digest: ""}}
+  end
 
   @impl true
   def embed(texts, opts) do

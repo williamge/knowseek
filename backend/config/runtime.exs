@@ -32,8 +32,9 @@ config :knowseek, KnowseekWeb.Endpoint,
 #   * voyage  - Voyage AI API, needs VOYAGE_API_KEY
 # There is no fallback: when Ollama is unreachable, ingest and search return
 # {:error, _}. Tests always use Hashing or a Req.Test stub, so this block is
-# skipped there. Switching adapters makes stored vectors incomparable: run
-# `make db-reset` after a switch (ADR 0016).
+# skipped there. Switching adapters (or models) makes stored vectors
+# incomparable: after a switch the next start re-embeds the stored passages by
+# itself (ADR 0035).
 if config_env() != :test do
   env = fn name ->
     case System.get_env(name) do

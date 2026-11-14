@@ -43,6 +43,18 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert_enqueued(worker: SeekWorker)
     end
 
+    test "has reembedding: null normally, and done and total after a model change", %{conn: conn} do
+      document_fixture(body: "Kelp forests grow along cold coasts.")
+
+      assert %{"data" => %{"reembedding" => nil}} =
+               conn |> post(~p"/api/search", query: "kelp forests") |> json_response(200)
+
+      switch_embedding_model(2)
+
+      assert %{"data" => %{"reembedding" => %{"done" => 0, "total" => 1}}} =
+               conn |> post(~p"/api/search", query: "kelp forests") |> json_response(200)
+    end
+
     test "accepts max_age_seconds", %{conn: conn} do
       old = ~U[2020-01-01 00:00:00Z]
 

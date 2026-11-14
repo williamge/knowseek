@@ -30,6 +30,67 @@ defmodule Knowseek.EmbeddingsTest do
     assert {:error, {:invalid_input_type, nil}} = Embeddings.embed([], input_type: nil)
   end
 
+  describe "model/0 and refresh_model/0" do
+    setup do
+      config = Application.fetch_env!(:knowseek, Embeddings)
+
+      on_exit(fn ->
+        Application.put_env(:knowseek, Embeddings, config)
+        Application.delete_env(:knowseek, Knowseek.Embeddings.Hashing)
+        Embeddings.refresh_model()
+      end)
+
+      {:ok, _} = Embeddings.refresh_model()
+      %{config: config}
+    end
+
+    test "returns the name, the digest and the dimensions" do
+      assert {:ok, %{name: "hashing/1", digest: "", dimensions: dimensions}} = Embeddings.model()
+      assert dimensions == Embeddings.dimensions()
+    end
+
+    test "asks the adapter once, then answers from memory" do
+      Application.put_env(:knowseek, Knowseek.Embeddings.Hashing, version: 2)
+
+      assert {:ok, %{name: "hashing/1"}} = Embeddings.model()
+      assert {:ok, %{name: "hashing/2"}} = Embeddings.refresh_model()
+      assert {:ok, %{name: "hashing/2"}} = Embeddings.model()
+    end
+
+    test "asks the new adapter after the configured adapter changed", %{config: config} do
+      assert {:ok, %{name: "hashing/1"}} = Embeddings.model()
+
+      Application.put_env(
+        :knowseek,
+        Embeddings,
+        Keyword.put(config, :adapter, Knowseek.Embeddings.ShortAdapter)
+      )
+
+      assert {:ok, %{name: "short/1", digest: ""}} = Embeddings.model()
+    end
+
+    test "leaves what was remembered when the adapter fails", %{config: config} do
+      assert {:ok, %{name: "hashing/1"} = remembered} = Embeddings.model()
+
+      Req.Test.stub(Knowseek.Embeddings.Ollama, &Req.Test.transport_error(&1, :econnrefused))
+
+      Application.put_env(
+        :knowseek,
+        Embeddings,
+        Keyword.put(config, :adapter, Knowseek.Embeddings.Ollama)
+      )
+
+      assert {:error, {:ollama, %Req.TransportError{}}} = Embeddings.model()
+      assert {:error, {:ollama, %Req.TransportError{}}} = Embeddings.refresh_model()
+
+      Application.put_env(:knowseek, Embeddings, config)
+      assert {:ok, ^remembered} = Embeddings.model()
+
+      assert {Knowseek.Embeddings.Hashing, ^remembered} =
+               :persistent_term.get({Embeddings, :model})
+    end
+  end
+
   describe "embed_batches/2" do
     test "concatenates the vectors of each batch in order" do
       batches = [["a", "b"], ["c"]]

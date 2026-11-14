@@ -5,10 +5,30 @@ defmodule Knowseek.Documents do
   `ingest/1` is the single write path: it canonicalizes the URL, finds the
   document the content belongs to (or none), splits new content into chunks,
   embeds the chunks, and stores everything in one transaction.
+
+  Every page records the embedding model of its vectors
+  (`documents.embedding_model_id`), and every vector carries the same id as
+  the partition key of `chunk_vectors` (#84, ADR 0035). When the configured
+  model changes, `Knowseek.Documents.ModelWatch` notices and the
+  `Knowseek.Documents.ReembedWorker` job replaces the vectors of the stale
+  pages (`reembed_stale/1`). Only vectors change: `ingest/1` stays the only
+  writer of documents and chunks, and an unchanged body is still not embedded
+  again by it.
   """
   import Ecto.Query
 
-  alias Knowseek.Documents.{Chunk, Chunker, ChunkVector, Document, DocumentAlias}
+  alias Knowseek.Documents.{
+    Chunk,
+    Chunker,
+    ChunkVector,
+    Document,
+    DocumentAlias,
+    Lineage,
+    Reembed,
+    ReembedWorker,
+    Vector
+  }
+
   alias Knowseek.Embeddings
   alias Knowseek.Repo
 
@@ -174,24 +194,29 @@ defmodule Knowseek.Documents do
   defp store(existing, attrs, body) do
     contents = Chunker.chunk(body)
 
-    # Embed before the transaction: the adapter may call an external API.
-    with {:ok, vectors} <- Embeddings.embed(contents, input_type: :document) do
-      Repo.transact(fn -> write(existing, attrs, Enum.zip(contents, vectors)) end)
+    # Embed before the transaction: the adapter may call an external API. The
+    # model is read first, so the stamp is the model of the call that follows.
+    with {:ok, model} <- Embeddings.model(),
+         {:ok, vectors} <- Embeddings.embed(contents, input_type: :document) do
+      Repo.transact(fn -> write(existing, attrs, Enum.zip(contents, vectors), model) end)
     end
   end
 
-  defp write(existing, attrs, contents_and_vectors) do
-    with {:ok, document} <- upsert_document(existing, attrs) do
-      replace_chunks(document, contents_and_vectors)
+  defp write(existing, attrs, contents_and_vectors, model) do
+    model_id = Lineage.ensure_model!(model)
+
+    with {:ok, document} <- upsert_document(existing, attrs, model_id) do
+      replace_chunks(document, contents_and_vectors, model_id)
       {:ok, document}
     end
   end
 
   # A concurrent ingest of the same URL can insert between `locate/1` and
   # here. On conflict, update that row instead of failing on the unique index.
-  defp upsert_document(nil, attrs) do
+  defp upsert_document(nil, attrs, model_id) do
     %Document{}
     |> Document.ingest_changeset(attrs)
+    |> Ecto.Changeset.put_change(:embedding_model_id, model_id)
     |> Repo.insert(
       on_conflict: {:replace_all_except, [:id, :inserted_at, :origin, :origin_query]},
       conflict_target: :url,
@@ -199,14 +224,18 @@ defmodule Knowseek.Documents do
     )
   end
 
-  defp upsert_document(%Document{} = existing, attrs),
-    do: existing |> Document.ingest_changeset(attrs) |> Repo.update()
+  defp upsert_document(%Document{} = existing, attrs, model_id) do
+    existing
+    |> Document.ingest_changeset(attrs)
+    |> Ecto.Changeset.put_change(:embedding_model_id, model_id)
+    |> Repo.update()
+  end
 
   # Deleting the old chunks also deletes their full-text and vector rows
   # (triggers on `chunks`). The new chunks get their `seq` from SQLite, and
   # their vectors are stored under it. RETURNING has no defined row order, so
   # the rows are matched by position.
-  defp replace_chunks(document, contents_and_vectors) do
+  defp replace_chunks(document, contents_and_vectors, model_id) do
     Repo.delete_all(from c in Chunk, where: c.document_id == ^document.id)
     now = DateTime.utc_now(:second)
     indexed = Enum.with_index(contents_and_vectors)
@@ -227,10 +256,115 @@ defmodule Knowseek.Documents do
 
     vectors =
       Enum.map(indexed, fn {{_content, vector}, position} ->
-        %{rowid: Map.fetch!(seq_at, position), embedding: vector}
+        %{rowid: Map.fetch!(seq_at, position), embedding_model_id: model_id, embedding: vector}
       end)
 
     Repo.insert_all(ChunkVector, vectors)
+  end
+
+  @doc "The row id of the configured model, or nil when no vector of it was stored yet."
+  @spec current_model_id() :: {:ok, pos_integer() | nil} | {:error, term()}
+  def current_model_id do
+    with {:ok, model} <- Embeddings.model(), do: {:ok, Lineage.model_id(model)}
+  end
+
+  @doc "When the configured model was first used here, or nil. The crawl ignores scores older than this."
+  @spec model_since() :: DateTime.t() | nil
+  def model_since do
+    case current_model_id() do
+      {:ok, model_id} -> Lineage.inserted_at(model_id)
+      {:error, _} -> nil
+    end
+  end
+
+  @doc "Whether a page has vectors of another model than the configured one. False when the model cannot be read."
+  @spec reembedding?() :: boolean()
+  def reembedding? do
+    case current_model_id() do
+      {:ok, model_id} -> Lineage.stale?(model_id)
+      {:error, _} -> false
+    end
+  end
+
+  @doc "nil, or how far the re-embed is, in passages. Cheap when nothing is stale."
+  @spec reembed_progress() :: %{done: non_neg_integer(), total: non_neg_integer()} | nil
+  def reembed_progress do
+    with {:ok, model_id} <- current_model_id(),
+         true <- Lineage.stale?(model_id) do
+      %{total: total, current: current} = Lineage.passages(model_id)
+      %{done: current, total: total}
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  The configured model and the passage counts, for `/stats`. `model` is nil
+  when the provider cannot be asked; `eta_seconds` is nil when nothing is left
+  to re-embed (a fixed `ms_per_passage` per passage, so it is only "about").
+  """
+  @spec index_status() :: %{
+          model:
+            %{
+              name: String.t(),
+              digest: String.t(),
+              dimensions: pos_integer(),
+              quantization: String.t()
+            }
+            | nil,
+          passages: non_neg_integer(),
+          current_passages: non_neg_integer(),
+          eta_seconds: non_neg_integer() | nil
+        }
+  def index_status do
+    case Embeddings.model() do
+      {:ok, model} ->
+        %{total: total, current: current} = model |> Lineage.model_id() |> Lineage.passages()
+
+        %{
+          model: Map.put(model, :quantization, Vector.quantization()),
+          passages: total,
+          current_passages: current,
+          eta_seconds: eta_seconds(total - current)
+        }
+
+      {:error, _} ->
+        %{total: total, current: current} = Lineage.passages(nil)
+        %{model: nil, passages: total, current_passages: current, eta_seconds: nil}
+    end
+  end
+
+  defp eta_seconds(left) when left <= 0, do: nil
+
+  defp eta_seconds(left) do
+    ms = Application.get_env(:knowseek, Knowseek.Documents.Reembed, [])[:ms_per_passage]
+    ceil(left * ms / 1000)
+  end
+
+  @doc """
+  Re-embeds the next stale pages with the configured model
+  (`Knowseek.Documents.Reembed.run/1`): the pages whose vectors come from
+  another model or from none. Options: `:limit`, pages at most.
+  """
+  @spec reembed_stale(keyword()) ::
+          {:ok, %{documents: non_neg_integer(), more?: boolean()}} | {:error, term()}
+  defdelegate reembed_stale(opts \\ []), to: Reembed, as: :run
+
+  @doc """
+  Asks the provider which model it serves (`Embeddings.refresh_model/0`) and
+  enqueues the re-embed job when pages have another model's vectors. Only reads
+  and enqueues. What `Knowseek.Documents.ModelWatch` runs every minute.
+  """
+  @spec check_model() :: :current | :reembedding | {:error, term()}
+  def check_model do
+    with {:ok, model} <- Embeddings.refresh_model() do
+      if Lineage.stale?(Lineage.model_id(model)) do
+        :ok = ReembedWorker.enqueue()
+        :reembedding
+      else
+        :current
+      end
+    end
   end
 
   @spec get_document(Ecto.UUID.t()) :: Document.t() | nil

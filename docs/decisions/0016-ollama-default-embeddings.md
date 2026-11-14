@@ -63,6 +63,7 @@ compared with new ones.
   downloads about 1.2 GB. Remote workspaces need `EMBEDDINGS_ADAPTER=hashing`.
 - After switching an existing database from hashing to Ollama (or back), run
   `make db-reset`. Re-ingest skips unchanged documents, so it does not
-  re-embed.
+  re-embed. (Since ADR 0035 the next start re-embeds by itself.)
 - Nothing detects a model mismatch yet (which model embedded which chunk). Task
-  017 stays open for exactly this.
+  017 stays open for exactly this. (ADR 0035 records the model of every
+  vector.)

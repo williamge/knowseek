@@ -212,6 +212,144 @@ defmodule Knowseek.DocumentsTest do
     end
   end
 
+  describe "the embedding model record" do
+    alias Knowseek.Documents.EmbeddingModel
+
+    test "current_model_id/0 is nil before the first ingest, then the model's row" do
+      assert {:ok, nil} = Documents.current_model_id()
+
+      document = document_fixture()
+
+      assert {:ok, id} = Documents.current_model_id()
+      assert is_integer(id)
+      assert document.embedding_model_id == id
+
+      assert %EmbeddingModel{
+               name: "hashing/1",
+               digest: "",
+               dimensions: 1024,
+               quantization: "float32"
+             } = Repo.get!(EmbeddingModel, id)
+    end
+
+    test "ingest records the model on the page and on each vector row" do
+      body = Enum.map_join(~w(first second), "\n\n", &String.duplicate("#{&1} ", 150))
+      document = document_fixture(body: body)
+
+      assert [_, _] = chunks(document)
+
+      assert vector_model_ids(document) == [
+               document.embedding_model_id,
+               document.embedding_model_id
+             ]
+
+      assert Repo.reload!(document).embedding_model_id == document.embedding_model_id
+    end
+
+    test "a second page reuses the model row" do
+      a = document_fixture()
+      b = document_fixture()
+
+      assert a.embedding_model_id == b.embedding_model_id
+      assert Repo.aggregate(EmbeddingModel, :count) == 1
+    end
+
+    test "a changed body ingested after a model change gets the new model" do
+      original = document_fixture(url: "https://example.com/m", body: "old body")
+      switch_embedding_model(2)
+
+      {:ok, updated} =
+        Documents.ingest(%{url: "https://example.com/m", body: "new body", source: "test"})
+
+      assert updated.id == original.id
+      assert updated.embedding_model_id != original.embedding_model_id
+      assert vector_model_ids(updated) == [updated.embedding_model_id]
+
+      assert %EmbeddingModel{name: "hashing/2"} =
+               Repo.get!(EmbeddingModel, updated.embedding_model_id)
+    end
+
+    test "an unchanged body is not embedded again and keeps the old model id" do
+      original = document_fixture(url: "https://example.com/u", body: "same body")
+      switch_embedding_model(2)
+
+      {:ok, updated} =
+        Documents.ingest(%{url: "https://example.com/u", body: "same body", source: "test"})
+
+      assert updated.embedding_model_id == original.embedding_model_id
+      assert vector_model_ids(updated) == [original.embedding_model_id]
+      assert Documents.reembedding?()
+    end
+
+    test "reembedding?/0, reembed_progress/0 and index_status/0 on a current index" do
+      document_fixture()
+
+      refute Documents.reembedding?()
+      assert Documents.reembed_progress() == nil
+
+      assert %{
+               model: %{
+                 name: "hashing/1",
+                 digest: "",
+                 dimensions: 1024,
+                 quantization: "float32"
+               },
+               passages: 1,
+               current_passages: 1,
+               eta_seconds: nil
+             } = Documents.index_status()
+    end
+
+    test "reembed_progress/0 and index_status/0 count passages and give an ETA after a model change" do
+      for _ <- 1..3, do: document_fixture()
+      switch_embedding_model(2)
+      document_fixture()
+
+      assert Documents.reembedding?()
+      assert Documents.reembed_progress() == %{done: 1, total: 4}
+
+      # 3 passages left at 75 ms each: 0.225 s, rounded up to 1.
+      assert %{model: %{name: "hashing/2"}, passages: 4, current_passages: 1, eta_seconds: 1} =
+               Documents.index_status()
+    end
+
+    test "index_status/0 has no model when the provider cannot be asked" do
+      config = Application.fetch_env!(:knowseek, Knowseek.Embeddings)
+
+      on_exit(fn ->
+        Application.put_env(:knowseek, Knowseek.Embeddings, config)
+        Knowseek.Embeddings.refresh_model()
+      end)
+
+      document_fixture()
+
+      Application.put_env(
+        :knowseek,
+        Knowseek.Embeddings,
+        Keyword.put(config, :adapter, Knowseek.Embeddings.Ollama)
+      )
+
+      Req.Test.stub(Knowseek.Embeddings.Ollama, &Req.Test.transport_error(&1, :econnrefused))
+
+      assert %{model: nil, passages: 1, current_passages: 0, eta_seconds: nil} =
+               Documents.index_status()
+
+      refute Documents.reembedding?()
+      assert Documents.reembed_progress() == nil
+      assert Documents.model_since() == nil
+    end
+
+    test "model_since/0 is when the model's row was first created" do
+      assert Documents.model_since() == nil
+
+      document_fixture()
+      since = Documents.model_since()
+
+      assert %DateTime{} = since
+      assert DateTime.diff(DateTime.utc_now(), since) < 60
+    end
+  end
+
   describe "ingest/1 license fields" do
     @wikipedia %{
       license: "CC-BY-SA-4.0",

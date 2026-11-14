@@ -66,6 +66,13 @@ export function everyInterval(seconds: number): string {
   return `every ${seconds} seconds`;
 }
 
+/** "under a minute", "about 21 min" (rounded up) below 2 hours, else "about 3 h". */
+export function aboutDuration(seconds: number): string {
+  if (seconds < 60) return "under a minute";
+  if (seconds < 2 * 3600) return `about ${Math.ceil(seconds / 60)} min`;
+  return `about ${Math.round(seconds / 3600)} h`;
+}
+
 /** Documents without a URL get a `urn:knowseek:...` id. Those are not links. */
 export function isWebUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);

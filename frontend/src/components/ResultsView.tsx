@@ -8,6 +8,10 @@ interface Props {
   onOpenDocument: (id: string) => void;
 }
 
+function reembeddedPercent({ done, total }: { done: number; total: number }): number {
+  return total === 0 ? 0 : Math.floor((done / total) * 100);
+}
+
 export function ResultsView({ state, onOpenDocument }: Props) {
   if (state.status === "idle") return null;
 
@@ -53,6 +57,12 @@ export function ResultsView({ state, onOpenDocument }: Props) {
       <div className="results__header">
         <StatusBar state={state} />
       </div>
+
+      {state.result.reembedding !== null && (
+        <p className="muted" role="status">
+          {`Re-embedding the index (${reembeddedPercent(state.result.reembedding)}%): older pages are found by keyword only for now.`}
+        </p>
+      )}
 
       {groups.length === 0 ? (
         <div className="notice">

@@ -25,6 +25,7 @@ defmodule Knowseek.Application do
          [name: Knowseek.Wikimedia] ++ Application.get_env(:knowseek, Knowseek.Wikimedia, [])},
         {Oban, Application.fetch_env!(:knowseek, Oban)}
       ] ++
+        model_watch() ++
         crawl_scheduler() ++
         [
           # In-memory, disposable caches with single-flight background refresh.
@@ -45,6 +46,14 @@ defmodule Knowseek.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Knowseek.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Asks the embedding provider once a minute which model it serves, and
+  # enqueues the re-embed job when pages have another model's vectors (ADR 0035).
+  defp model_watch do
+    if Application.get_env(:knowseek, Knowseek.Documents.Reembed, [])[:watch],
+      do: [Knowseek.Documents.ModelWatch],
+      else: []
   end
 
   # Ticks once a minute; only reads, and enqueues the crawl job when the

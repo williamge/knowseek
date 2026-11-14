@@ -9,7 +9,12 @@ defmodule Knowseek.Embeddings do
         dimensions: 1024
 
   Every adapter must return vectors with exactly `dimensions/0` elements,
-  because the `chunks.embedding` column has a fixed size.
+  because the `chunk_vectors.embedding` column has a fixed size.
+
+  Every adapter also says which model it embeds with (`model/0`, a callback).
+  `Knowseek.Documents` records it with the vectors it stores, so a change of
+  model is noticed and the stored passages are embedded again (ADR 0035).
+  `Knowseek.Embeddings` itself stays free of the database.
 
   `config/runtime.exs` sets the adapter from `EMBEDDINGS_ADAPTER`:
   `ollama` (`Knowseek.Embeddings.Ollama`, the default, ADR 0016), `hashing`
@@ -25,7 +30,11 @@ defmodule Knowseek.Embeddings do
   """
   @type input_type :: :document | :query
 
+  @typedoc "Which model the adapter embeds with. `digest` is \"\" when the provider has none."
+  @type model :: %{name: String.t(), digest: String.t(), dimensions: pos_integer()}
+
   @input_types [:document, :query]
+  @model_key {__MODULE__, :model}
 
   @doc """
   Returns one vector per input text, in the same order.
@@ -34,6 +43,9 @@ defmodule Knowseek.Embeddings do
   """
   @callback embed(texts :: [String.t()], opts :: keyword()) ::
               {:ok, [vector()]} | {:error, term()}
+
+  @doc "The provider and model the adapter embeds with, and the model's digest (\"\" if none)."
+  @callback model() :: {:ok, %{name: String.t(), digest: String.t()}} | {:error, term()}
 
   @doc """
   Embeds `texts` with the configured adapter.
@@ -90,6 +102,40 @@ defmodule Knowseek.Embeddings do
   @spec query_request_options() :: keyword()
   def query_request_options do
     [retry: false, connect_options: [timeout: 2_000], receive_timeout: 10_000]
+  end
+
+  @doc """
+  The model of the configured adapter, from memory. Asks the adapter only when
+  nothing is remembered for it (the first call, or after the adapter changed).
+  """
+  @spec model() :: {:ok, model()} | {:error, term()}
+  def model do
+    adapter = adapter()
+
+    case :persistent_term.get(@model_key, nil) do
+      {^adapter, model} -> {:ok, model}
+      _ -> refresh_model()
+    end
+  end
+
+  @doc """
+  Asks the adapter which model it serves now and remembers the answer. An error
+  leaves what is remembered.
+  """
+  @spec refresh_model() :: {:ok, model()} | {:error, term()}
+  def refresh_model do
+    adapter = adapter()
+
+    with {:ok, %{name: name, digest: digest}} <- adapter.model() do
+      model = %{name: name, digest: digest, dimensions: dimensions()}
+      remember = {adapter, model}
+
+      # A write to :persistent_term is costly (a global GC), so only a change is written.
+      if :persistent_term.get(@model_key, nil) != remember,
+        do: :persistent_term.put(@model_key, remember)
+
+      {:ok, model}
+    end
   end
 
   @spec dimensions() :: pos_integer()

@@ -281,6 +281,63 @@ defmodule Knowseek.CrawlTest do
     end
   end
 
+  describe "after a change of embedding model" do
+    alias Knowseek.Documents.EmbeddingModel
+
+    setup %{filler: filler} do
+      source_page(filler, 7, @query, title: "Sourdough")
+
+      set_links(%{
+        7 => [link(103, "Desem", @starter), link(104, "Levain", "sourdough")]
+      })
+
+      :ok
+    end
+
+    test "is not due while pages are stale, and is due again once they were re-embedded" do
+      assert Crawl.due?(idle_opts())
+
+      switch_embedding_model(2)
+      refute Crawl.due?(idle_opts())
+
+      assert {:ok, %{more?: false}} = Documents.reembed_stale()
+      assert Crawl.due?(idle_opts())
+    end
+
+    test "reads a source page again when it was read before the model's row was created" do
+      assert :ok = Crawl.step()
+      assert Crawl.next_action() == :none
+
+      Repo.update_all(SourcePage, set: [read_at: DateTime.add(DateTime.utc_now(:second), -3_600)])
+
+      assert {:read, %{queries: [@query]}} = Crawl.next_action()
+    end
+
+    test "ranks no candidate scored before the model's row was created, and ranks a later one" do
+      assert :ok = Crawl.step()
+      assert %{next: [_, _]} = Crawl.overview()
+
+      since = DateTime.add(DateTime.utc_now(:second), 3_600)
+      Repo.update_all(EmbeddingModel, set: [inserted_at: since])
+
+      assert %{next: []} = Crawl.overview()
+
+      [source] = Repo.all(SourcePage)
+      insert_candidate(source.document_id, 905, scored_at: DateTime.add(since, 1))
+
+      assert %{next: [%{title: "Title 905"}]} = Crawl.overview(now: DateTime.add(since, 10))
+    end
+
+    test "scores of the current model are ranked as before" do
+      switch_embedding_model(2)
+      assert {:ok, _} = Documents.reembed_stale()
+
+      assert :ok = Crawl.step()
+
+      assert %{next: [%{title: "Desem"}, %{title: "Levain"}]} = Crawl.overview()
+    end
+  end
+
   describe "step/1 reading" do
     test "reads one source page through its source and stores the candidates", %{
       filler: filler

@@ -172,6 +172,7 @@ export function result(overrides: Partial<SearchResult> = {}): SearchResult {
     query: "octopus",
     coverage: "sufficient",
     discovery: { status: "not_needed" },
+    reembedding: null,
     hits: [hit()],
     ...overrides,
   };
@@ -230,6 +231,17 @@ export function stats(overrides: Partial<Stats> = {}): Stats {
       links_read: 1234,
       candidates: 87,
       stored_bytes: 0,
+    },
+    index: {
+      model: {
+        name: "ollama/bge-m3:latest",
+        digest: "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+        dimensions: 1024,
+        quantization: "float32",
+      },
+      passages: 300,
+      current_passages: 300,
+      eta_seconds: null,
     },
     ...overrides,
   };

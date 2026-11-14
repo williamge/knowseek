@@ -35,6 +35,12 @@ defmodule Knowseek.Embeddings.Voyage do
   @default_max_batch_tokens 100_000
 
   @impl true
+  def model do
+    config = Application.get_env(:knowseek, __MODULE__, [])
+    {:ok, %{name: "voyage/" <> Keyword.get(config, :model, @default_model), digest: ""}}
+  end
+
+  @impl true
   def embed(texts, opts) do
     config = Application.get_env(:knowseek, __MODULE__, [])
 

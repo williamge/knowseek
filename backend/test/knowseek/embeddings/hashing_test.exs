@@ -1,5 +1,6 @@
 defmodule Knowseek.Embeddings.HashingTest do
-  use ExUnit.Case, async: true
+  # `model/0` tests change global application config.
+  use ExUnit.Case, async: false
 
   alias Knowseek.Embeddings.Hashing
 
@@ -10,6 +11,21 @@ defmodule Knowseek.Embeddings.HashingTest do
 
     assert length(vector) == 64
     assert_in_delta norm(vector), 1.0, 1.0e-9
+  end
+
+  describe "model/0" do
+    setup do
+      on_exit(fn -> Application.delete_env(:knowseek, Hashing) end)
+    end
+
+    test "is hashing/1 by default, with no digest" do
+      assert {:ok, %{name: "hashing/1", digest: ""}} = Hashing.model()
+    end
+
+    test "takes the version from the config" do
+      Application.put_env(:knowseek, Hashing, version: 2)
+      assert {:ok, %{name: "hashing/2", digest: ""}} = Hashing.model()
+    end
   end
 
   test "is deterministic" do

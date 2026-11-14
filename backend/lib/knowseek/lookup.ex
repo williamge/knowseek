@@ -17,7 +17,7 @@ defmodule Knowseek.Lookup do
   called directly logs nothing; a failed search logs nothing.
   """
 
-  alias Knowseek.{Activity, Discovery, Search}
+  alias Knowseek.{Activity, Discovery, Documents, Search}
 
   @type discovery ::
           :not_needed
@@ -25,11 +25,15 @@ defmodule Knowseek.Lookup do
           | {:refused, Knowseek.Activity.hold()}
           | {:error, term()}
 
+  # `reembedding` is nil, or how many passages have the configured embedding
+  # model's vectors out of all, while pages are being embedded again after a
+  # change of model (#84): older pages are then found by keyword only.
   @type result :: %{
           query: String.t(),
           hits: [Search.Hit.t()],
           coverage: Search.Coverage.t(),
-          discovery: discovery()
+          discovery: discovery(),
+          reembedding: %{done: non_neg_integer(), total: non_neg_integer()} | nil
         }
 
   @spec run(String.t(), keyword()) :: {:ok, result()} | {:error, term()}
@@ -38,7 +42,15 @@ defmodule Knowseek.Lookup do
       # Off the request path: a message to the recorder, no database write here
       # (rule 6, ADR 0031).
       :ok = Activity.record_search(Discovery.normalize(query), coverage, hits)
-      {:ok, %{query: query, hits: hits, coverage: coverage, discovery: discover(query, coverage)}}
+
+      {:ok,
+       %{
+         query: query,
+         hits: hits,
+         coverage: coverage,
+         discovery: discover(query, coverage),
+         reembedding: Documents.reembed_progress()
+       }}
     end
   end
 

@@ -70,7 +70,8 @@ Options:
 - Vectors from different adapters or models are not comparable. After a
   switch, re-embed every chunk. Until [#53](https://github.com/williamge/knowseek/issues/53) adds a job for that, reset the
   dev database. Re-ingesting does not help, because `Documents.ingest/1`
-  skips a document whose body is unchanged.
+  skips a document whose body is unchanged. (Since ADR 0035 this happens by
+  itself.)
 - Search makes one embedding call per query. Its worst case is about 12 s,
   then `Search.search/2` returns `{:error, _}`. A fallback to keyword-only
   search is not built.

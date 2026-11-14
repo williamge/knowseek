@@ -23,6 +23,9 @@ defmodule Knowseek.Embeddings.Ollama do
   transport errors (Req's `retry: :transient`). The first request after a
   start loads the model, so their receive timeout is long (120 s).
 
+  `model/0` asks `GET /api/tags` for the configured model's digest, with the
+  `:query` limits (no retries, 10 s). A model without a tag is `<model>:latest`.
+
   `:query` requests wait for a user, so they have no retries and a 10 s
   limit (`Knowseek.Embeddings.query_request_options/0`). Every request sets
   `keep_alive` so the model stays loaded and the first query is fast.
@@ -35,6 +38,40 @@ defmodule Knowseek.Embeddings.Ollama do
   @default_model "bge-m3"
   @default_max_batch_size 32
   @keep_alive "24h"
+
+  @impl true
+  def model do
+    config = Application.get_env(:knowseek, __MODULE__, [])
+    wanted = Keyword.get(config, :model, @default_model)
+    req = new_request(config, :query)
+
+    case Req.get(req, url: "/api/tags") do
+      {:ok, %Req.Response{status: 200, body: %{"models" => models}}} when is_list(models) ->
+        find_model(models, wanted)
+
+      {:ok, %Req.Response{status: 200}} ->
+        {:error, {:ollama, :unexpected_response}}
+
+      {:ok, %Req.Response{status: status, body: response_body}} ->
+        {:error, {:ollama, status, error_detail(response_body)}}
+
+      {:error, exception} ->
+        {:error, {:ollama, exception}}
+    end
+  end
+
+  # `bge-m3` is listed as `bge-m3:latest`.
+  defp find_model(models, wanted) do
+    names = if String.contains?(wanted, ":"), do: [wanted], else: [wanted, wanted <> ":latest"]
+
+    case Enum.find(models, &(is_map(&1) and &1["name"] in names)) do
+      %{"name" => name, "digest" => digest} when is_binary(digest) ->
+        {:ok, %{name: "ollama/" <> name, digest: digest}}
+
+      _ ->
+        {:error, {:ollama, :model_not_found}}
+    end
+  end
 
   @impl true
   def embed(texts, opts) do

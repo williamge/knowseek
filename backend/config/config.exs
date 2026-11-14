@@ -26,11 +26,25 @@ config :knowseek, Knowseek.Repo,
 # Background jobs. Queues:
 #   * discovery - seek new data from external sources for a query
 #   * crawl - one step of the background crawl (#89)
+#   * index - re-embeds pages whose vectors come from another model (#84)
 config :knowseek, Oban,
   engine: Oban.Engines.Lite,
   repo: Knowseek.Repo,
-  queues: [discovery: 5, crawl: 1],
+  queues: [discovery: 5, crawl: 1, index: 1],
   plugins: [{Oban.Plugins.Pruner, max_age: 7 * 24 * 60 * 60}]
+
+# Re-embedding after a change of embedding model (#84, #53, ADR 0035).
+#   watch: start the timer that checks the model and enqueues the job.
+#   check_ms: how often it asks the provider which model it serves.
+#   documents_per_job / batch_size: pages per job, passages per embedding
+#   request. A search waits behind one request: 4 passages are about 0.3 s.
+#   ms_per_passage: only for the "about N min left" on /stats.
+config :knowseek, Knowseek.Documents.Reembed,
+  watch: true,
+  check_ms: 60_000,
+  documents_per_job: 20,
+  batch_size: 4,
+  ms_per_passage: 75
 
 # The background crawl (#89, ADR 0033): while the instance is idle it reads
 # the links of the pages your searches showed, scores them, and (mode :on)

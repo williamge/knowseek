@@ -83,6 +83,25 @@ defmodule Knowseek.LookupTest do
     end
   end
 
+  describe "reembedding" do
+    test "is nil when the index is current" do
+      document_fixture(body: "Hydrothermal vents.")
+
+      assert {:ok, %{reembedding: nil}} = Lookup.run("hydrothermal vents")
+    end
+
+    test "is how many passages have the current model's vectors, after a model change" do
+      for i <- 1..3, do: document_fixture(body: "Hydrothermal vents, part #{i}.")
+      switch_embedding_model(2)
+      document_fixture(body: "Hydrothermal vents, part 4.")
+
+      assert {:ok, %{reembedding: %{done: 1, total: 4}}} = Lookup.run("hydrothermal vents")
+
+      assert {:ok, _} = Knowseek.Documents.reembed_stale()
+      assert {:ok, %{reembedding: nil}} = Lookup.run("hydrothermal vents")
+    end
+  end
+
   describe "the search log" do
     test "a run is logged with the normalized query, its coverage and the hits' documents" do
       documents = for i <- 1..3, do: document_fixture(body: "Hydrothermal vents, part #{i}.")

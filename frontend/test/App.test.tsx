@@ -45,6 +45,36 @@ describe("App", () => {
     expect(screen.getByText("edited Oct 29")).toBeInTheDocument();
   });
 
+  it("shows the re-embedding line with its percentage, also with no results", async () => {
+    mockApi({
+      "GET /documents": () => [],
+      "POST /search": () => result({ hits: [], reembedding: { done: 1240, total: 18_300 } }),
+    });
+    render(<App watch={FAST} />);
+
+    await userEvent.type(screen.getByLabelText("Search query"), "octopus{Enter}");
+
+    expect(
+      await screen.findByText(
+        "Re-embedding the index (6%): older pages are found by keyword only for now.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nothing in the index matches this yet.")).toBeInTheDocument();
+  });
+
+  it("shows no re-embedding line when nothing is being re-embedded", async () => {
+    mockApi({
+      "GET /documents": () => [],
+      "POST /search": () => result({ hits: [hit({ title: "Octopus" })] }),
+    });
+    render(<App watch={FAST} />);
+
+    await userEvent.type(screen.getByLabelText("Search query"), "octopus{Enter}");
+
+    await screen.findByRole("button", { name: "Octopus" });
+    expect(screen.queryByText(/Re-embedding the index/)).not.toBeInTheDocument();
+  });
+
   it("does not search for an empty query", async () => {
     const { calls } = mockApi({ "GET /documents": () => [] });
     render(<App watch={FAST} />);

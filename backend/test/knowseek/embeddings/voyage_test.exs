@@ -159,6 +159,17 @@ defmodule Knowseek.Embeddings.VoyageTest do
     end
   end
 
+  describe "model/0" do
+    test "is voyage/<model> with no digest" do
+      assert {:ok, %{name: "voyage/voyage-3.5", digest: ""}} = Voyage.model()
+    end
+
+    test "takes the model from the config", %{config: config} do
+      Application.put_env(:knowseek, Voyage, Keyword.put(config, :model, "voyage-3-large"))
+      assert {:ok, %{name: "voyage/voyage-3-large", digest: ""}} = Voyage.model()
+    end
+  end
+
   describe "batches/2" do
     test "respects the batch size" do
       assert Voyage.batches(~w(a b c d e), max_batch_size: 2) == [~w(a b), ~w(c d), ~w(e)]

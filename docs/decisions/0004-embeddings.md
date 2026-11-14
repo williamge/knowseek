@@ -24,4 +24,5 @@ size, and tests must not call external APIs.
 - A model with a different size needs a migration that changes the column and
   rebuilds the HNSW index, plus a job that re-embeds every chunk.
 - Changing the model (even at the same size) makes old vectors incomparable
-  with new ones. Re-embed everything when you switch.
+  with new ones. Re-embed everything when you switch (since ADR 0035 this
+  happens by itself).
