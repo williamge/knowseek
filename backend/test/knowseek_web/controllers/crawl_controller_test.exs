@@ -25,8 +25,27 @@ defmodule KnowseekWeb.CrawlControllerTest do
                "fetched_today" => 0,
                "bar" => 0.4,
                "next" => [],
-               "fetched" => []
+               "fetched" => [],
+               "paused" => nil
              }
+    end
+
+    test "says why it is paused when the disk budget is used up", %{
+      conn: conn,
+      original: original
+    } do
+      put_crawl(original, mode: :preview)
+      activity = Application.fetch_env!(:knowseek, Knowseek.Activity)
+      on_exit(fn -> Application.put_env(:knowseek, Knowseek.Activity, activity) end)
+
+      Application.put_env(
+        :knowseek,
+        Knowseek.Activity,
+        Keyword.put(activity, :disk_budget_bytes, 0)
+      )
+
+      assert %{"data" => %{"paused" => "disk"}} =
+               conn |> get(~p"/api/crawl") |> json_response(200)
     end
 
     test "lists a pending candidate of a source page that a search showed", %{

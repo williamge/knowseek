@@ -26,6 +26,13 @@ defmodule Knowseek.Discovery do
   `:on_bytes` option of `Knowseek.Discovery.Source.discover/2`) and recorded
   with `Knowseek.Activity.record_bytes/2` after it returned, also when it
   failed.
+
+  Three checks keep downloads inside the budgets (#90, ADR 0034), all in the
+  callers: `request/1` refuses a typed search's fetching when the disk or the
+  day's network budget is used up, `SeekWorker` checks again when its job
+  runs, and `LinkBackfillWorker` waits while background work is held back.
+  `run/2`, `fetch_links/1`, `link_candidates/1` and `fetch_page/3` do not
+  check, so a direct call is never refused.
   """
   require Logger
 
@@ -38,10 +45,18 @@ defmodule Knowseek.Discovery do
 
   @type summary :: %{ingested: non_neg_integer(), failed: non_neg_integer()}
 
-  @spec request(String.t()) :: {:ok, Oban.Job.t()} | {:error, term()}
+  @doc "Enqueues the search for new data for `query`, unless a budget is used up (#90): then `{:error, {:budget, :disk | :network}}` and nothing is enqueued."
+  @spec request(String.t()) ::
+          {:ok, Oban.Job.t()} | {:error, {:budget, Activity.hold()} | term()}
   def request(query) when is_binary(query) do
-    job = SeekWorker.new(%{"query" => normalize(query)})
-    Repo.transact(fn -> Oban.insert(job) end)
+    case Activity.hold(:search) do
+      nil ->
+        job = SeekWorker.new(%{"query" => normalize(query)})
+        Repo.transact(fn -> Oban.insert(job) end)
+
+      reason ->
+        {:error, {:budget, reason}}
+    end
   end
 
   @doc "Runs every source for `query` and ingests the results."

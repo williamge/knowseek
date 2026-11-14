@@ -69,8 +69,30 @@ config :knowseek, Knowseek.Crawl,
   retry_minutes: 60,
   rechecks_per_step: 5
 
-# Only cpu_sup is used (the CPU utilisation); memsup and disksup would log alarms.
-config :os_mon, start_memsup: false, start_disksup: false
+# cpu_sup gives the load average (#89) and disksup the free disk space (#90).
+# memsup would log alarms. disksup raises its alarm above the threshold: 1.0
+# (100%) means never.
+config :os_mon, start_memsup: false, start_disksup: true, disk_almost_full_threshold: 1.0
+
+# Budgets (#90, ADR 0034), in bytes, decimal: 5 GB is 5_000_000_000.
+#   disk_budget_bytes: the most the database may take on disk (the file's
+#     pages in use plus the write-ahead log).
+#   network_budget_bytes: the most Knowseek may download per UTC day.
+#   background_share: the crawl and the link backfill stop at this share of
+#     either budget; a typed search stops fetching new pages at 100%.
+#   min_free_disk_bytes: background work also stops when the database's
+#     volume has less free space, or when that cannot be read. 0 turns the
+#     check off (no reading is made).
+config :knowseek, Knowseek.Activity,
+  disk_budget_bytes: 5_000_000_000,
+  network_budget_bytes: 200_000_000,
+  background_share: 0.9,
+  min_free_disk_bytes: 1_000_000_000
+
+# Where HTTP clients that run outside a discovery job report the bytes they
+# download (#90): `{module, function}`, called with the source name and the
+# byte count. nil: not counted.
+config :knowseek, Knowseek.Download, sink: {Knowseek.Activity, :count_bytes}
 
 # Embedding provider. `dimensions` must match the `float[N]` size of
 # `chunk_vectors.embedding` in the migration. The default is a local Ollama (ADR 0016);

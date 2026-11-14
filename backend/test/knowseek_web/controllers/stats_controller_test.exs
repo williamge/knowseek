@@ -5,7 +5,7 @@ defmodule KnowseekWeb.StatsControllerTest do
   alias Knowseek.Crawl.{Candidate, SourcePage}
   alias Knowseek.Repo
 
-  @keys ~w(searches pages disk_bytes network hit_share gain crawl)
+  @keys ~w(searches pages passages budget network hit_share gain crawl)
 
   describe "GET /api/stats" do
     test "has the documented shape on an empty database", %{conn: conn} do
@@ -17,7 +17,30 @@ defmodule KnowseekWeb.StatsControllerTest do
       assert data["network"] == []
       assert data["hit_share"] == %{"background_pages" => 0, "hit_pages" => 0}
       assert data["gain"] == %{"pages" => 0, "searches" => 0, "window_searches" => 0}
-      assert data["disk_bytes"] > 0
+      assert data["passages"] == 0
+      refute Map.has_key?(data, "disk_bytes")
+    end
+
+    test "has the budget", %{conn: conn} do
+      assert %{"data" => %{"budget" => budget}} =
+               conn |> get(~p"/api/stats") |> json_response(200)
+
+      assert Enum.sort(Map.keys(budget)) == ~w(background_share disk free_disk network)
+      assert budget["disk"]["used"] > 0
+      assert budget["disk"]["limit"] == 5_000_000_000
+      assert budget["disk"]["state"] == "ok"
+      assert budget["network"] == %{"used" => 0, "limit" => 200_000_000, "state" => "ok"}
+      assert budget["free_disk"] == %{"bytes" => nil, "floor" => 0, "low" => false}
+      assert budget["background_share"] == 0.9
+    end
+
+    test "counts the passages", %{conn: conn} do
+      document_fixture()
+      expected = Knowseek.Documents.count_chunks()
+      assert expected > 0
+
+      assert %{"data" => %{"passages" => ^expected}} =
+               conn |> get(~p"/api/stats") |> json_response(200)
     end
 
     test "has the gain", %{conn: conn} do

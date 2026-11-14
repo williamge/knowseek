@@ -1,8 +1,8 @@
 defmodule Knowseek.Activity do
   @moduledoc """
   A local record of what Knowseek does, to judge whether crawling is worth it
-  (#96, ADR 0031): every search, the bytes each discovery source downloads,
-  and the numbers over both.
+  (#96, ADR 0031): every search, the bytes each source downloads, and the
+  numbers over both.
 
   Searches are written by `Knowseek.Activity.Recorder`, outside the request.
   A search with the same normalized query as one logged less than 120 seconds
@@ -15,11 +15,20 @@ defmodule Knowseek.Activity do
   and fewer than `min_strong_hits` are not. `pages` are the distinct
   background pages of those searches, `searches` the searches themselves in
   the last 30 days.
+
+  **Budgets** (#90, ADR 0034): `budget/1` reads the disk the database takes,
+  the bytes downloaded today (UTC) and the free disk space, and `hold/2` says
+  whether background work or a typed search's fetching may start. Discovery
+  jobs record their bytes with `record_bytes/3`; downloads that happen outside
+  a job (Wikidata, the card sources, a hosted embedding service) hand theirs
+  to the recorder with `count_bytes/2`.
   """
   import Ecto.Query
 
-  alias Knowseek.Activity.{NetworkUsage, Recorder, SearchHit, SearchRecord}
+  alias Knowseek.Activity.{Budget, NetworkUsage, Recorder, SearchHit, SearchRecord}
   alias Knowseek.{Documents, Repo}
+
+  require Logger
 
   # The longest query that is stored.
   @max_query 500
@@ -27,6 +36,17 @@ defmodule Knowseek.Activity do
   @max_hits 10
   # `stats/1` looks at this many UTC days, today included.
   @window_days 30
+
+  @type level :: :ok | :near | :full
+
+  @type budget :: %{
+          disk: %{used: non_neg_integer(), limit: non_neg_integer(), state: level()},
+          network: %{used: non_neg_integer(), limit: non_neg_integer(), state: level()},
+          free_disk: %{bytes: non_neg_integer() | nil, floor: non_neg_integer(), low: boolean()},
+          background_share: float()
+        }
+
+  @type hold :: :disk | :network | :free_disk
 
   @type stats :: %{
           searches: %{
@@ -45,7 +65,8 @@ defmodule Knowseek.Activity do
             background: non_neg_integer(),
             manual: non_neg_integer()
           },
-          disk_bytes: non_neg_integer(),
+          budget: budget(),
+          passages: non_neg_integer(),
           network: [%{day: Date.t(), source: String.t(), bytes: non_neg_integer()}],
           hit_share: %{background_pages: non_neg_integer(), hit_pages: non_neg_integer()},
           gain: %{
@@ -100,7 +121,8 @@ defmodule Knowseek.Activity do
 
   @doc """
   Adds `bytes` to today's (UTC) count for `source`. Zero writes nothing.
-  Called from discovery jobs, after the downloads. Option `:day` sets the day
+  Called from discovery jobs after their downloads, and by
+  `Knowseek.Activity.Recorder` for `count_bytes/2`. Option `:day` sets the day
   (tests).
   """
   @spec record_bytes(String.t(), non_neg_integer(), keyword()) :: :ok
@@ -119,9 +141,117 @@ defmodule Knowseek.Activity do
   end
 
   @doc """
+  Hands a byte count to the recorder and returns at once: for downloads that
+  happen outside a discovery job (Wikidata, cards, a hosted embedding
+  service). Best effort, like the search log. Zero sends nothing.
+  """
+  @spec count_bytes(String.t(), non_neg_integer()) :: :ok
+  def count_bytes(_source, 0), do: :ok
+
+  def count_bytes(source, bytes) when is_integer(bytes) and bytes > 0,
+    do: GenServer.cast(Recorder, {:bytes, source, bytes})
+
+  @doc """
+  The two budgets and the free disk space, as they are now (#90, ADR 0034).
+  Disk: the database file's pages in use plus its write-ahead log. Network:
+  the bytes counted today (UTC), all sources. Only reads. Free disk space is
+  `low` when it is under the floor **or cannot be read** (unreadable is not
+  safe); a floor of 0 turns the check off. Options: `:today` (tests),
+  `:free_disk_bytes` (tests: the reading, `nil` for an unreadable one),
+  `free_disk: false` (make no free-disk reading: `bytes` is `nil` and `low`
+  is `false`).
+  """
+  @spec budget(keyword()) :: budget()
+  def budget(opts \\ []) do
+    config = Application.fetch_env!(:knowseek, __MODULE__)
+    today = Keyword.get_lazy(opts, :today, &Date.utc_today/0)
+    share = config[:background_share]
+    disk = %{used: disk_used(), limit: config[:disk_budget_bytes]}
+    network = %{used: network_used(today), limit: config[:network_budget_bytes]}
+
+    %{
+      disk: Map.put(disk, :state, Budget.level(disk.used, disk.limit, share)),
+      network: Map.put(network, :state, Budget.level(network.used, network.limit, share)),
+      free_disk: free_disk(config[:min_free_disk_bytes], opts),
+      background_share: share
+    }
+  end
+
+  @doc """
+  Why work of this kind must not start now, or `nil`: `:background` for the
+  crawl and the link backfill, `:search` for the fetches of a typed search
+  (which makes no free-disk reading, so it is safe in the request path).
+  Options as `budget/1`.
+  """
+  @spec hold(:background | :search, keyword()) :: hold() | nil
+  def hold(kind, opts \\ [])
+  def hold(:background, opts), do: Budget.hold(:background, budget(opts))
+  def hold(:search, opts), do: Budget.hold(:search, budget([free_disk: false] ++ opts))
+
+  # The pages in use plus the write-ahead log. Free pages are reused by the
+  # next write, so they are not used (ADR 0034).
+  defp disk_used do
+    %{rows: [[pages_bytes]]} =
+      Repo.query!(
+        "SELECT (page_count - freelist_count) * page_size FROM pragma_page_count(), pragma_freelist_count(), pragma_page_size()"
+      )
+
+    case File.stat(Repo.config()[:database] <> "-wal") do
+      {:ok, %File.Stat{size: wal}} -> pages_bytes + wal
+      {:error, _reason} -> pages_bytes
+    end
+  end
+
+  defp network_used(today) do
+    Repo.one(from n in NetworkUsage, where: n.day == ^today, select: coalesce(sum(n.bytes), 0))
+  end
+
+  defp free_disk(floor, opts) do
+    if floor == 0 or Keyword.get(opts, :free_disk) == false do
+      %{bytes: nil, floor: floor, low: false}
+    else
+      bytes =
+        case Keyword.fetch(opts, :free_disk_bytes) do
+          {:ok, bytes} -> bytes
+          :error -> free_disk_bytes()
+        end
+
+      %{bytes: bytes, floor: floor, low: is_nil(bytes) or bytes < floor}
+    end
+  end
+
+  # The free space of the volume that holds the database, from disksup
+  # (os_mon). `nil` when it cannot be read: unknown is not safe, so it holds
+  # background work back like a low reading does.
+  defp free_disk_bytes do
+    dir = Repo.config()[:database] |> Path.expand() |> Path.dirname() |> String.to_charlist()
+
+    case :disksup.get_disk_info(dir) do
+      [{_mount, total_kib, available_kib, _capacity}] when total_kib > 0 -> available_kib * 1024
+      _unknown -> unreadable()
+    end
+  catch
+    :exit, _reason -> unreadable()
+  end
+
+  defp unreadable do
+    # One warning per start: background work asks every minute.
+    unless :persistent_term.get({__MODULE__, :warned}, false) do
+      :persistent_term.put({__MODULE__, :warned}, true)
+
+      Logger.warning(
+        "budget: free disk space cannot be read; background work is held back until it can"
+      )
+    end
+
+    nil
+  end
+
+  @doc """
   The numbers. `days` and `network` cover the last 30 UTC days (today
-  included), newest first; a day with nothing is left out. Option `:today`
-  sets the date (tests).
+  included), newest first; a day with nothing is left out. `budget` is
+  `budget/1`; `passages` counts the stored chunks. Option `:today` sets the
+  date (tests).
   """
   @spec stats(keyword()) :: stats()
   def stats(opts \\ []) do
@@ -132,7 +262,8 @@ defmodule Knowseek.Activity do
     %{
       searches: %{total: Repo.aggregate(SearchRecord, :count), days: search_days(first_day)},
       pages: pages,
-      disk_bytes: disk_bytes(),
+      budget: budget(today: today),
+      passages: Documents.count_chunks(),
       network: network(first_day),
       hit_share: %{background_pages: pages.background, hit_pages: hit_pages()},
       gain: gain(first_day)
@@ -169,15 +300,6 @@ defmodule Knowseek.Activity do
         order_by: [desc: n.day, asc: n.source],
         select: %{day: n.day, source: n.source, bytes: n.bytes}
     )
-  end
-
-  # The main database file. The WAL file (at most 64 MB after a checkpoint) is
-  # not counted.
-  defp disk_bytes do
-    %{rows: [[bytes]]} =
-      Repo.query!("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()")
-
-    bytes
   end
 
   @typedoc "One time a page was in the logged results of a search."

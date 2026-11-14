@@ -71,6 +71,11 @@ config :knowseek, Knowseek.Discovery.Sources.Wikipedia,
 config :knowseek, Knowseek.Discovery.Sources.Wikibooks,
   req_options: [plug: {Req.Test, Knowseek.Discovery.Sources.Wikibooks}, retry: false]
 
+# Budgets (#90): tests make no free-disk reading and count no downloads
+# unless they ask for it with Application.put_env/3.
+config :knowseek, Knowseek.Activity, min_free_disk_bytes: 0
+config :knowseek, Knowseek.Download, sink: nil
+
 config :knowseek, Knowseek.Entities.Wikidata,
   req_options: [plug: {Req.Test, Knowseek.Entities.Wikidata}, retry: false]
 

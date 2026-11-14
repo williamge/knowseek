@@ -25,6 +25,17 @@ defmodule Knowseek.Cards.Providers.OpenMeteoTest do
     )
   end
 
+  describe "download counting" do
+    test "counts the bytes of the forecast response for the source open_meteo" do
+      Knowseek.DownloadSink.capture()
+      stub_open_meteo()
+
+      assert {:ok, _card, _ttl} = OpenMeteo.fetch(place())
+
+      assert_receive {:downloaded, "open_meteo", bytes} when bytes > 0
+    end
+  end
+
   describe "handles?/1 and intent/0" do
     test "a place with coordinates is handled, and only for the weather intent" do
       assert OpenMeteo.handles?(place())

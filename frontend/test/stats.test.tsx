@@ -48,7 +48,10 @@ describe("the stats page", () => {
     expect(within(pages).getByRole("row", { name: "Background 0" })).toBeInTheDocument();
     expect(within(pages).getByRole("row", { name: "Added manually 10" })).toBeInTheDocument();
 
-    expect(screen.getByText("73.4 MB (the database file).")).toBeInTheDocument();
+    expect(screen.getByText("124.0 MB of 5.0 GB (2%)")).toBeInTheDocument();
+    expect(screen.getByText("812.3 KB of 200.0 MB today (0%)")).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "Disk budget" })).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "Network budget today" })).toBeInTheDocument();
 
     const network = screen.getAllByRole("table")[2];
     expect(
@@ -229,5 +232,113 @@ describe("the nav", () => {
 
     expect(await screen.findByLabelText("Search query")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
+  });
+
+  describe("budgets", () => {
+    beforeEach(openStats);
+    afterEach(() => {
+      window.history.pushState(null, "", "/");
+      vi.restoreAllMocks();
+    });
+
+    const budget = (over: object = {}) => ({ ...stats().budget, ...over });
+    const line = (used: number, limit: number, state: "ok" | "near" | "full") => ({
+      used,
+      limit,
+      state,
+    });
+
+    it("shows no notice while the budgets are ok", async () => {
+      mockApi({ "GET /stats": () => stats() });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText("Free on this disk: 11.6 GB.")).toBeInTheDocument();
+      expect(screen.queryByText(/budget is/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/is free on this disk/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/cannot be read/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["near", /^The disk budget is nearly used up: the background crawl/],
+      ["full", /^The disk budget is used up: searches no longer fetch/],
+    ] as const)("warns when the disk budget is %s", async (state, text) => {
+      mockApi({
+        "GET /stats": () =>
+          stats({ budget: budget({ disk: line(4_600_000_000, 5_000_000_000, state) }) }),
+      });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText(text)).toBeInTheDocument();
+      expect(screen.getByText("4.6 GB of 5.0 GB (92%)")).toBeInTheDocument();
+    });
+
+    it.each([
+      ["near", /^Today's network budget is nearly used up: .* until 00:00 UTC\.$/],
+      ["full", /^Today's network budget is used up: searches no longer fetch .* 00:00 UTC\.$/],
+    ] as const)("warns when the network budget is %s", async (state, text) => {
+      mockApi({
+        "GET /stats": () =>
+          stats({ budget: budget({ network: line(190_000_000, 200_000_000, state) }) }),
+      });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText(text)).toBeInTheDocument();
+    });
+
+    it("says when free disk space is low", async () => {
+      mockApi({
+        "GET /stats": () =>
+          stats({
+            budget: budget({ free_disk: { bytes: 500_000_000, floor: 1_000_000_000, low: true } }),
+          }),
+      });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText("Free on this disk: 500.0 MB.")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Less than 1.0 GB is free on this disk: the background crawl and the link backfill are paused.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("says when free disk space is unknown, with no notice unless it is low", async () => {
+      mockApi({
+        "GET /stats": () =>
+          stats({
+            budget: budget({ free_disk: { bytes: null, floor: 0, low: false } }),
+          }),
+      });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText("Free on this disk: unknown.")).toBeInTheDocument();
+      expect(screen.queryByText(/cannot be read/)).not.toBeInTheDocument();
+    });
+
+    it("says that the pause holds when free disk space is unknown and the check is on", async () => {
+      mockApi({
+        "GET /stats": () =>
+          stats({
+            budget: budget({ free_disk: { bytes: null, floor: 1_000_000_000, low: true } }),
+          }),
+      });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText("Free on this disk: unknown.")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Free disk space cannot be read: the background crawl and the link backfill are paused.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("counts passages, and notes search speed only from 100,000", async () => {
+      const note = /gets slower as this number grows/;
+      mockApi({ "GET /stats": () => stats({ passages: 99_999 }) });
+      const first = render(<App watch={FAST} />);
+      expect(await screen.findByText("99,999 passages stored.")).toBeInTheDocument();
+      expect(screen.queryByText(note)).not.toBeInTheDocument();
+      first.unmount();
+      vi.restoreAllMocks();
+
+      mockApi({ "GET /stats": () => stats({ passages: 100_000 }) });
+      render(<App watch={FAST} />);
+      expect(await screen.findByText("100,000 passages stored.")).toBeInTheDocument();
+      expect(screen.getByText(note)).toBeInTheDocument();
+    });
   });
 });

@@ -15,6 +15,7 @@ defmodule KnowseekWeb.SearchJSON do
 
   defp discovery(:not_needed), do: %{status: "not_needed"}
   defp discovery({:enqueued, job_id}), do: %{status: "enqueued", job_id: job_id}
+  defp discovery({:refused, reason}), do: %{status: "refused", reason: reason}
   defp discovery({:error, reason}), do: %{status: "error", reason: inspect(reason)}
 
   defp hit(%Hit{} = hit) do

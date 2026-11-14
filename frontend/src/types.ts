@@ -5,6 +5,7 @@ export type Coverage = "sufficient" | "partial" | "none";
 export type Discovery =
   | { status: "not_needed" }
   | { status: "enqueued"; job_id: number }
+  | { status: "refused"; reason: "disk" | "network" }
   | { status: "error"; reason: string };
 
 /** Another matching chunk of a hit's document. */
@@ -236,7 +237,26 @@ export interface SearchDay {
   none: number;
 }
 
-/** Bytes one discovery source downloaded on one UTC day. */
+export type BudgetState = "ok" | "near" | "full";
+
+/** One budget: bytes used, the limit, and where it stands. */
+export interface BudgetLine {
+  used: number;
+  limit: number;
+  state: BudgetState;
+}
+
+/** The budgets of #90. Background work stops at `background_share` of either, or when free disk is low. */
+export interface Budget {
+  disk: BudgetLine;
+  /** Today, UTC. */
+  network: BudgetLine;
+  /** Free space of the database's volume; `bytes` is null when unknown. `low` is also true when it cannot be read while the check is on. */
+  free_disk: { bytes: number | null; floor: number; low: boolean };
+  background_share: number;
+}
+
+/** Bytes Knowseek downloaded from one source on one UTC day. */
 export interface NetworkDay {
   day: string;
   source: string;
@@ -247,8 +267,9 @@ export interface NetworkDay {
 export interface Stats {
   searches: { total: number; days: SearchDay[] };
   pages: Record<Origin, number>;
-  /** Size of the database file. */
-  disk_bytes: number;
+  budget: Budget;
+  /** Stored passages (chunks). */
+  passages: number;
   network: NetworkDay[];
   /** Background pages, and how many of them appeared in the top results of a search. */
   hit_share: { background_pages: number; hit_pages: number };
@@ -307,6 +328,8 @@ export interface Crawl {
   mode: CrawlMode;
   pages_per_day: number;
   fetched_today: number;
+  /** Why background work is paused, or null. */
+  paused: "disk" | "network" | "free_disk" | null;
   bar: number;
   next: CrawlEntry[];
   /** The last 50 background pages, newest first. */

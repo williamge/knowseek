@@ -18,6 +18,20 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
     end
   end
 
+  # `:on_bytes` gets the size of the response as received: the headers and the
+  # body (`Knowseek.Download.size/1`), so each is above its body's size, and
+  # there is one per response, in order.
+  defp assert_with_headers(bytes, sent) when is_list(bytes) do
+    assert length(bytes) == length(sent)
+    Enum.zip_with(bytes, sent, &assert_with_headers/2)
+  end
+
+  defp assert_with_headers(bytes, body_size) do
+    assert bytes > body_size
+    # A few headers, not a second body.
+    assert bytes < body_size + 1_000
+  end
+
   # Answers like the MediaWiki API, from the recorded fixtures.
   defp stub_api(search \\ fixture("search.json")) do
     Req.Test.stub(Wikipedia, fn conn ->
@@ -222,7 +236,7 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       # One search and two pages.
       sent = messages(:sent)
       assert length(sent) == 3
-      assert messages(:bytes) == sent
+      assert_with_headers(messages(:bytes), sent)
 
       assert {:ok, [_, _]} = Wikipedia.discover("pgvector", [])
     end
@@ -589,7 +603,7 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
 
       sent = messages(:sent)
       assert length(sent) == 2
-      assert messages(:bytes) == sent
+      assert_with_headers(messages(:bytes), sent)
 
       assert {:ok, [_ | _]} = Wikipedia.link_candidates(@source, [])
     end
@@ -643,7 +657,8 @@ defmodule Knowseek.Discovery.Sources.WikipediaTest do
       assert {:ok, %{}} = Wikipedia.page(74_020_014, on_bytes: &send(test_pid, {:bytes, &1}))
 
       assert [size] = messages(:sent)
-      assert messages(:bytes) == [size]
+      assert [bytes] = messages(:bytes)
+      assert_with_headers(bytes, size)
     end
   end
 

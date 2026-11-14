@@ -33,6 +33,8 @@ defmodule Knowseek.Cards.Edgar do
         user_agent: "Knowseek/0.1 (self-hosted instance)",
         receive_timeout: 5_000,
         req_options: []     # merged into every request (tests stub here)
+
+  Downloads are counted for the network budget, source `edgar` (ADR 0034).
   """
 
   require Logger
@@ -64,6 +66,7 @@ defmodule Knowseek.Cards.Edgar do
         retry: false
       )
       |> Req.merge(config[:req_options])
+      |> Knowseek.Download.count("edgar")
 
     case Req.get(request) do
       {:ok, %Req.Response{status: 200, body: %{} = body}} ->

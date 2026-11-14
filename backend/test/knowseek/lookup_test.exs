@@ -44,6 +44,45 @@ defmodule Knowseek.LookupTest do
     assert_enqueued(worker: SeekWorker, args: %{"query" => "tidal energy"})
   end
 
+  describe "when the budget is used up" do
+    setup do
+      config = Application.fetch_env!(:knowseek, Knowseek.Activity)
+      on_exit(fn -> Application.put_env(:knowseek, Knowseek.Activity, config) end)
+
+      Application.put_env(
+        :knowseek,
+        Knowseek.Activity,
+        Keyword.put(config, :network_budget_bytes, 0)
+      )
+    end
+
+    test "a search with coverage none is refused, keeps its hits and is logged" do
+      document_fixture(body: "Sourdough bread needs a long, slow fermentation.")
+
+      {:ok, result} = Lookup.run("heavy metal")
+      _ = :sys.get_state(Knowseek.Activity.Recorder)
+
+      assert result.coverage == :none
+      assert result.discovery == {:refused, :network}
+      assert result.hits == []
+      refute_enqueued(worker: SeekWorker)
+      assert [%SearchRecord{query: "heavy metal", coverage: "none"}] = Repo.all(SearchRecord)
+    end
+
+    test "the hits of the index are still returned" do
+      documents = for i <- 1..2, do: document_fixture(body: "Hydrothermal vents, part #{i}.")
+
+      {:ok, result} = Lookup.run("hydrothermal vents")
+
+      assert result.discovery == {:refused, :network}
+
+      assert Enum.sort(Enum.map(result.hits, & &1.document_id)) ==
+               Enum.sort(Enum.map(documents, & &1.id))
+
+      refute_enqueued(worker: SeekWorker)
+    end
+  end
+
   describe "the search log" do
     test "a run is logged with the normalized query, its coverage and the hits' documents" do
       documents = for i <- 1..3, do: document_fixture(body: "Hydrothermal vents, part #{i}.")

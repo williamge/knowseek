@@ -2,6 +2,8 @@ defmodule Knowseek.DiscoveryTest do
   # SeekWorker tests change the global source list.
   use Knowseek.DataCase, async: false
 
+  import ExUnit.CaptureLog
+
   alias Knowseek.Activity.NetworkUsage
   alias Knowseek.Discovery
 
@@ -20,6 +22,13 @@ defmodule Knowseek.DiscoveryTest do
 
   alias Knowseek.Documents
 
+  # Sets budget options for the test and restores the config after it.
+  defp put_budget(attrs) do
+    config = Application.fetch_env!(:knowseek, Knowseek.Activity)
+    on_exit(fn -> Application.put_env(:knowseek, Knowseek.Activity, config) end)
+    Application.put_env(:knowseek, Knowseek.Activity, Keyword.merge(config, attrs))
+  end
+
   describe "request/1" do
     test "enqueues a seek job with the normalized query" do
       {:ok, _job} = Discovery.request("  Rust   ASYNC ")
@@ -32,6 +41,28 @@ defmodule Knowseek.DiscoveryTest do
 
       assert second.conflict?
       assert second.id == first.id
+    end
+
+    test "refuses with the network reason and enqueues nothing when the network budget is 0" do
+      put_budget(network_budget_bytes: 0)
+
+      assert {:error, {:budget, :network}} = Discovery.request("rust async")
+      refute_enqueued(worker: SeekWorker)
+    end
+
+    test "refuses with the disk reason and enqueues nothing when the disk budget is 0" do
+      put_budget(disk_budget_bytes: 0)
+
+      assert {:error, {:budget, :disk}} = Discovery.request("rust async")
+      refute_enqueued(worker: SeekWorker)
+    end
+
+    test "enqueues when only the 90% mark of the network budget is passed" do
+      put_budget(network_budget_bytes: 1_000)
+      Knowseek.Activity.record_bytes("wikipedia", 900)
+
+      assert {:ok, _job} = Discovery.request("rust async")
+      assert_enqueued(worker: SeekWorker, args: %{"query" => "rust async"})
     end
   end
 
@@ -66,6 +97,36 @@ defmodule Knowseek.DiscoveryTest do
 
       assert {:error, {:all_ingests_failed, 1}} =
                perform_job(SeekWorker, %{"query" => "tide pools"})
+    end
+
+    test "is cancelled and calls no source when the network budget is used up", %{
+      put_sources: put_sources
+    } do
+      put_sources.([CountingSource])
+      put_budget(network_budget_bytes: 0)
+
+      assert {:cancel, {:budget, :network}} = perform_job(SeekWorker, %{"query" => "tide pools"})
+
+      assert Documents.list_documents() == []
+      assert Repo.all(NetworkUsage) == []
+    end
+
+    test "is cancelled for a used up disk budget", %{put_sources: put_sources} do
+      put_sources.([CountingSource])
+      put_budget(disk_budget_bytes: 0)
+
+      assert {:cancel, {:budget, :disk}} = perform_job(SeekWorker, %{"query" => "tide pools"})
+      assert Documents.list_documents() == []
+    end
+
+    test "runs as before at 90% of the network budget", %{put_sources: put_sources} do
+      put_sources.([CountingSource])
+      put_budget(network_budget_bytes: 10_000)
+      Knowseek.Activity.record_bytes("wikipedia", 9_000)
+
+      assert :ok = perform_job(SeekWorker, %{"query" => "tide pools"})
+
+      assert [%{source: "counting"}] = Documents.list_documents()
     end
   end
 
@@ -352,6 +413,34 @@ defmodule Knowseek.DiscoveryTest do
 
       today = Date.utc_today()
       assert [%NetworkUsage{day: ^today, source: "links", bytes: 700}] = Repo.all(NetworkUsage)
+    end
+
+    test "snoozes a day and makes no request while the network budget is used up", %{id: id} do
+      put_budget(network_budget_bytes: 0)
+      before = blocked_links(id)
+
+      assert {:snooze, 86_400} = perform_job(LinkBackfillWorker, %{"document_id" => id})
+
+      assert blocked_links(id) == before
+      assert Repo.all(NetworkUsage) == []
+    end
+
+    test "snoozes a day at 90% of the network budget", %{id: id} do
+      put_budget(network_budget_bytes: 1_000)
+      Knowseek.Activity.record_bytes("wikipedia", 900)
+
+      assert {:snooze, 86_400} = perform_job(LinkBackfillWorker, %{"document_id" => id})
+    end
+
+    test "snoozes a day when the free disk space is below the floor or unreadable", %{id: id} do
+      # No real volume has an exabyte free.
+      put_budget(min_free_disk_bytes: 1_000_000_000_000_000_000)
+
+      capture_log(fn ->
+        assert {:snooze, 86_400} = perform_job(LinkBackfillWorker, %{"document_id" => id})
+      end)
+
+      assert Repo.all(NetworkUsage) == []
     end
 
     test "is :ok for an unknown document id" do

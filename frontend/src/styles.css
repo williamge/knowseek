@@ -702,6 +702,11 @@ kbd {
   text-decoration: underline;
 }
 
+.budget meter {
+  width: 12rem;
+  vertical-align: middle;
+}
+
 .notice {
   padding: 1rem 1.25rem;
   border-radius: 12px;

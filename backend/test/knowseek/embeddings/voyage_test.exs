@@ -13,6 +13,17 @@ defmodule Knowseek.Embeddings.VoyageTest do
     %{config: config}
   end
 
+  describe "download counting" do
+    test "counts the bytes of every response for the source voyage" do
+      Knowseek.DownloadSink.capture()
+      Req.Test.stub(Voyage, fn conn -> respond(conn, decode_body(conn)) end)
+
+      assert {:ok, [_, _]} = Voyage.embed(["one", "two"], dimensions: 4, input_type: :query)
+
+      assert_receive {:downloaded, "voyage", bytes} when bytes > 0
+    end
+  end
+
   describe "embed/2" do
     test "sends the texts, model, input type, and size, and returns the vectors" do
       test_pid = self()

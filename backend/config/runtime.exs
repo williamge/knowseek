@@ -53,8 +53,8 @@ if config_env() != :test do
          set.(api_key: env.("VOYAGE_API_KEY"), model: env.("VOYAGE_MODEL"))
 
   # The background crawl (#89). CRAWL_MODE: off, preview (the default: it reads
-  # and scores links but fetches nothing) or on (fetching arrives in a later
-  # change: until then it acts as preview). CRAWL_IDLE_SECONDS: how long after
+  # and scores links but fetches nothing) or on (it also fetches the best
+  # candidate, at most 100 pages a day). CRAWL_IDLE_SECONDS: how long after
   # the last search the crawl may start (default 600).
   case env.("CRAWL_MODE") do
     nil -> :ok
@@ -67,6 +67,33 @@ if config_env() != :test do
   if seconds = env.("CRAWL_IDLE_SECONDS") do
     config :knowseek, Knowseek.Crawl, idle_seconds: String.to_integer(seconds)
   end
+
+  # Budgets (#90, ADR 0034), in MB (1 MB is 1,000,000 bytes). DISK_BUDGET_MB:
+  # the most the database may take on disk (default 5000). NETWORK_BUDGET_MB:
+  # the most Knowseek may download per UTC day (default 200). 0 stops all
+  # fetching.
+  megabytes = fn name ->
+    case env.(name) do
+      nil ->
+        nil
+
+      value ->
+        case Integer.parse(value) do
+          {mb, ""} when mb >= 0 ->
+            mb * 1_000_000
+
+          _other ->
+            raise "#{name} must be a whole number of megabytes, 0 or more; got #{inspect(value)}"
+        end
+    end
+  end
+
+  config :knowseek,
+         Knowseek.Activity,
+         set.(
+           disk_budget_bytes: megabytes.("DISK_BUDGET_MB"),
+           network_budget_bytes: megabytes.("NETWORK_BUDGET_MB")
+         )
 
   case env.("EMBEDDINGS_ADAPTER") do
     nil ->

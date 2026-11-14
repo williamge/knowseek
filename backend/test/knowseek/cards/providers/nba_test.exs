@@ -68,6 +68,19 @@ defmodule Knowseek.Cards.Providers.NbaTest do
     end
   end
 
+  describe "download counting" do
+    test "counts the bytes of every balldontlie response for the source balldontlie" do
+      Knowseek.DownloadSink.capture()
+      stub_nba()
+
+      assert {:ok, _card, _ttl} = Nba.fetch(team("New York Knicks"))
+
+      # The team list (reset by the setup) and the team's games.
+      assert_receive {:downloaded, "balldontlie", first} when first > 0
+      assert_receive {:downloaded, "balldontlie", second} when second > 0
+    end
+  end
+
   describe "handles?/1" do
     test "an NBA team" do
       assert Nba.handles?(team("New York Knicks"))

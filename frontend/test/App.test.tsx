@@ -183,6 +183,22 @@ describe("App", () => {
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["disk", "Not looking for new sources: the disk budget is used up."],
+    ["network", "Not looking for new sources: today's network budget is used up."],
+  ] as const)("says when a refused %s budget stopped discovery", async (reason, text) => {
+    window.history.replaceState(null, "", "/?q=heavy+metal");
+    mockApi({
+      "GET /documents": () => [],
+      "POST /search": () =>
+        result({ coverage: "none", discovery: { status: "refused", reason }, hits: [] }),
+    });
+    const { container } = render(<App watch={FAST} />);
+
+    expect(await screen.findByText(new RegExp(text))).toBeInTheDocument();
+    expect(container.querySelector(".spinner")).toBeNull();
+  });
+
   it("shows an error when the search fails", async () => {
     window.history.replaceState(null, "", "/?q=octopus");
     mockApi({

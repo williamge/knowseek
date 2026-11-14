@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatBytes, shortDate } from "../lib/format";
-import type { Stats } from "../types";
+import type { BudgetLine, Stats } from "../types";
 
 /** The Coverage labels of the results page (`StatusBar.tsx`). */
 const COVERAGE_COLUMNS = [
@@ -23,6 +23,42 @@ const plural = (count: number, one: string, many = `${one}s`) => (count === 1 ? 
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function BudgetBar({
+  label,
+  line,
+  share,
+  suffix = "",
+}: {
+  label: string;
+  line: BudgetLine;
+  share: number;
+  suffix?: string;
+}) {
+  const percent =
+    line.limit === 0 ? 100 : Math.min(100, Math.round((line.used / line.limit) * 100));
+  return (
+    <p className="budget">
+      <meter
+        aria-label={label}
+        min={0}
+        max={Math.max(line.limit, 1)}
+        high={line.limit * share}
+        optimum={0}
+        value={Math.min(line.used, Math.max(line.limit, 1))}
+      />{" "}
+      {`${formatBytes(line.used)} of ${formatBytes(line.limit)}${suffix} (${percent}%)`}
+    </p>
+  );
+}
+
+function Notice({ text }: { text: string }) {
+  return (
+    <div className="notice">
+      <p>{text}</p>
+    </div>
+  );
 }
 
 /** The numbers over the search log, the pages and the network (#96). */
@@ -170,9 +206,58 @@ function StatsBody({ stats, onClear }: { stats: Stats; onClear: () => void }) {
       </p>
 
       <h2>Disk</h2>
-      <p>{formatBytes(stats.disk_bytes)} (the database file).</p>
+      <BudgetBar
+        label="Disk budget"
+        line={stats.budget.disk}
+        share={stats.budget.background_share}
+      />
+      <p className="muted">
+        Everything the database takes on disk: pages, passages, vectors, the full-text index and the
+        logs.
+      </p>
+      {stats.budget.disk.state === "near" && (
+        <Notice text="The disk budget is nearly used up: the background crawl and the link backfill are paused. Set DISK_BUDGET_MB higher to continue." />
+      )}
+      {stats.budget.disk.state === "full" && (
+        <Notice text="The disk budget is used up: searches no longer fetch new pages. Set DISK_BUDGET_MB higher to continue." />
+      )}
+      {stats.budget.free_disk.bytes === null ? (
+        <p className="muted">Free on this disk: unknown.</p>
+      ) : (
+        <p>Free on this disk: {formatBytes(stats.budget.free_disk.bytes)}.</p>
+      )}
+      {stats.budget.free_disk.low &&
+        (stats.budget.free_disk.bytes === null ? (
+          <Notice text="Free disk space cannot be read: the background crawl and the link backfill are paused." />
+        ) : (
+          <Notice
+            text={`Less than ${formatBytes(stats.budget.free_disk.floor)} is free on this disk: the background crawl and the link backfill are paused.`}
+          />
+        ))}
+      <p>{stats.passages.toLocaleString("en")} passages stored.</p>
+      {stats.passages >= 100_000 && (
+        <p className="muted">
+          Search compares your query with every passage, so it gets slower as this number grows.
+          From about 100,000 you may notice it.
+        </p>
+      )}
 
       <h2>Network</h2>
+      <BudgetBar
+        label="Network budget today"
+        line={stats.budget.network}
+        share={stats.budget.background_share}
+        suffix=" today"
+      />
+      {stats.budget.network.state === "near" && (
+        <Notice text="Today's network budget is nearly used up: the background crawl and the link backfill are paused until 00:00 UTC." />
+      )}
+      {stats.budget.network.state === "full" && (
+        <Notice text="Today's network budget is used up: searches no longer fetch new pages until 00:00 UTC." />
+      )}
+      <p className="muted">
+        Counted: everything Knowseek downloads, headers included. A day is a UTC day.
+      </p>
       {stats.network.length === 0 ? (
         <p className="muted">Nothing downloaded in the last 30 days.</p>
       ) : (

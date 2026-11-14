@@ -1,7 +1,7 @@
 defmodule Knowseek.Activity.NetworkUsage do
   @moduledoc """
-  Bytes of response bodies a discovery source downloaded on one UTC day
-  (#96, ADR 0031), keyed by `{day, source}`.
+  Bytes Knowseek downloaded from one source on one UTC day (response headers
+  and bodies as received; ADR 0031, ADR 0034), keyed by `{day, source}`.
   """
   use Ecto.Schema
 

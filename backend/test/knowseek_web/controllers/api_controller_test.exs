@@ -113,6 +113,29 @@ defmodule KnowseekWeb.ApiControllerTest do
       assert %{"errors" => _} =
                conn |> post(~p"/api/search", query: "x", limit: 500) |> json_response(400)
     end
+
+    for {limit, reason} <- [network_budget_bytes: "network", disk_budget_bytes: "disk"] do
+      test "says it refused to look for new data at the #{reason} limit", %{conn: conn} do
+        original = Application.fetch_env!(:knowseek, Knowseek.Activity)
+        on_exit(fn -> Application.put_env(:knowseek, Knowseek.Activity, original) end)
+
+        Application.put_env(
+          :knowseek,
+          Knowseek.Activity,
+          Keyword.put(original, unquote(limit), 0)
+        )
+
+        data =
+          conn
+          |> post(~p"/api/search", query: "nothing indexed about this")
+          |> json_response(200)
+          |> Map.fetch!("data")
+
+        assert %{"coverage" => "none", "hits" => []} = data
+        assert data["discovery"] == %{"status" => "refused", "reason" => unquote(reason)}
+        refute_enqueued(worker: SeekWorker)
+      end
+    end
   end
 
   describe "documents" do
