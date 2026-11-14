@@ -19,15 +19,15 @@ defmodule Knowseek.Lookup do
 
   alias Knowseek.{Activity, Discovery, Documents, Search}
 
-  # `reembedding` is nil, or how many passages have the configured embedding
-  # model's vectors out of all, while pages are being embedded again after a
-  # change of model (#84): older pages are then found by keyword only.
   @type discovery ::
           :not_needed
           | {:enqueued, pos_integer()}
           | {:refused, Knowseek.Activity.hold()}
           | {:error, term()}
 
+  # `reembedding` is nil, or how many passages have the configured embedding
+  # model's vectors out of all, while pages are being embedded again after a
+  # change of model (#84): older pages are then found by keyword only.
   @type result :: %{
           query: String.t(),
           hits: [Search.Hit.t()],
